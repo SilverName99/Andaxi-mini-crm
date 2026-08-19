@@ -46,26 +46,21 @@ export function ClientDetail() {
         <ArrowLeft className="h-4 w-4" /> Înapoi la clienți
       </Link>
 
-      <Card className="mb-4 overflow-hidden p-0">
-        <div className="h-24 bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-500" />
-        <div className="flex flex-col gap-4 px-6 pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex items-end gap-4">
-            <div className="-mt-9">
-              <Avatar name={client.company || client.name} color={client.color as AccentColor} size="lg" />
+      <Card className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <Avatar name={client.company || client.name} color={client.color as AccentColor} size="lg" />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-extrabold text-slate-900">{client.company || client.name}</h1>
+              <Badge className={CLIENT_STATUS[client.status].chip}>{CLIENT_STATUS[client.status].text}</Badge>
             </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-extrabold text-slate-900">{client.company || client.name}</h1>
-                <Badge className={CLIENT_STATUS[client.status].chip}>{CLIENT_STATUS[client.status].text}</Badge>
-              </div>
-              {client.company && <p className="text-sm text-slate-500">{client.contact || client.name}</p>}
-            </div>
+            {client.company && <p className="text-sm text-slate-500">{client.contact || client.name}</p>}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" icon={<Pencil className="h-4 w-4" />} onClick={() => setEditingClient(true)}>Editează</Button>
-            <Button variant="secondary" icon={<Repeat className="h-4 w-4" />} onClick={() => setAddingSub(true)}>Abonament</Button>
-            <Button icon={<Clock4 className="h-4 w-4" />} onClick={() => setAddingLog(true)}>Intervenție</Button>
-          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" icon={<Pencil className="h-4 w-4" />} onClick={() => setEditingClient(true)}>Editează</Button>
+          <Button variant="secondary" icon={<Repeat className="h-4 w-4" />} onClick={() => setAddingSub(true)}>Abonament</Button>
+          <Button icon={<Clock4 className="h-4 w-4" />} onClick={() => setAddingLog(true)}>Intervenție</Button>
         </div>
       </Card>
 
