@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { splitWorkInterval, toRon, type RateConfig } from './rates.js';
 import { addMonths, diffDays, endOfMonth, hhMmToMinutes, minutesToHhMm, monthRange } from './dates.js';
 import { monthlyEquivalent, nextDue, periodEnd } from './cycles.js';
+import { computeSubscriptionPrice, isPerUserProduct, pricePerUser } from './pricing.js';
 
 const config: RateConfig = {
   standardRate: 45,
@@ -91,4 +92,47 @@ test('cicluri de facturare', () => {
   assert.equal(periodEnd('2026-01-15', 'MONTHLY'), '2026-02-14');
   assert.equal(monthlyEquivalent(600, 'ANNUAL'), 50);
   assert.equal(monthlyEquivalent(300, 'SEMIANNUAL'), 50);
+});
+
+/* ─────────────────────────────── preturi pe utilizator (ERP / CRM) ───────── */
+
+const pricing = {
+  erpTier1Max: 5, erpTier1Price: 50, erpTier2Max: 10, erpTier2Price: 45, erpTier3Price: 40,
+  crmTier1Max: 5, crmTier1Price: 50, crmTier2Max: 10, crmTier2Price: 45, crmTier3Price: 40,
+  discountSemiannual: 5, discountAnnual: 10,
+};
+
+test('pragurile de pret dupa numarul de utilizatori', () => {
+  assert.equal(pricePerUser(pricing, 'ERP', 1), 50);
+  assert.equal(pricePerUser(pricing, 'ERP', 5), 50);
+  assert.equal(pricePerUser(pricing, 'ERP', 6), 45);
+  assert.equal(pricePerUser(pricing, 'ERP', 10), 45);
+  assert.equal(pricePerUser(pricing, 'ERP', 11), 40);
+  assert.equal(pricePerUser(pricing, 'CRM', 25), 40);
+});
+
+test('pretul abonamentului pe utilizatori, cu reducerea pe ciclu', () => {
+  // 5 utilizatori × 50 € × 12 luni − 10% = 2.700 €
+  const anual = computeSubscriptionPrice(pricing, 'ERP', 'ANNUAL', 5);
+  assert.equal(anual.amountEur, 2700);
+  assert.equal(anual.fullEur, 3000);
+  assert.equal(anual.monthlyEur, 225);
+
+  // fara reducere la plata lunara
+  assert.equal(computeSubscriptionPrice(pricing, 'ERP', 'MONTHLY', 5).amountEur, 250);
+
+  // 6 luni: 5 × 50 × 6 − 5% = 1.425 €
+  assert.equal(computeSubscriptionPrice(pricing, 'CRM', 'SEMIANNUAL', 5).amountEur, 1425);
+
+  // pragul al doilea: 8 utilizatori × 45 € × 1 luna
+  assert.equal(computeSubscriptionPrice(pricing, 'ERP', 'MONTHLY', 8).amountEur, 360);
+
+  // pragul al treilea: 12 × 40 × 12 − 10%
+  assert.equal(computeSubscriptionPrice(pricing, 'ERP', 'ANNUAL', 12).amountEur, 5184);
+});
+
+test('produsele cu pret pe utilizator sunt recunoscute', () => {
+  assert.equal(isPerUserProduct('ERP'), true);
+  assert.equal(isPerUserProduct('CRM'), true);
+  assert.equal(isPerUserProduct('ECOMMERCE'), false);
 });

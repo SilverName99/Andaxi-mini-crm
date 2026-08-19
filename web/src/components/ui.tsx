@@ -11,12 +11,12 @@ type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 
 const BUTTON_STYLES: Record<ButtonVariant, string> = {
   primary:
-    'bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white shadow-glow hover:brightness-110 focus-visible:ring-violet-300',
+    'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-glow hover:brightness-110 focus-visible:ring-orange-300',
   secondary:
-    'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 focus-visible:ring-slate-200',
-  ghost: 'text-slate-600 hover:bg-slate-100 focus-visible:ring-slate-200',
-  danger: 'bg-gradient-to-r from-rose-500 to-red-500 text-white hover:brightness-110 focus-visible:ring-rose-200',
-  success: 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:brightness-110 focus-visible:ring-emerald-200',
+    'bg-white text-stone-700 border border-stone-200 hover:bg-stone-50 hover:border-stone-300 focus-visible:ring-stone-200',
+  ghost: 'text-stone-600 hover:bg-stone-100 focus-visible:ring-stone-200',
+  danger: 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:brightness-110 focus-visible:ring-red-200',
+  success: 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:brightness-110 focus-visible:ring-emerald-200',
 };
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -79,13 +79,13 @@ export function CardTitle({
     <div className="mb-4 flex items-start justify-between gap-3">
       <div className="flex items-center gap-3">
         {icon && (
-          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white">
+          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 text-white">
             {icon}
           </span>
         )}
         <div>
-          <h2 className="text-base font-bold text-slate-900">{title}</h2>
-          {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+          <h2 className="text-base font-bold text-stone-900">{title}</h2>
+          {subtitle && <p className="text-xs text-stone-500">{subtitle}</p>}
         </div>
       </div>
       {action}
@@ -108,7 +108,7 @@ export function Badge({
     <span
       className={cn(
         'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold',
-        className ?? 'bg-slate-100 text-slate-600',
+        className ?? 'bg-stone-100 text-stone-600',
       )}
     >
       {dot && <span className={cn('h-1.5 w-1.5 rounded-full', dot)} />}
@@ -150,8 +150,8 @@ export function Field({
     <div className={className}>
       {label && <label className="label-base">{label}</label>}
       {children}
-      {hint && !error && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
-      {error && <p className="mt-1 text-xs font-medium text-rose-600">{error}</p>}
+      {hint && !error && <p className="mt-1 text-xs text-stone-400">{hint}</p>}
+      {error && <p className="mt-1 text-xs font-medium text-red-600">{error}</p>}
     </div>
   );
 }
@@ -195,16 +195,16 @@ export function Toggle({
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-300"
+      className="flex w-full items-center justify-between gap-4 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-stone-300"
     >
       <span>
-        <span className="block text-sm font-semibold text-slate-700">{label}</span>
-        {hint && <span className="block text-xs text-slate-400">{hint}</span>}
+        <span className="block text-sm font-semibold text-stone-700">{label}</span>
+        {hint && <span className="block text-xs text-stone-400">{hint}</span>}
       </span>
       <span
         className={cn(
           'relative h-6 w-11 shrink-0 rounded-full transition',
-          checked ? 'bg-gradient-to-r from-violet-600 to-fuchsia-500' : 'bg-slate-300',
+          checked ? 'bg-gradient-to-r from-orange-500 to-amber-500' : 'bg-stone-300',
         )}
       >
         <span
@@ -229,7 +229,7 @@ export function Segmented<T extends string>({
   options: { value: T; label: string; count?: number }[];
 }) {
   return (
-    <div className="inline-flex flex-wrap gap-1 rounded-2xl bg-slate-100 p-1">
+    <div className="inline-flex flex-wrap gap-1 rounded-2xl bg-stone-100 p-1">
       {opts.map((o) => (
         <button
           key={o.value}
@@ -237,11 +237,11 @@ export function Segmented<T extends string>({
           onClick={() => onChange(o.value)}
           className={cn(
             'rounded-xl px-3 py-1.5 text-xs font-semibold transition',
-            value === o.value ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-500 hover:text-slate-700',
+            value === o.value ? 'bg-white text-orange-700 shadow-sm' : 'text-stone-500 hover:text-stone-700',
           )}
         >
           {o.label}
-          {o.count !== undefined && <span className="ml-1.5 text-slate-400">{o.count}</span>}
+          {o.count !== undefined && <span className="ml-1.5 text-stone-400">{o.count}</span>}
         </button>
       ))}
     </div>
@@ -279,22 +279,22 @@ export function Modal({
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-900/40 p-0 backdrop-blur-sm sm:items-center sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-stone-900/40 p-0 backdrop-blur-sm sm:items-center sm:p-6">
       <div
         className={cn(
           'animate-fade-up w-full rounded-t-4xl bg-white shadow-soft sm:rounded-4xl',
           size === 'lg' ? 'sm:max-w-3xl' : 'sm:max-w-xl',
         )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+        <div className="flex items-start justify-between gap-4 border-b border-stone-100 px-6 py-5">
           <div>
-            <h3 className="text-lg font-bold text-slate-900">{title}</h3>
-            {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
+            <h3 className="text-lg font-bold text-stone-900">{title}</h3>
+            {subtitle && <p className="text-sm text-stone-500">{subtitle}</p>}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            className="rounded-full p-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
             aria-label="Închide"
           >
             <X className="h-5 w-5" />
@@ -327,10 +327,10 @@ export function ConfirmDialog({
   return (
     <Modal open={open} onClose={onCancel} title={title}>
       <div className="flex gap-4">
-        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-rose-100 text-rose-600">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-red-100 text-red-600">
           <AlertTriangle className="h-6 w-6" />
         </span>
-        <p className="text-sm text-slate-600">{message}</p>
+        <p className="text-sm text-stone-600">{message}</p>
       </div>
       <div className="mt-6 flex justify-end gap-2">
         <Button variant="secondary" onClick={onCancel}>
@@ -347,12 +347,12 @@ export function ConfirmDialog({
 /* ---------------------------------------------------------------- Stari */
 
 export function Spinner({ className }: { className?: string }) {
-  return <Loader2 className={cn('h-5 w-5 animate-spin text-violet-500', className)} />;
+  return <Loader2 className={cn('h-5 w-5 animate-spin text-orange-500', className)} />;
 }
 
 export function LoadingBlock({ label = 'Se încarcă…' }: { label?: string }) {
   return (
-    <div className="flex items-center justify-center gap-3 rounded-3xl border border-dashed border-slate-200 bg-white/60 py-16 text-sm text-slate-500">
+    <div className="flex items-center justify-center gap-3 rounded-3xl border border-dashed border-stone-200 bg-white/60 py-16 text-sm text-stone-500">
       <Spinner /> {label}
     </div>
   );
@@ -370,12 +370,12 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-slate-200 bg-white/60 px-6 py-14 text-center">
-      <span className="grid h-14 w-14 place-items-center rounded-3xl bg-gradient-to-br from-violet-100 to-fuchsia-100 text-violet-600">
+    <div className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-stone-200 bg-white/60 px-6 py-14 text-center">
+      <span className="grid h-14 w-14 place-items-center rounded-3xl bg-gradient-to-br from-orange-100 to-amber-100 text-orange-600">
         {icon}
       </span>
-      <h3 className="text-base font-bold text-slate-800">{title}</h3>
-      <p className="max-w-sm text-sm text-slate-500">{message}</p>
+      <h3 className="text-base font-bold text-stone-800">{title}</h3>
+      <p className="max-w-sm text-sm text-stone-500">{message}</p>
       {action}
     </div>
   );
@@ -383,7 +383,7 @@ export function EmptyState({
 
 export function ErrorBlock({ message }: { message: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+    <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
       <AlertTriangle className="h-4 w-4 shrink-0" /> {message}
     </div>
   );
@@ -418,8 +418,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             className={cn(
               'animate-fade-up flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-soft',
               toast.tone === 'success'
-                ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
-                : 'bg-gradient-to-r from-rose-500 to-red-500',
+                ? 'bg-gradient-to-r from-emerald-500 to-emerald-600'
+                : 'bg-gradient-to-r from-red-500 to-red-600',
             )}
           >
             {toast.tone === 'success' ? <Check className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}

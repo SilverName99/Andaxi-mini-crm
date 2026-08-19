@@ -3,6 +3,7 @@ import { CalendarDays, Check, ListChecks, Pencil, Plus, Trash2 } from 'lucide-re
 import { api } from '../lib/api';
 import { useClients, useCrudMutation, useTasks } from '../lib/queries';
 import { PageHeader } from '../components/Layout';
+import { DateField } from '../components/DateField';
 import {
   Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBlock, Field, Input, LoadingBlock, Modal, Segmented,
   Select, Textarea, useToast,
@@ -43,7 +44,7 @@ function TaskForm({ open, onClose, task }: { open: boolean; onClose: () => void;
             />
           </Field>
           <Field label="Termen">
-            <Input type="date" value={form.dueDate ?? ''} onChange={(e) => set('dueDate', e.target.value || null)} />
+            <DateField value={form.dueDate ?? ''} onChange={(iso) => set('dueDate', iso || null)} />
           </Field>
         </div>
         <Field label="Prioritate">
@@ -131,7 +132,7 @@ export function Tasks() {
                   onClick={() => update.mutate({ id: task.id, data: { done: !task.done } })}
                   className={cn(
                     'mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg border-2 transition',
-                    task.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 hover:border-violet-400',
+                    task.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-stone-300 hover:border-orange-400',
                   )}
                   aria-label={task.done ? 'Marchează nefinalizat' : 'Marchează finalizat'}
                 >
@@ -140,15 +141,15 @@ export function Tasks() {
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className={cn('text-sm font-bold', task.done ? 'text-slate-400 line-through' : 'text-slate-800')}>
+                    <p className={cn('text-sm font-bold', task.done ? 'text-stone-400 line-through' : 'text-stone-800')}>
                       {task.title}
                     </p>
                     <Badge className={PRIORITY[task.priority].chip}>{PRIORITY[task.priority].text}</Badge>
                     {task.client && <Badge>{task.client.company || task.client.name}</Badge>}
                   </div>
-                  {task.details && <p className="mt-1 text-sm text-slate-500">{task.details}</p>}
+                  {task.details && <p className="mt-1 text-sm text-stone-500">{task.details}</p>}
                   {task.dueDate && (
-                    <p className={cn('mt-1 flex items-center gap-1.5 text-xs font-medium', late ? 'text-rose-600' : 'text-slate-400')}>
+                    <p className={cn('mt-1 flex items-center gap-1.5 text-xs font-medium', late ? 'text-red-600' : 'text-stone-400')}>
                       <CalendarDays className="h-3.5 w-3.5" /> {formatDate(task.dueDate)}
                       {late && ' · depășit'}
                     </p>
@@ -156,10 +157,10 @@ export function Tasks() {
                 </div>
 
                 <div className="flex items-center gap-1">
-                  <button onClick={() => setEditing(task)} className="rounded-xl p-2 text-slate-400 transition hover:bg-violet-50 hover:text-violet-600" aria-label="Editează">
+                  <button onClick={() => setEditing(task)} className="rounded-xl p-2 text-stone-400 transition hover:bg-orange-50 hover:text-orange-600" aria-label="Editează">
                     <Pencil className="h-4 w-4" />
                   </button>
-                  <button onClick={() => setDeleting(task)} className="rounded-xl p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" aria-label="Șterge">
+                  <button onClick={() => setDeleting(task)} className="rounded-xl p-2 text-stone-400 transition hover:bg-red-50 hover:text-red-600" aria-label="Șterge">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>

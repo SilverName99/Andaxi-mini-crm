@@ -47,6 +47,25 @@ model Settings {
   /// Cu cate zile inainte de scadenta apare alerta "de facturat"
   billingLeadDays Int @default(7)
 
+  // ── Preturi pe utilizator pentru ERP si CRM ────────────────────────────────
+  // Trei praguri: pana la Tier1Max utilizatori, pana la Tier2Max, apoi restul.
+  // Preturile sunt EUR / utilizator / luna.
+  erpTier1Max   Int   @default(5)
+  erpTier1Price Float @default(50)
+  erpTier2Max   Int   @default(10)
+  erpTier2Price Float @default(45)
+  erpTier3Price Float @default(40)
+
+  crmTier1Max   Int   @default(5)
+  crmTier1Price Float @default(50)
+  crmTier2Max   Int   @default(10)
+  crmTier2Price Float @default(45)
+  crmTier3Price Float @default(40)
+
+  /// Reduceri (procente) pentru plata pe 6 luni, respectiv anual
+  discountSemiannual Float @default(5)
+  discountAnnual     Float @default(10)
+
   updatedAt DateTime @updatedAt
 }
 
@@ -103,6 +122,10 @@ model Subscription {
   nextDueDate String
   /// Optional, data de final a contractului (YYYY-MM-DD)
   endDate   String?
+
+  /// Numar de utilizatori — doar pentru ERP/CRM, cand pretul se calculeaza automat.
+  /// Daca lipseste, suma a fost stabilita manual.
+  users Int?
 
   /// ACTIVE | PAUSED | CANCELLED
   status String @default("ACTIVE")

@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { prisma } from '../prisma.js';
+import { getSettings, prisma } from '../prisma.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { isoDate, CYCLES, PRODUCTS, SUBSCRIPTION_KINDS, SUBSCRIPTION_STATUSES } from '../lib/validation.js';
 import { syncBillingItems } from '../lib/billing-sync.js';
+import { computeSubscriptionPrice, isPerUserProduct } from '../lib/pricing.js';
+import { isCycle } from '../lib/cycles.js';
 
 export const subscriptionsRouter = Router();
 
@@ -12,13 +14,56 @@ const subscriptionSchema = z.object({
   label: z.string().min(1, 'Denumirea este obligatorie'),
   kind: z.enum(SUBSCRIPTION_KINDS).default('HOSTING_MENTENANTA'),
   product: z.enum(PRODUCTS).default('PREZENTARE'),
-  amountEur: z.coerce.number().positive('Suma trebuie sa fie mai mare ca 0'),
+  amountEur: z.coerce.number().positive('Suma trebuie sa fie mai mare ca 0').optional(),
+  /// Pentru ERP/CRM: numarul de utilizatori, din care se calculeaza suma
+  users: z.coerce.number().int().positive('Numarul de utilizatori trebuie sa fie cel putin 1').nullable().optional(),
   cycle: z.enum(CYCLES).default('MONTHLY'),
   startDate: isoDate,
   endDate: isoDate.nullable().optional(),
   status: z.enum(SUBSCRIPTION_STATUSES).default('ACTIVE'),
   notes: z.string().default(''),
 });
+
+/**
+ * Pentru ERP si CRM pretul se calculeaza pe server din numarul de utilizatori,
+ * ca sa nu depinda de ce trimite interfata. Daca produsul nu e pe utilizatori
+ * (sau s-a ales pret negociat manual), ramane suma introdusa.
+ */
+async function rezolvaSuma(input: {
+  product: string;
+  cycle: string;
+  users?: number | null;
+  amountEur?: number;
+}): Promise<{ amountEur: number; users: number | null }> {
+  if (isPerUserProduct(input.product) && input.users && isCycle(input.cycle)) {
+    const settings = await getSettings();
+    const pret = computeSubscriptionPrice(settings, input.product, input.cycle, input.users);
+    return { amountEur: pret.amountEur, users: input.users };
+  }
+  if (!input.amountEur) {
+    throw new HttpError(400, 'Completeaza suma sau numarul de utilizatori');
+  }
+  return { amountEur: input.amountEur, users: null };
+}
+
+/** Calcul de preview pentru formular: cat costa X utilizatori pe ciclul ales */
+subscriptionsRouter.post(
+  '/price',
+  asyncHandler(async (req, res) => {
+    const { product, cycle, users } = z
+      .object({
+        product: z.enum(PRODUCTS),
+        cycle: z.enum(CYCLES),
+        users: z.coerce.number().int().positive(),
+      })
+      .parse(req.body);
+
+    if (!isPerUserProduct(product)) {
+      throw new HttpError(400, 'Produsul acesta nu se factureaza pe utilizatori');
+    }
+    res.json(computeSubscriptionPrice(await getSettings(), product, cycle, users));
+  }),
+);
 
 subscriptionsRouter.get(
   '/',
@@ -44,8 +89,9 @@ subscriptionsRouter.post(
     if (data.endDate && data.endDate < data.startDate) {
       throw new HttpError(400, 'Data de final nu poate fi inaintea datei de start');
     }
+    const { amountEur, users } = await rezolvaSuma(data);
     const created = await prisma.subscription.create({
-      data: { ...data, endDate: data.endDate ?? null, nextDueDate: data.startDate },
+      data: { ...data, amountEur, users, endDate: data.endDate ?? null, nextDueDate: data.startDate },
     });
     await syncBillingItems();
     res.status(201).json(created);
@@ -65,10 +111,18 @@ subscriptionsRouter.put(
     // Daca s-a mutat data de start, resetam seria de facturare de la noua data;
     // pozitiile deja marcate ca facturate raman neatinse.
     const resetSeries = data.startDate && data.startDate !== current.startDate;
+    const { amountEur, users } = await rezolvaSuma({
+      product: data.product ?? current.product,
+      cycle: data.cycle ?? current.cycle,
+      users: data.users === undefined ? current.users : data.users,
+      amountEur: data.amountEur ?? current.amountEur,
+    });
     const updated = await prisma.subscription.update({
       where: { id: req.params.id },
       data: {
         ...data,
+        amountEur,
+        users,
         endDate,
         ...(resetSeries ? { nextDueDate: data.startDate } : {}),
       },

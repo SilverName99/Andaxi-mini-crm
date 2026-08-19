@@ -4,6 +4,8 @@ import { BadgeCheck, CheckCheck, Clock4, Moon, Pencil, Plus, Sun, Trash2 } from 
 import { api } from '../lib/api';
 import { useClients, useCrudMutation, useSettings, useWorkLogs } from '../lib/queries';
 import { PageHeader } from '../components/Layout';
+import { DateField } from '../components/DateField';
+import { TimeField } from '../components/TimeField';
 import {
   Avatar, Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBlock, Field, Input, LoadingBlock, Modal,
   Segmented, Select, Textarea, Toggle, useToast,
@@ -120,14 +122,14 @@ export function WorkLogForm({
           <Select value={form.category} onChange={(e) => set('category', e.target.value as WorkLog['category'])} options={options(WORK_CATEGORY)} />
         </Field>
         <Field label="Data">
-          <Input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} />
+          <DateField value={form.date} onChange={(iso) => set('date', iso)} allowEmpty={false} />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="De la">
-            <Input type="time" value={form.start} onChange={(e) => set('start', e.target.value)} />
+            <TimeField value={form.start} onChange={(v) => set('start', v)} />
           </Field>
           <Field label="Până la">
-            <Input type="time" value={form.end} onChange={(e) => set('end', e.target.value)} />
+            <TimeField value={form.end} onChange={(v) => set('end', v)} />
           </Field>
         </div>
         <Field label="Descriere" className="sm:col-span-2">
@@ -136,7 +138,7 @@ export function WorkLogForm({
       </div>
 
       {preview && settings && (
-        <div className="mt-4 rounded-3xl bg-gradient-to-br from-violet-600 to-fuchsia-500 p-5 text-white">
+        <div className="mt-4 rounded-3xl bg-gradient-to-br from-orange-500 to-amber-500 p-5 text-white">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-white/80">Total calculat</p>
@@ -235,25 +237,25 @@ export function WorkLogs() {
       </PageHeader>
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div className="rounded-3xl bg-gradient-to-br from-violet-600 to-fuchsia-500 p-4 text-white shadow-soft">
+        <div className="rounded-3xl bg-gradient-to-br from-orange-500 to-amber-500 p-4 text-white shadow-soft">
           <p className="text-xs font-semibold uppercase tracking-wide text-white/80">Total ore</p>
           <p className="mt-2 text-xl font-extrabold">{formatMinutes(totals.minutes)}</p>
         </div>
-        <div className="rounded-3xl bg-gradient-to-br from-amber-500 to-orange-500 p-4 text-white shadow-soft">
+        <div className="rounded-3xl bg-gradient-to-br from-amber-500 to-orange-600 p-4 text-white shadow-soft">
           <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-white/80">
             <Sun className="h-3.5 w-3.5" /> Program normal
           </p>
           <p className="mt-2 text-xl font-extrabold">{formatMinutes(totals.standard)}</p>
           {settings && <p className="text-[11px] text-white/70">{settings.standardRate} €/h</p>}
         </div>
-        <div className="rounded-3xl bg-gradient-to-br from-indigo-600 to-blue-600 p-4 text-white shadow-soft">
+        <div className="rounded-3xl bg-gradient-to-br from-stone-600 to-stone-800 p-4 text-white shadow-soft">
           <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-white/80">
             <Moon className="h-3.5 w-3.5" /> În afara programului
           </p>
           <p className="mt-2 text-xl font-extrabold">{formatMinutes(totals.offHours)}</p>
           {settings && <p className="text-[11px] text-white/70">{settings.offHoursRate} €/h</p>}
         </div>
-        <div className="rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-500 p-4 text-white shadow-soft">
+        <div className="rounded-3xl bg-gradient-to-br from-stone-700 to-stone-900 p-4 text-white shadow-soft">
           <p className="text-xs font-semibold uppercase tracking-wide text-white/80">Valoare</p>
           <p className="mt-2 text-xl font-extrabold">{formatEur(totals.amount)}</p>
           <p className="text-[11px] text-white/70">{formatEur(totals.pending)} nefacturat</p>
@@ -270,10 +272,10 @@ export function WorkLogs() {
             />
           </Field>
           <Field label="De la" className="w-full sm:w-44">
-            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <DateField value={from} onChange={setFrom} allowEmpty={false} />
           </Field>
           <Field label="Până la" className="w-full sm:w-44">
-            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            <DateField value={to} onChange={setTo} allowEmpty={false} />
           </Field>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -290,7 +292,7 @@ export function WorkLogs() {
           />
           {selected.size > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-500">{selected.size} selectate</span>
+              <span className="text-xs font-semibold text-stone-500">{selected.size} selectate</span>
               <Button
                 size="sm"
                 variant="secondary"
@@ -336,9 +338,9 @@ export function WorkLogs() {
           {grouped.map(([date, dayLogs]) => (
             <div key={date}>
               <div className="mb-2 flex items-center gap-3 px-1">
-                <h3 className="text-sm font-bold text-slate-700">{formatDate(date)}</h3>
-                <span className="h-px flex-1 bg-slate-200" />
-                <span className="text-xs font-semibold text-slate-400">
+                <h3 className="text-sm font-bold text-stone-700">{formatDate(date)}</h3>
+                <span className="h-px flex-1 bg-stone-200" />
+                <span className="text-xs font-semibold text-stone-400">
                   {formatMinutes(dayLogs.reduce((s, l) => s + l.standardMinutes + l.offHoursMinutes, 0))} ·{' '}
                   {formatEur(dayLogs.filter((l) => l.billable).reduce((s, l) => s + l.amountEur, 0))}
                 </span>
@@ -349,13 +351,13 @@ export function WorkLogs() {
                     key={log.id}
                     className={cn(
                       'flex flex-col gap-3 p-4 transition sm:flex-row sm:items-center sm:justify-between',
-                      selected.has(log.id) && 'ring-2 ring-violet-300',
+                      selected.has(log.id) && 'ring-2 ring-orange-300',
                     )}
                   >
                     <div className="flex min-w-0 items-start gap-3">
                       <input
                         type="checkbox"
-                        className="mt-1.5 h-4 w-4 shrink-0 rounded-md border-slate-300 text-violet-600 focus:ring-violet-300"
+                        className="mt-1.5 h-4 w-4 shrink-0 rounded-md border-stone-300 text-orange-600 focus:ring-orange-300"
                         checked={selected.has(log.id)}
                         onChange={() =>
                           setSelected((prev) => {
@@ -368,14 +370,14 @@ export function WorkLogs() {
                       <Avatar name={log.client?.company || log.client?.name || '?'} color={(log.client?.color ?? 'violet') as AccentColor} size="sm" />
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Link to={`/clienti/${log.clientId}`} className="text-sm font-bold text-slate-800 hover:text-violet-700">
+                          <Link to={`/clienti/${log.clientId}`} className="text-sm font-bold text-stone-800 hover:text-orange-700">
                             {log.client?.company || log.client?.name}
                           </Link>
                           <Badge className={WORK_CATEGORY[log.category].chip}>{WORK_CATEGORY[log.category].text}</Badge>
                           <Badge className={WORK_STATUS[log.status].chip}>{WORK_STATUS[log.status].text}</Badge>
                         </div>
-                        <p className="mt-1 text-sm text-slate-600">{log.description || '—'}</p>
-                        <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                        <p className="mt-1 text-sm text-stone-600">{log.description || '—'}</p>
+                        <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-stone-400">
                           <span className="flex items-center gap-1">
                             <Clock4 className="h-3 w-3" /> {minutesToHhMm(log.startMinutes)}–{minutesToHhMm(log.endMinutes)}
                           </span>
@@ -393,18 +395,18 @@ export function WorkLogs() {
 
                     <div className="flex items-center justify-between gap-3 sm:justify-end">
                       <div className="text-right">
-                        <p className={cn('text-lg font-extrabold', log.billable ? 'text-slate-900' : 'text-slate-400 line-through')}>
+                        <p className={cn('text-lg font-extrabold', log.billable ? 'text-stone-900' : 'text-stone-400 line-through')}>
                           {formatEur(log.amountEur)}
                         </p>
                         {settings && log.billable && (
-                          <p className="text-[11px] text-slate-400">{formatRon(log.amountEur, settings.eurRon)}</p>
+                          <p className="text-[11px] text-stone-400">{formatRon(log.amountEur, settings.eurRon)}</p>
                         )}
                       </div>
                       <div className="flex items-center gap-1">
-                        <button onClick={() => setEditing(log)} className="rounded-xl p-2 text-slate-400 transition hover:bg-violet-50 hover:text-violet-600" aria-label="Editează">
+                        <button onClick={() => setEditing(log)} className="rounded-xl p-2 text-stone-400 transition hover:bg-orange-50 hover:text-orange-600" aria-label="Editează">
                           <Pencil className="h-4 w-4" />
                         </button>
-                        <button onClick={() => setDeleting(log)} className="rounded-xl p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" aria-label="Șterge">
+                        <button onClick={() => setDeleting(log)} className="rounded-xl p-2 text-stone-400 transition hover:bg-red-50 hover:text-red-600" aria-label="Șterge">
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>

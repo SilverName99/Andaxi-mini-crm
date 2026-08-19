@@ -28,6 +28,30 @@ export interface Settings {
   weekendOffHours: boolean;
   eurRon: number;
   billingLeadDays: number;
+  // preturi pe utilizator (ERP / CRM)
+  erpTier1Max: number;
+  erpTier1Price: number;
+  erpTier2Max: number;
+  erpTier2Price: number;
+  erpTier3Price: number;
+  crmTier1Max: number;
+  crmTier1Price: number;
+  crmTier2Max: number;
+  crmTier2Price: number;
+  crmTier3Price: number;
+  discountSemiannual: number;
+  discountAnnual: number;
+}
+
+/** Detalierea pretului pentru abonamentele facturate pe utilizator */
+export interface PriceBreakdown {
+  users: number;
+  pricePerUser: number;
+  months: number;
+  discountPercent: number;
+  fullEur: number;
+  amountEur: number;
+  monthlyEur: number;
 }
 
 export interface ClientRef {
@@ -69,6 +93,8 @@ export interface Subscription {
   kind: SubscriptionKind;
   product: Product;
   amountEur: number;
+  /** Numar de utilizatori — doar la ERP/CRM, cand pretul e calculat automat */
+  users: number | null;
   cycle: Cycle;
   startDate: string;
   nextDueDate: string;

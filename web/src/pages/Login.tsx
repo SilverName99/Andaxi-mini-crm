@@ -4,9 +4,9 @@ import { useAuth } from '../lib/auth';
 import { Button, ErrorBlock, Field, Input } from '../components/ui';
 
 const HIGHLIGHTS = [
-  { icon: Users, text: 'Toți clienții într-un singur loc', gradient: 'from-blue-500 to-indigo-500' },
-  { icon: Repeat, text: 'Abonamente lunare, la 6 sau 12 luni', gradient: 'from-emerald-500 to-teal-500' },
-  { icon: Clock4, text: 'Ore de intervenție cu tarif automat', gradient: 'from-rose-500 to-pink-500' },
+  { icon: Users, text: 'Toți clienții într-un singur loc', gradient: 'from-amber-400 to-orange-500' },
+  { icon: Repeat, text: 'Abonamente lunare, la 6 sau 12 luni', gradient: 'from-stone-700 to-stone-900' },
+  { icon: Clock4, text: 'Ore de intervenție cu tarif automat', gradient: 'from-orange-600 to-amber-600' },
 ];
 
 export function Login() {
@@ -30,16 +30,16 @@ export function Login() {
   }
 
   return (
-    <div className="relative grid min-h-screen place-items-center overflow-hidden bg-slate-50 p-4">
+    <div className="relative grid min-h-screen place-items-center overflow-hidden bg-stone-50 p-4">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-32 -top-32 h-[28rem] w-[28rem] rounded-full bg-violet-400/30 blur-3xl" />
-        <div className="absolute -bottom-32 -right-24 h-[26rem] w-[26rem] animate-float rounded-full bg-fuchsia-400/30 blur-3xl" />
-        <div className="absolute left-1/2 top-1/3 h-72 w-72 rounded-full bg-cyan-300/30 blur-3xl" />
+        <div className="absolute -left-32 -top-32 h-[28rem] w-[28rem] rounded-full bg-orange-400/30 blur-3xl" />
+        <div className="absolute -bottom-32 -right-24 h-[26rem] w-[26rem] animate-float rounded-full bg-amber-400/30 blur-3xl" />
+        <div className="absolute left-1/2 top-1/3 h-72 w-72 rounded-full bg-amber-200/40 blur-3xl" />
       </div>
 
       <div className="animate-fade-up relative grid w-full max-w-4xl overflow-hidden rounded-4xl border border-white/60 bg-white/80 shadow-soft backdrop-blur-xl md:grid-cols-2">
         {/* prezentare */}
-        <div className="hidden flex-col justify-between bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 p-8 text-white md:flex">
+        <div className="hidden flex-col justify-between bg-gradient-to-br from-orange-500 via-orange-600 to-amber-600 p-8 text-white md:flex">
           <div>
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-xl font-extrabold backdrop-blur">
               A
@@ -68,22 +68,22 @@ export function Login() {
         {/* formular */}
         <div className="p-8 sm:p-10">
           <div className="mb-8 flex items-center gap-3 md:hidden">
-            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-500 text-lg font-extrabold text-white">
+            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 text-lg font-extrabold text-white">
               A
             </span>
             <div>
-              <p className="font-extrabold text-slate-900">Andaxi</p>
-              <p className="text-xs text-slate-500">mini-CRM</p>
+              <p className="font-extrabold text-stone-900">Andaxi</p>
+              <p className="text-xs text-stone-500">mini-CRM</p>
             </div>
           </div>
 
-          <h2 className="text-2xl font-extrabold text-slate-900">Bine ai revenit 👋</h2>
-          <p className="mt-1 text-sm text-slate-500">Intră în cont ca să continui.</p>
+          <h2 className="text-2xl font-extrabold text-stone-900">Bine ai revenit 👋</h2>
+          <p className="mt-1 text-sm text-stone-500">Intră în cont ca să continui.</p>
 
           <form onSubmit={onSubmit} className="mt-7 flex flex-col gap-4">
             <Field label="Email">
               <div className="relative">
-                <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
                 <Input
                   type="email"
                   autoComplete="email"
@@ -98,7 +98,7 @@ export function Login() {
 
             <Field label="Parolă">
               <div className="relative">
-                <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
                 <Input
                   type="password"
                   autoComplete="current-password"
@@ -118,7 +118,7 @@ export function Login() {
             </Button>
           </form>
 
-          <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-slate-400">
+          <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-stone-400">
             <ShieldCheck className="h-3.5 w-3.5" /> Sesiune securizată, cookie httpOnly
           </p>
         </div>

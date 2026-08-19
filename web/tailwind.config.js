@@ -11,9 +11,9 @@ export default {
         '5xl': '2.5rem',
       },
       boxShadow: {
-        soft: '0 10px 40px -12px rgb(79 70 229 / 0.18)',
-        card: '0 2px 14px -6px rgb(15 23 42 / 0.12)',
-        glow: '0 18px 45px -14px rgb(124 58 237 / 0.55)',
+        soft: '0 10px 40px -12px rgb(234 88 12 / 0.20)',
+        card: '0 2px 14px -6px rgb(28 25 23 / 0.12)',
+        glow: '0 18px 45px -14px rgb(234 88 12 / 0.5)',
       },
       keyframes: {
         'fade-up': {

@@ -64,10 +64,10 @@ export function Billing() {
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
-          { label: 'De facturat', value: totals.pending, gradient: 'from-amber-500 to-orange-500', icon: CalendarClock },
-          { label: 'Restant', value: totals.overdue, gradient: 'from-rose-500 to-red-500', icon: CalendarClock },
-          { label: 'Facturat', value: totals.invoiced, gradient: 'from-blue-500 to-indigo-500', icon: FileText },
-          { label: 'Încasat', value: totals.paid, gradient: 'from-emerald-500 to-teal-500', icon: Wallet },
+          { label: 'De facturat', value: totals.pending, gradient: 'from-amber-500 to-orange-600', icon: CalendarClock },
+          { label: 'Restant', value: totals.overdue, gradient: 'from-red-500 to-orange-600', icon: CalendarClock },
+          { label: 'Facturat', value: totals.invoiced, gradient: 'from-amber-400 to-orange-500', icon: FileText },
+          { label: 'Încasat', value: totals.paid, gradient: 'from-stone-700 to-stone-900', icon: Wallet },
         ].map((stat) => (
           <div key={stat.label} className={cn('rounded-3xl bg-gradient-to-br p-4 text-white shadow-soft', stat.gradient)}>
             <div className="flex items-center justify-between">
@@ -94,7 +94,7 @@ export function Billing() {
         />
         {selected.size > 0 && (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">{selected.size} selectate</span>
+            <span className="text-xs font-semibold text-stone-500">{selected.size} selectate</span>
             <Button size="sm" variant="secondary" icon={<CheckCheck className="h-3.5 w-3.5" />} onClick={() => applyBulk('INVOICED')}>
               Marchează facturat
             </Button>
@@ -123,11 +123,11 @@ export function Billing() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/70 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr className="border-b border-stone-100 bg-stone-50/70 text-left text-xs uppercase tracking-wide text-stone-500">
                   <th className="w-10 px-4 py-3">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 rounded-md border-slate-300 text-violet-600 focus:ring-violet-300"
+                      className="h-4 w-4 rounded-md border-stone-300 text-orange-600 focus:ring-orange-300"
                       checked={selected.size > 0 && selected.size === filtered.length}
                       onChange={(e) => setSelected(e.target.checked ? new Set(filtered.map((i) => i.id)) : new Set())}
                     />
@@ -140,15 +140,15 @@ export function Billing() {
                   <th className="px-4 py-3 text-right font-semibold">Acțiuni</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-stone-100">
                 {filtered.map((item) => {
                   const late = item.status === 'PENDING' && item.dueDate < today;
                   return (
-                    <tr key={item.id} className={cn('transition hover:bg-slate-50/70', selected.has(item.id) && 'bg-violet-50/50')}>
+                    <tr key={item.id} className={cn('transition hover:bg-stone-50/70', selected.has(item.id) && 'bg-orange-50/50')}>
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded-md border-slate-300 text-violet-600 focus:ring-violet-300"
+                          className="h-4 w-4 rounded-md border-stone-300 text-orange-600 focus:ring-orange-300"
                           checked={selected.has(item.id)}
                           onChange={() => toggle(item.id)}
                         />
@@ -157,32 +157,32 @@ export function Billing() {
                         <Link to={`/clienti/${item.clientId}`} className="flex items-center gap-3">
                           <Avatar name={item.client?.company || item.client?.name || '?'} color={(item.client?.color ?? 'violet') as AccentColor} size="sm" />
                           <span className="min-w-0">
-                            <span className="block truncate font-semibold text-slate-800">{item.client?.company || item.client?.name}</span>
-                            <span className="block truncate text-xs text-slate-500">
+                            <span className="block truncate font-semibold text-stone-800">{item.client?.company || item.client?.name}</span>
+                            <span className="block truncate text-xs text-stone-500">
                               {item.subscription?.label}
                               {item.subscription?.product && ` · ${PRODUCT[item.subscription.product].text}`}
                             </span>
                           </span>
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">
+                      <td className="px-4 py-3 text-xs text-stone-500">
                         {formatDate(item.periodStart)} – {formatDate(item.periodEnd)}
                         {item.subscription?.cycle && (
-                          <span className="ml-1 text-slate-400">({CYCLE[item.subscription.cycle].text.toLowerCase()})</span>
+                          <span className="ml-1 text-stone-400">({CYCLE[item.subscription.cycle].text.toLowerCase()})</span>
                         )}
                       </td>
-                      <td className={cn('px-4 py-3 font-medium', late ? 'text-rose-600' : 'text-slate-600')}>
+                      <td className={cn('px-4 py-3 font-medium', late ? 'text-red-600' : 'text-stone-600')}>
                         {formatDate(item.dueDate)}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className="font-bold text-slate-900">{formatEur(item.amountEur)}</span>
-                        {settings && <span className="block text-[11px] text-slate-400">{formatRon(item.amountEur, settings.eurRon)}</span>}
+                        <span className="font-bold text-stone-900">{formatEur(item.amountEur)}</span>
+                        {settings && <span className="block text-[11px] text-stone-400">{formatRon(item.amountEur, settings.eurRon)}</span>}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge className={late ? 'bg-rose-100 text-rose-700' : BILLING_STATUS[item.status].chip}>
+                        <Badge className={late ? 'bg-red-100 text-red-700' : BILLING_STATUS[item.status].chip}>
                           {late ? 'Restant' : BILLING_STATUS[item.status].text}
                         </Badge>
-                        {item.invoiceRef && <span className="mt-1 block text-[11px] text-slate-400">{item.invoiceRef}</span>}
+                        {item.invoiceRef && <span className="mt-1 block text-[11px] text-stone-400">{item.invoiceRef}</span>}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
@@ -208,7 +208,7 @@ export function Billing() {
                           )}
                           <button
                             onClick={() => setEditing(item)}
-                            className="rounded-xl p-2 text-slate-400 transition hover:bg-violet-50 hover:text-violet-600"
+                            className="rounded-xl p-2 text-stone-400 transition hover:bg-orange-50 hover:text-orange-600"
                             aria-label="Detalii"
                           >
                             <FileText className="h-4 w-4" />
@@ -243,17 +243,17 @@ function BillingItemModal({ item, onClose }: { item: BillingItem; onClose: () =>
       title="Poziție din scadențar"
       subtitle={`${item.client?.company || item.client?.name} · ${item.subscription?.label ?? ''}`}
     >
-      <div className="rounded-2xl bg-slate-50 p-4 text-sm">
+      <div className="rounded-2xl bg-stone-50 p-4 text-sm">
         <div className="flex justify-between py-1">
-          <span className="text-slate-500">Perioadă</span>
+          <span className="text-stone-500">Perioadă</span>
           <span className="font-semibold">{formatDate(item.periodStart)} – {formatDate(item.periodEnd)}</span>
         </div>
         <div className="flex justify-between py-1">
-          <span className="text-slate-500">Scadență</span>
+          <span className="text-stone-500">Scadență</span>
           <span className="font-semibold">{formatDate(item.dueDate)}</span>
         </div>
         <div className="flex justify-between py-1">
-          <span className="text-slate-500">Valoare</span>
+          <span className="text-stone-500">Valoare</span>
           <span className="font-bold">{formatEur(item.amountEur)}</span>
         </div>
       </div>

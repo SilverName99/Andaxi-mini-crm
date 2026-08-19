@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Building2, Coins, KeyRound, Moon, Save, Sun } from 'lucide-react';
+import { Building2, Coins, KeyRound, Moon, Save, Sun, Users } from 'lucide-react';
 import { api } from '../lib/api';
 import { useCrudMutation, useSettings } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import { PageHeader } from '../components/Layout';
+import { TimeField } from '../components/TimeField';
 import { Button, Card, CardTitle, ErrorBlock, Field, Input, LoadingBlock, Toggle, useToast } from '../components/ui';
 import { minutesToHhMm } from '../lib/format';
 import type { Settings } from '../lib/types';
@@ -38,6 +39,10 @@ export function SettingsPage() {
       setError('Ora de final a programului normal trebuie să fie după ora de început');
       return;
     }
+    if (form.erpTier2Max <= form.erpTier1Max || form.crmTier2Max <= form.crmTier1Max) {
+      setError('Al doilea prag de utilizatori trebuie să fie mai mare decât primul');
+      return;
+    }
     try {
       const { id: _id, ...payload } = form;
       await save.mutateAsync(payload);
@@ -63,21 +68,21 @@ export function SettingsPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Tarif program normal (EUR/h)">
               <div className="relative">
-                <Sun className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-500" />
+                <Sun className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-orange-500" />
                 <Input type="number" min={0} step="0.5" className="pl-10" value={form.standardRate} onChange={(e) => set('standardRate', Number(e.target.value))} />
               </div>
             </Field>
             <Field label="Tarif în afara programului (EUR/h)">
               <div className="relative">
-                <Moon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-indigo-500" />
+                <Moon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
                 <Input type="number" min={0} step="0.5" className="pl-10" value={form.offHoursRate} onChange={(e) => set('offHoursRate', Number(e.target.value))} />
               </div>
             </Field>
             <Field label="Program normal de la">
-              <Input type="time" value={minutesToHhMm(form.standardStart)} onChange={(e) => set('standardStart', hhMmToMinutes(e.target.value))} />
+              <TimeField value={minutesToHhMm(form.standardStart)} onChange={(v) => set('standardStart', hhMmToMinutes(v))} />
             </Field>
             <Field label="Program normal până la">
-              <Input type="time" value={minutesToHhMm(form.standardEnd)} onChange={(e) => set('standardEnd', hhMmToMinutes(e.target.value))} />
+              <TimeField value={minutesToHhMm(form.standardEnd)} onChange={(v) => set('standardEnd', hhMmToMinutes(v))} />
             </Field>
           </div>
           <div className="mt-4">
@@ -100,12 +105,43 @@ export function SettingsPage() {
               <Input type="number" min={0} max={90} value={form.billingLeadDays} onChange={(e) => set('billingLeadDays', Number(e.target.value))} />
             </Field>
           </div>
-          <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
-            <p className="font-semibold text-slate-700">Exemplu de calcul</p>
+          <div className="mt-4 rounded-2xl bg-stone-50 p-4 text-sm text-stone-600">
+            <p className="font-semibold text-stone-700">Exemplu de calcul</p>
             <p className="mt-1">
               O intervenție de 3 ore, între {minutesToHhMm(form.standardEnd)} și {minutesToHhMm(((form.standardEnd + 180) % 1440))}:
-              {' '}<span className="font-bold text-slate-900">{(3 * form.offHoursRate).toFixed(0)} €</span>
+              {' '}<span className="font-bold text-stone-900">{(3 * form.offHoursRate).toFixed(0)} €</span>
               {' '}({(3 * form.offHoursRate * form.eurRon).toFixed(0)} RON)
+            </p>
+          </div>
+        </Card>
+
+        <Card className="xl:col-span-2">
+          <CardTitle
+            title="Prețuri pe utilizator — ERP și CRM"
+            subtitle="Se aplică automat când adaugi un abonament de tip ERP sau CRM"
+            icon={<Users className="h-5 w-5" />}
+          />
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <TierEditor titlu="ERP" form={form} set={set} prefix="erp" />
+            <TierEditor titlu="CRM" form={form} set={set} prefix="crm" />
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Reducere plată la 6 luni (%)">
+              <Input type="number" min={0} max={100} step="0.5" value={form.discountSemiannual} onChange={(e) => set('discountSemiannual', Number(e.target.value))} />
+            </Field>
+            <Field label="Reducere plată anuală (%)">
+              <Input type="number" min={0} max={100} step="0.5" value={form.discountAnnual} onChange={(e) => set('discountAnnual', Number(e.target.value))} />
+            </Field>
+          </div>
+
+          <div className="mt-4 rounded-2xl bg-stone-50 p-4 text-sm text-stone-600">
+            <p className="font-semibold text-stone-700">Exemplu</p>
+            <p className="mt-1">
+              5 utilizatori ERP, plată anuală: 5 × {form.erpTier1Price} € × 12 luni − {form.discountAnnual}% ={' '}
+              <span className="font-bold text-stone-900">
+                {(5 * form.erpTier1Price * 12 * (1 - form.discountAnnual / 100)).toFixed(0)} €
+              </span>
             </p>
           </div>
         </Card>
@@ -129,6 +165,54 @@ export function SettingsPage() {
         </Card>
 
         <PasswordCard email={user?.email ?? ''} />
+      </div>
+    </div>
+  );
+}
+
+/** Editorul celor trei praguri de pret pentru un produs (ERP sau CRM) */
+function TierEditor({
+  titlu,
+  prefix,
+  form,
+  set,
+}: {
+  titlu: string;
+  prefix: 'erp' | 'crm';
+  form: Settings;
+  set: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+}) {
+  const max1 = `${prefix}Tier1Max` as const;
+  const price1 = `${prefix}Tier1Price` as const;
+  const max2 = `${prefix}Tier2Max` as const;
+  const price2 = `${prefix}Tier2Price` as const;
+  const price3 = `${prefix}Tier3Price` as const;
+
+  const numar = (key: keyof Settings) => Number(form[key]);
+
+  return (
+    <div className="rounded-2xl border border-stone-200 p-4">
+      <p className="mb-3 text-sm font-bold text-stone-800">{titlu}</p>
+      <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-[1fr,auto] items-end gap-3">
+          <Field label={`1 – ${numar(max1)} utilizatori`}>
+            <Input type="number" min={0} step="0.5" value={numar(price1)} onChange={(e) => set(price1, Number(e.target.value))} />
+          </Field>
+          <Field label="până la">
+            <Input type="number" min={1} step="1" className="w-24" value={numar(max1)} onChange={(e) => set(max1, Number(e.target.value))} />
+          </Field>
+        </div>
+        <div className="grid grid-cols-[1fr,auto] items-end gap-3">
+          <Field label={`${numar(max1) + 1} – ${numar(max2)} utilizatori`}>
+            <Input type="number" min={0} step="0.5" value={numar(price2)} onChange={(e) => set(price2, Number(e.target.value))} />
+          </Field>
+          <Field label="până la">
+            <Input type="number" min={1} step="1" className="w-24" value={numar(max2)} onChange={(e) => set(max2, Number(e.target.value))} />
+          </Field>
+        </div>
+        <Field label={`${numar(max2) + 1}+ utilizatori`} hint="EUR / utilizator / lună">
+          <Input type="number" min={0} step="0.5" value={numar(price3)} onChange={(e) => set(price3, Number(e.target.value))} />
+        </Field>
       </div>
     </div>
   );

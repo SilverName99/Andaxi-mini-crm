@@ -18,7 +18,7 @@ export function App() {
 
   if (loading) {
     return (
-      <div className="grid min-h-screen place-items-center bg-slate-50">
+      <div className="grid min-h-screen place-items-center bg-stone-50">
         <Spinner className="h-8 w-8" />
       </div>
     );

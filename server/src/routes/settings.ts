@@ -17,6 +17,20 @@ const settingsSchema = z.object({
   weekendOffHours: z.boolean().optional(),
   eurRon: z.coerce.number().positive().optional(),
   billingLeadDays: z.coerce.number().int().min(0).max(90).optional(),
+
+  // preturi pe utilizator pentru ERP / CRM
+  erpTier1Max: z.coerce.number().int().min(1).optional(),
+  erpTier1Price: z.coerce.number().nonnegative().optional(),
+  erpTier2Max: z.coerce.number().int().min(1).optional(),
+  erpTier2Price: z.coerce.number().nonnegative().optional(),
+  erpTier3Price: z.coerce.number().nonnegative().optional(),
+  crmTier1Max: z.coerce.number().int().min(1).optional(),
+  crmTier1Price: z.coerce.number().nonnegative().optional(),
+  crmTier2Max: z.coerce.number().int().min(1).optional(),
+  crmTier2Price: z.coerce.number().nonnegative().optional(),
+  crmTier3Price: z.coerce.number().nonnegative().optional(),
+  discountSemiannual: z.coerce.number().min(0).max(100).optional(),
+  discountAnnual: z.coerce.number().min(0).max(100).optional(),
 });
 
 settingsRouter.get(
