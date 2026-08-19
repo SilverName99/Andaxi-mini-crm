@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Deploy / actualizare mini-CRM Andaxi pe server.
-# Ruleaza din folderul aplicatiei:  sudo -u www-data bash deploy/deploy.sh
+# Ruleaza ca root:  bash /var/www/andaxi-crm/deploy/deploy.sh
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/var/www/andaxi-crm}"
-BRANCH="${BRANCH:-main}"
-
 cd "$APP_DIR"
+
+# implicit ramanem pe branch-ul pe care e deja instalata aplicatia
+BRANCH="${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}"
 
 echo "→ Aduc ultima versiune (${BRANCH})…"
 git fetch origin "$BRANCH"
@@ -14,7 +15,7 @@ git checkout "$BRANCH"
 git reset --hard "origin/${BRANCH}"
 
 echo "→ Instalez dependentele…"
-npm install
+npm install --include=dev --no-audit --no-fund
 
 echo "→ Generez clientul Prisma si aplic schema pe baza de date…"
 npm run db:generate
@@ -23,11 +24,14 @@ npm run db:push
 echo "→ Construiesc aplicatia…"
 npm run build
 
+echo "→ Repun drepturile pe fisiere…"
+chown -R www-data:www-data "$APP_DIR"
+
 echo "→ Repornesc serviciul…"
 if systemctl is-enabled --quiet andaxi-crm 2>/dev/null; then
-  sudo systemctl restart andaxi-crm
+  systemctl restart andaxi-crm
   sleep 2
-  sudo systemctl status andaxi-crm --no-pager --lines 5
+  systemctl status andaxi-crm --no-pager --lines 5
 else
   echo "  (serviciul andaxi-crm nu e instalat — vezi deploy/README.md)"
 fi
