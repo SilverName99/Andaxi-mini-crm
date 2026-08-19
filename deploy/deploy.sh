@@ -6,6 +6,10 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-/var/www/andaxi-crm}"
 cd "$APP_DIR"
 
+# fisierele aplicatiei apartin lui www-data, dar comenzile se ruleaza ca root;
+# fara asta git refuza sa lucreze in folder ("dubious ownership")
+git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
+
 # implicit ramanem pe branch-ul pe care e deja instalata aplicatia
 BRANCH="${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}"
 

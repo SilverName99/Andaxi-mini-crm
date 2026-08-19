@@ -88,6 +88,8 @@ ok "port: $PORT (doar local, nu se expune direct in internet)"
 
 # ─────────────────────────────────────────────── cod
 pas "Aduc codul aplicatiei"
+# aplicatia ruleaza ca www-data, dar instalarea/actualizarile se fac ca root
+git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
 if [ -d "$APP_DIR/.git" ]; then
   git -C "$APP_DIR" fetch --quiet origin "$BRANCH"
   git -C "$APP_DIR" checkout --quiet -B "$BRANCH" "origin/$BRANCH"
