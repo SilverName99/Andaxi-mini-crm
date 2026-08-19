@@ -1,12 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock4, ListChecks, Wallet,
-} from 'lucide-react';
-import { useCalendar, useSettings } from '../lib/queries';
+import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock4, ListChecks } from 'lucide-react';
+import { useCalendar } from '../lib/queries';
 import { PageHeader } from '../components/Layout';
-import { Badge, Button, Card, ErrorBlock, LoadingBlock, Segmented, StatCard } from '../components/ui';
-import { formatDate, formatEur, formatMinutes, todayIso } from '../lib/format';
+import { Badge, Button, Card, ErrorBlock, LoadingBlock, Segmented } from '../components/ui';
+import { formatDate, formatEur, todayIso } from '../lib/format';
 import { grilaLunii, numeLuna, numeZi, schimbaLuna, ZILE_SCURTE } from '../lib/calendar';
 import { BILLING_STATUS, PRIORITY, WORK_STATUS } from '../lib/labels';
 import { cn } from '../lib/cn';
@@ -17,6 +15,8 @@ type Filtru = 'ALL' | CalendarEventType;
 /** Culoarea unui eveniment: roșu doar pentru ce e restant, verde pentru încasat */
 function stilEveniment(event: CalendarEvent, azi: string) {
   if (event.type === 'BILLING') {
+    // scadență viitoare, încă negenerată în scadențar
+    if (event.status === 'PROJECTED') return { punct: 'bg-indigo-300', pastila: 'bg-indigo-50/70 text-indigo-500' };
     if (event.status === 'PAID') return { punct: 'bg-emerald-500', pastila: 'bg-emerald-50 text-emerald-700' };
     if (event.status === 'PENDING' && event.date < azi) return { punct: 'bg-red-500', pastila: 'bg-red-50 text-red-700' };
     if (event.status === 'INVOICED') return { punct: 'bg-slate-400', pastila: 'bg-slate-100 text-slate-600' };
@@ -43,7 +43,6 @@ export function Calendar() {
 
   const zile = useMemo(() => grilaLunii(luna), [luna]);
   const { data, isLoading, error } = useCalendar(zile[0].iso, zile[zile.length - 1].iso);
-  const { data: settings } = useSettings();
 
   const evenimente = useMemo(
     () => (data?.events ?? []).filter((e) => filtru === 'ALL' || e.type === filtru),
@@ -58,15 +57,6 @@ export function Calendar() {
     }
     return map;
   }, [evenimente]);
-
-  // rezumatul se calculează doar pe luna afișată, nu pe toată grila de 6 săptămâni
-  const dinLuna = evenimente.filter((e) => e.date.startsWith(luna));
-  const deFacturat = dinLuna
-    .filter((e) => e.type === 'BILLING' && e.status === 'PENDING')
-    .reduce((s, e) => s + (e.amountEur ?? 0), 0);
-  const minuteLucrate = dinLuna.filter((e) => e.type === 'WORK').reduce((s, e) => s + (e.minutes ?? 0), 0);
-  const valoareOre = dinLuna.filter((e) => e.type === 'WORK').reduce((s, e) => s + (e.amountEur ?? 0), 0);
-  const taskuriDeschise = dinLuna.filter((e) => e.type === 'TASK' && e.status === 'OPEN').length;
 
   const evenimenteleZilei = (peZile.get(ziSelectata) ?? []).slice().sort((a, b) => a.type.localeCompare(b.type));
 
@@ -83,24 +73,6 @@ export function Calendar() {
           Azi
         </Button>
       </PageHeader>
-
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          label="De facturat luna asta"
-          value={formatEur(deFacturat)}
-          hint={settings ? `curs ${settings.eurRon.toFixed(2)} RON/EUR` : undefined}
-          icon={<CalendarClock className="h-5 w-5" />}
-          tone="accent"
-        />
-        <StatCard label="Ore lucrate" value={formatMinutes(minuteLucrate)} icon={<Clock4 className="h-5 w-5" />} />
-        <StatCard label="Valoare ore" value={formatEur(valoareOre)} icon={<Wallet className="h-5 w-5" />} />
-        <StatCard
-          label="Task-uri deschise"
-          value={String(taskuriDeschise)}
-          icon={<ListChecks className="h-5 w-5" />}
-          tone={taskuriDeschise > 0 ? 'accent' : 'neutral'}
-        />
-      </div>
 
       <Card className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
@@ -235,11 +207,14 @@ export function Calendar() {
                         <p className="truncate text-sm font-bold text-slate-800">{event.title}</p>
                         <p className="truncate text-xs text-slate-500">{event.subtitle}</p>
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                          {event.type === 'BILLING' && (
-                            <Badge className={BILLING_STATUS[event.status as keyof typeof BILLING_STATUS]?.chip}>
-                              {BILLING_STATUS[event.status as keyof typeof BILLING_STATUS]?.text ?? event.status}
-                            </Badge>
-                          )}
+                          {event.type === 'BILLING' &&
+                            (event.status === 'PROJECTED' ? (
+                              <Badge className="bg-indigo-50 text-indigo-500">Estimat</Badge>
+                            ) : (
+                              <Badge className={BILLING_STATUS[event.status as keyof typeof BILLING_STATUS]?.chip}>
+                                {BILLING_STATUS[event.status as keyof typeof BILLING_STATUS]?.text ?? event.status}
+                              </Badge>
+                            ))}
                           {event.type === 'WORK' && (
                             <>
                               <Badge className={WORK_STATUS[event.status as keyof typeof WORK_STATUS]?.chip}>
@@ -275,6 +250,7 @@ export function Calendar() {
             <div className="mt-4 flex flex-wrap gap-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
               {[
                 { punct: 'bg-indigo-500', text: 'de facturat' },
+                { punct: 'bg-indigo-300', text: 'estimat' },
                 { punct: 'bg-red-500', text: 'restant' },
                 { punct: 'bg-emerald-500', text: 'încasat' },
                 { punct: 'bg-violet-500', text: 'intervenție' },

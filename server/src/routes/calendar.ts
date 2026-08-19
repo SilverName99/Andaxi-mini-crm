@@ -5,8 +5,25 @@ import { asyncHandler } from '../middleware/errors.js';
 import { syncBillingItems } from '../lib/billing-sync.js';
 import { isoDate } from '../lib/validation.js';
 import { minutesToHhMm } from '../lib/dates.js';
+import { isCycle, nextDue } from '../lib/cycles.js';
 
 export const calendarRouter = Router();
+
+interface CalendarEvent {
+  id: string;
+  type: 'BILLING' | 'WORK' | 'TASK';
+  date: string;
+  title: string;
+  subtitle: string;
+  amountEur?: number;
+  status: string;
+  clientId?: string;
+  color?: string;
+  timeLabel?: string;
+  minutes?: number;
+  category?: string;
+  priority?: string;
+}
 
 /**
  * Tot ce are o data intr-un interval, adunat intr-o singura lista:
@@ -19,7 +36,7 @@ calendarRouter.get(
     const { from, to } = z.object({ from: isoDate, to: isoDate }).parse(req.query);
     await syncBillingItems();
 
-    const [billing, workLogs, tasks] = await Promise.all([
+    const [billing, workLogs, tasks, subscriptions] = await Promise.all([
       prisma.billingItem.findMany({
         where: { dueDate: { gte: from, lte: to } },
         include: {
@@ -35,9 +52,49 @@ calendarRouter.get(
         where: { dueDate: { gte: from, lte: to } },
         include: { client: { select: { id: true, name: true, company: true, color: true } } },
       }),
+      prisma.subscription.findMany({
+        where: { status: 'ACTIVE' },
+        include: { client: { select: { id: true, name: true, company: true, color: true } } },
+      }),
     ]);
 
-    const events = [
+    /*
+     * Pozitiile de facturat se genereaza doar cu 60 de zile in avans, ca sa nu
+     * umple scadentarul cu sume care nu sunt inca de facturat. Calendarul insa
+     * trebuie sa arate si scadentele mai indepartate, asa ca le proiectam aici,
+     * fara sa le salvam: sunt marcate ca "estimate" si dispar de la sine cand
+     * pozitia reala e generata.
+     */
+    const existente = new Set(billing.map((item) => `${item.subscriptionId}|${item.dueDate}`));
+    const proiectate: CalendarEvent[] = [];
+
+    for (const sub of subscriptions) {
+      if (!isCycle(sub.cycle)) continue;
+      let due = sub.startDate;
+      let pasi = 0;
+
+      while (due <= to && pasi < 600) {
+        pasi += 1;
+        if (sub.endDate && due > sub.endDate) break;
+        if (due >= from && !existente.has(`${sub.id}|${due}`)) {
+          proiectate.push({
+            id: `proiectat-${sub.id}-${due}`,
+            type: 'BILLING' as const,
+            date: due,
+            title: sub.client.company || sub.client.name,
+            subtitle: sub.label,
+            amountEur: sub.amountEur,
+            status: 'PROJECTED',
+            clientId: sub.clientId,
+            color: sub.client.color,
+          });
+        }
+        due = nextDue(due, sub.cycle);
+      }
+    }
+
+    const events: CalendarEvent[] = [
+      ...proiectate,
       ...billing.map((item) => ({
         id: `billing-${item.id}`,
         type: 'BILLING' as const,
