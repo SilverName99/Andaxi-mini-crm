@@ -18,7 +18,7 @@ aici ții evidența a *ce* trebuie facturat, *când*, și marchezi ce ai emis de
 | **Ore & intervenții** | Suport tehnic la oră, cu tarif calculat automat pe interval |
 | **Task-uri** | Lucruri de făcut, cu sau fără client asociat |
 | **Rapoarte** | Totaluri pe client și pe lună, cu export CSV |
-| **Setări** | Tarife, program de lucru, curs EUR/RON, date firmă, schimbare parolă |
+| **Setări** | Sigla firmei, tarife orare, prețuri pe utilizator (ERP/CRM), program de lucru, curs EUR/RON, date firmă, schimbare parolă |
 
 ### Tarifele orare
 
@@ -34,6 +34,14 @@ programul normal se **împarte** între cele două tarife:
 
 Tarifele aplicate se salvează pe fiecare înregistrare, deci modificarea lor în
 Setări **nu** rescrie istoricul.
+
+### Prețurile pe utilizator (ERP și CRM)
+
+Pentru abonamentele de tip ERP sau CRM, în loc de sumă se introduce **numărul de
+utilizatori**, iar prețul se calculează din grila configurată în Setări: trei
+praguri (implicit 1-5 → 50 €, 6-10 → 45 €, 11+ → 40 € / utilizator / lună) și
+reduceri pe ciclu (5% la 6 luni, 10% anual). Calculul se face pe server, nu în
+interfață. Rămâne disponibilă opțiunea „preț negociat manual".
 
 ### Scadențarul
 
@@ -81,7 +89,8 @@ server/
 web/
   src/pages/              # câte un fișier per secțiune
   src/components/ui.tsx   # componentele vizuale comune
-deploy/                   # systemd, nginx, script de deploy (vezi deploy/README.md)
+deploy/                   # systemd, nginx, scripturi de instalare (vezi deploy/README.md)
+data/                     # baza de date SQLite și fișierele încărcate (sigla) — nu în git
 ```
 
 ## Punere pe server

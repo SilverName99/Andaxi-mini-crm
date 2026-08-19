@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getSettings, prisma } from '../prisma.js';
-import { asyncHandler } from '../middleware/errors.js';
+import { asyncHandler, HttpError } from '../middleware/errors.js';
+import { ALLOWED_IMAGE_TYPES, deleteUpload, saveImage } from '../lib/uploads.js';
 
 export const settingsRouter = Router();
 
@@ -46,5 +47,43 @@ settingsRouter.put(
     const data = settingsSchema.parse(req.body);
     await getSettings();
     res.json(await prisma.settings.update({ where: { id: 'singleton' }, data }));
+  }),
+);
+
+/* ─────────────────────────────────────────────────────────── sigla firmei ── */
+
+const logoSchema = z.object({
+  /** Continutul fisierului, codificat base64 (fara prefixul "data:") */
+  data: z.string().min(1, 'Fisierul este gol'),
+  mimeType: z.string().refine((t) => t in ALLOWED_IMAGE_TYPES, {
+    message: 'Acceptam doar PNG, JPG, WEBP sau SVG',
+  }),
+});
+
+settingsRouter.post(
+  '/logo',
+  asyncHandler(async (req, res) => {
+    const { data, mimeType } = logoSchema.parse(req.body);
+    const current = await getSettings();
+
+    let logoUrl: string;
+    try {
+      logoUrl = saveImage(data, mimeType, 'logo', Date.now());
+    } catch (err) {
+      throw new HttpError(400, err instanceof Error ? err.message : 'Nu am putut salva imaginea');
+    }
+
+    // stergem sigla veche abia dupa ce noua a fost scrisa cu succes
+    if (current.logoUrl) deleteUpload(current.logoUrl);
+    res.json(await prisma.settings.update({ where: { id: 'singleton' }, data: { logoUrl } }));
+  }),
+);
+
+settingsRouter.delete(
+  '/logo',
+  asyncHandler(async (_req, res) => {
+    const current = await getSettings();
+    if (current.logoUrl) deleteUpload(current.logoUrl);
+    res.json(await prisma.settings.update({ where: { id: 'singleton' }, data: { logoUrl: '' } }));
   }),
 );

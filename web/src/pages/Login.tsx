@@ -1,16 +1,27 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Clock4, Lock, Mail, Repeat, ShieldCheck, Users } from 'lucide-react';
 import { useAuth } from '../lib/auth';
+import { api } from '../lib/api';
 import { Button, ErrorBlock, Field, Input } from '../components/ui';
 
 const HIGHLIGHTS = [
-  { icon: Users, text: 'Toți clienții într-un singur loc', gradient: 'from-violet-400 to-indigo-500' },
-  { icon: Repeat, text: 'Abonamente lunare, la 6 sau 12 luni', gradient: 'from-slate-700 to-slate-900' },
-  { icon: Clock4, text: 'Ore de intervenție cu tarif automat', gradient: 'from-indigo-600 to-violet-600' },
+  { icon: Users, text: 'Toți clienții într-un singur loc' },
+  { icon: Repeat, text: 'Abonamente lunare, la 6 sau 12 luni' },
+  { icon: Clock4, text: 'Ore de intervenție cu tarif automat' },
 ];
 
 export function Login() {
   const { login } = useAuth();
+  // datele de identitate sunt publice, ca sigla sa apara si inainte de autentificare
+  const [branding, setBranding] = useState<{ companyName: string; logoUrl: string } | null>(null);
+
+  useEffect(() => {
+    api
+      .get<{ companyName: string; logoUrl: string }>('/branding')
+      .then(setBranding)
+      .catch(() => setBranding(null));
+  }, []);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -41,9 +52,15 @@ export function Login() {
         {/* prezentare */}
         <div className="hidden flex-col justify-between bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 p-8 text-white md:flex">
           <div>
-            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-xl font-extrabold backdrop-blur">
-              A
-            </span>
+            {branding?.logoUrl ? (
+              <span className="grid h-14 w-14 place-items-center overflow-hidden rounded-2xl bg-white p-2">
+                <img src={branding.logoUrl} alt={branding.companyName} className="max-h-full max-w-full object-contain" />
+              </span>
+            ) : (
+              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-xl font-extrabold backdrop-blur">
+                {(branding?.companyName ?? 'A').slice(0, 1).toUpperCase()}
+              </span>
+            )}
             <h1 className="mt-6 text-3xl font-extrabold leading-tight">
               Ordine în firmă,
               <br />
@@ -56,7 +73,7 @@ export function Login() {
           <ul className="mt-8 flex flex-col gap-3">
             {HIGHLIGHTS.map((item) => (
               <li key={item.text} className="flex items-center gap-3 text-sm font-medium">
-                <span className={`grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br ${item.gradient}`}>
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/20 backdrop-blur">
                   <item.icon className="h-4 w-4" />
                 </span>
                 {item.text}
@@ -68,11 +85,17 @@ export function Login() {
         {/* formular */}
         <div className="p-8 sm:p-10">
           <div className="mb-8 flex items-center gap-3 md:hidden">
-            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 text-lg font-extrabold text-white">
-              A
-            </span>
+            {branding?.logoUrl ? (
+              <span className="grid h-11 w-11 place-items-center overflow-hidden rounded-2xl bg-white p-1 ring-1 ring-slate-200">
+                <img src={branding.logoUrl} alt={branding.companyName} className="max-h-full max-w-full object-contain" />
+              </span>
+            ) : (
+              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 text-lg font-extrabold text-white">
+                {(branding?.companyName ?? 'A').slice(0, 1).toUpperCase()}
+              </span>
+            )}
             <div>
-              <p className="font-extrabold text-slate-900">Andaxi</p>
+              <p className="font-extrabold text-slate-900">{branding?.companyName || 'Andaxi'}</p>
               <p className="text-xs text-slate-500">mini-CRM</p>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { fileURLToPath } from 'node:url';
 
 function required(name: string, fallback?: string): string {
   const value = process.env[name] ?? fallback;
@@ -22,4 +23,7 @@ export const env = {
     .filter(Boolean),
   /** Durata token-ului de sesiune */
   sessionDays: Number(process.env.SESSION_DAYS ?? 30),
+  /** Unde se salveaza fisierele incarcate (sigla). Trebuie sa fie in afara codului,
+   *  ca actualizarile aplicatiei sa nu le stearga. */
+  uploadDir: process.env.UPLOAD_DIR ?? fileURLToPath(new URL('../../data/uploads', import.meta.url)),
 };

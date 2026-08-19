@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Building2, Coins, KeyRound, Moon, Save, Sun, Users } from 'lucide-react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { Building2, Coins, Image, KeyRound, Moon, Save, Sun, Trash2, Upload, Users } from 'lucide-react';
 import { api } from '../lib/api';
 import { useCrudMutation, useSettings } from '../lib/queries';
 import { useAuth } from '../lib/auth';
@@ -146,6 +146,8 @@ export function SettingsPage() {
           </div>
         </Card>
 
+        <LogoCard logoUrl={form.logoUrl} companyName={form.companyName} />
+
         <Card>
           <CardTitle title="Date firmă" subtitle="Apar în rapoarte și exporturi" icon={<Building2 className="h-5 w-5" />} />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -167,6 +169,101 @@ export function SettingsPage() {
         <PasswordCard email={user?.email ?? ''} />
       </div>
     </div>
+  );
+}
+
+/** Marimea maxima acceptata de server pentru sigla */
+const MAX_LOGO_BYTES = 1024 * 1024;
+
+/** Incarcarea siglei: fisierul e trimis codificat base64, serverul il salveaza pe disc */
+function LogoCard({ logoUrl, companyName }: { logoUrl: string; companyName: string }) {
+  const toast = useToast();
+  const input = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState('');
+
+  const incarca = useCrudMutation((payload: { data: string; mimeType: string }) =>
+    api.post('/settings/logo', payload),
+  );
+  const sterge = useCrudMutation(() => api.del('/settings/logo'));
+
+  async function laAlegereFisier(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = ''; // ca aceeasi imagine sa poata fi realeasa dupa o eroare
+    if (!file) return;
+
+    setError('');
+    if (file.size > MAX_LOGO_BYTES) {
+      setError('Imaginea depășește 1 MB');
+      return;
+    }
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+
+    try {
+      await incarca.mutateAsync({ data: dataUrl.split(',')[1] ?? '', mimeType: file.type });
+      toast('Siglă actualizată');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Nu am putut încărca imaginea');
+    }
+  }
+
+  return (
+    <Card>
+      <CardTitle
+        title="Sigla firmei"
+        subtitle="Apare în bara laterală și pe pagina de autentificare"
+        icon={<Image className="h-5 w-5" />}
+      />
+
+      <div className="flex flex-wrap items-center gap-5">
+        <div className="grid h-24 w-24 shrink-0 place-items-center overflow-hidden rounded-3xl border border-slate-200 bg-white p-2">
+          {logoUrl ? (
+            <img src={logoUrl} alt={companyName} className="max-h-full max-w-full object-contain" />
+          ) : (
+            <span className="grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 text-2xl font-extrabold text-white">
+              {companyName.slice(0, 1).toUpperCase() || 'A'}
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <input ref={input} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={laAlegereFisier} />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              icon={<Upload className="h-4 w-4" />}
+              loading={incarca.isPending}
+              onClick={() => input.current?.click()}
+            >
+              {logoUrl ? 'Înlocuiește sigla' : 'Încarcă sigla'}
+            </Button>
+            {logoUrl && (
+              <Button
+                variant="ghost"
+                icon={<Trash2 className="h-4 w-4" />}
+                loading={sterge.isPending}
+                onClick={async () => {
+                  await sterge.mutateAsync(undefined);
+                  toast('Siglă ștearsă');
+                }}
+              >
+                Șterge
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-slate-400">
+            PNG, JPG, WEBP sau SVG, maximum 1 MB. Arată cel mai bine o imagine pătrată, cu fundal transparent.
+          </p>
+        </div>
+      </div>
+
+      {error && <div className="mt-4"><ErrorBlock message={error} /></div>}
+    </Card>
   );
 }
 

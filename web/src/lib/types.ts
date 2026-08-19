@@ -21,6 +21,8 @@ export interface Settings {
   companyCui: string;
   companyIban: string;
   companyEmail: string;
+  /** Calea siglei încărcate, ex. "/uploads/logo-123.png" */
+  logoUrl: string;
   standardRate: number;
   offHoursRate: number;
   standardStart: number;

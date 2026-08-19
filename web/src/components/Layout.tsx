@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useAuth } from '../lib/auth';
+import { useSettings } from '../lib/queries';
 import { initials } from '../lib/format';
 
 const NAV = [
@@ -18,6 +19,28 @@ const NAV = [
   { to: '/rapoarte', label: 'Rapoarte', icon: BarChart3 },
   { to: '/setari', label: 'Setări', icon: SettingsIcon },
 ];
+
+/** Sigla firmei, cu inițiala ca rezervă cât timp nu e încărcată una */
+function BrandMark({ logoUrl, companyName, size = 'md' }: { logoUrl?: string; companyName?: string; size?: 'sm' | 'md' }) {
+  const dimensiune = size === 'sm' ? 'h-9 w-9 text-base' : 'h-11 w-11 text-lg';
+  if (logoUrl) {
+    return (
+      <span className={cn('grid shrink-0 place-items-center overflow-hidden rounded-2xl bg-white p-1 ring-1 ring-slate-200', dimensiune)}>
+        <img src={logoUrl} alt={companyName ?? 'Siglă'} className="max-h-full max-w-full object-contain" />
+      </span>
+    );
+  }
+  return (
+    <span
+      className={cn(
+        'grid shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 font-extrabold text-white shadow-glow',
+        dimensiune,
+      )}
+    >
+      {(companyName ?? 'A').slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
 
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   return (
@@ -58,6 +81,7 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
 
 export function Layout() {
   const { user, logout } = useAuth();
+  const { data: settings } = useSettings();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const current = NAV.find((item) => (item.end ? location.pathname === item.to : location.pathname.startsWith(item.to)));
@@ -76,11 +100,11 @@ export function Layout() {
         <aside className="sticky top-6 hidden h-[calc(100vh-3rem)] w-64 shrink-0 flex-col justify-between rounded-4xl border border-white/60 bg-white/70 p-4 shadow-soft backdrop-blur-xl lg:flex">
           <div>
             <div className="mb-6 flex items-center gap-3 px-2 pt-2">
-              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 text-lg font-extrabold text-white shadow-glow">
-                A
-              </span>
-              <div>
-                <p className="text-base font-extrabold leading-tight text-slate-900">Andaxi</p>
+              <BrandMark logoUrl={settings?.logoUrl} companyName={settings?.companyName} />
+              <div className="min-w-0">
+                <p className="truncate text-base font-extrabold leading-tight text-slate-900">
+                  {settings?.companyName || 'Andaxi'}
+                </p>
                 <p className="text-xs font-medium text-slate-500">mini-CRM</p>
               </div>
             </div>
@@ -111,9 +135,7 @@ export function Layout() {
           {/* bara mobila */}
           <div className="mb-4 flex items-center justify-between rounded-3xl border border-white/60 bg-white/70 px-4 py-3 shadow-card backdrop-blur-xl lg:hidden">
             <div className="flex items-center gap-2.5">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 font-extrabold text-white">
-                A
-              </span>
+              <BrandMark logoUrl={settings?.logoUrl} companyName={settings?.companyName} size="sm" />
               <span className="text-sm font-bold text-slate-900">{current?.label ?? 'Andaxi CRM'}</span>
             </div>
             <button
@@ -136,7 +158,10 @@ export function Layout() {
           <div className="animate-fade-up absolute inset-y-0 left-0 flex w-72 flex-col justify-between bg-white p-4 shadow-soft">
             <div>
               <div className="mb-6 flex items-center justify-between">
-                <span className="text-base font-extrabold text-slate-900">Andaxi mini-CRM</span>
+                <span className="flex items-center gap-2 text-base font-extrabold text-slate-900">
+                  <BrandMark logoUrl={settings?.logoUrl} companyName={settings?.companyName} size="sm" />
+                  {settings?.companyName || 'Andaxi'} mini-CRM
+                </span>
                 <button onClick={() => setMobileOpen(false)} className="rounded-xl p-2 hover:bg-slate-100">
                   <X className="h-5 w-5" />
                 </button>

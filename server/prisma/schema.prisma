@@ -30,6 +30,8 @@ model Settings {
   companyCui  String @default("")
   companyIban String @default("")
   companyEmail String @default("")
+  /// Calea publica a siglei incarcate (ex. "/uploads/logo-123.png"); gol = fara sigla
+  logoUrl      String @default("")
 
   // Tarife orare (EUR)
   standardRate  Float @default(45)

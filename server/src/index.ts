@@ -7,6 +7,8 @@ import cookieParser from 'cookie-parser';
 import { env } from './env.js';
 import { requireAuth } from './middleware/auth.js';
 import { errorHandler } from './middleware/errors.js';
+import { ensureUploadDir } from './lib/uploads.js';
+import { getSettings } from './prisma.js';
 import { authRouter } from './routes/auth.js';
 import { clientsRouter } from './routes/clients.js';
 import { subscriptionsRouter } from './routes/subscriptions.js';
@@ -36,10 +38,30 @@ const corsDelegate: cors.CorsOptionsDelegate<Request> = (req, callback) => {
 };
 
 app.use(cors(corsDelegate));
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'andaxi-mini-crm' }));
+
+/** Datele de identitate vizibile inainte de autentificare (sigla de pe pagina de login) */
+app.get('/api/branding', async (_req, res, next) => {
+  try {
+    const settings = await getSettings();
+    res.json({ companyName: settings.companyName, logoUrl: settings.logoUrl });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// fisierele incarcate (sigla). CSP-ul face inofensiv un SVG cu script, daca
+// cineva deschide fisierul direct in browser.
+app.use(
+  '/uploads',
+  express.static(ensureUploadDir(), {
+    maxAge: '30d',
+    setHeaders: (res) => res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'"),
+  }),
+);
 
 app.use('/api/auth', authRouter);
 app.use('/api/clients', requireAuth, clientsRouter);
