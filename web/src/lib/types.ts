@@ -228,3 +228,32 @@ export interface ReportData {
     offHoursMinutes: number;
   };
 }
+
+/* ─────────────────────────────────────────────────────────────── calendar ── */
+
+export type CalendarEventType = 'BILLING' | 'WORK' | 'TASK';
+
+export interface CalendarEvent {
+  id: string;
+  type: CalendarEventType;
+  date: string;
+  title: string;
+  subtitle: string;
+  amountEur?: number;
+  /** Statusul din modulul de origine; pentru task-uri: DONE | OPEN */
+  status: string;
+  clientId?: string;
+  color?: AccentColor;
+  /** Doar la intervenții */
+  timeLabel?: string;
+  minutes?: number;
+  category?: WorkCategory;
+  /** Doar la task-uri */
+  priority?: Priority;
+}
+
+export interface CalendarData {
+  from: string;
+  to: string;
+  events: CalendarEvent[];
+}

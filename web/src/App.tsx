@@ -8,6 +8,7 @@ import { Clients } from './pages/Clients';
 import { ClientDetail } from './pages/ClientDetail';
 import { Subscriptions } from './pages/Subscriptions';
 import { Billing } from './pages/Billing';
+import { Calendar } from './pages/Calendar';
 import { WorkLogs } from './pages/WorkLogs';
 import { Tasks } from './pages/Tasks';
 import { Reports } from './pages/Reports';
@@ -34,6 +35,7 @@ export function App() {
         <Route path="/clienti/:id" element={<ClientDetail />} />
         <Route path="/abonamente" element={<Subscriptions />} />
         <Route path="/scadentar" element={<Billing />} />
+        <Route path="/calendar" element={<Calendar />} />
         <Route path="/interventii" element={<WorkLogs />} />
         <Route path="/taskuri" element={<Tasks />} />
         <Route path="/rapoarte" element={<Reports />} />

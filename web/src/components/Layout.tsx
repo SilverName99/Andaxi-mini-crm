@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  BarChart3, CalendarClock, Clock4, LayoutDashboard, ListChecks, LogOut, Menu, Repeat, Settings as SettingsIcon,
-  Users, X,
+  BarChart3, CalendarClock, CalendarDays, Clock4, LayoutDashboard, ListChecks, LogOut, Menu, Repeat,
+  Settings as SettingsIcon, Users, X,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useAuth } from '../lib/auth';
@@ -14,6 +14,7 @@ const NAV = [
   { to: '/clienti', label: 'Clienți', icon: Users },
   { to: '/abonamente', label: 'Abonamente', icon: Repeat },
   { to: '/scadentar', label: 'Scadențar', icon: CalendarClock },
+  { to: '/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/interventii', label: 'Ore & intervenții', icon: Clock4 },
   { to: '/taskuri', label: 'Task-uri', icon: ListChecks },
   { to: '/rapoarte', label: 'Rapoarte', icon: BarChart3 },

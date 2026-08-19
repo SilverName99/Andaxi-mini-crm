@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, qs } from './api';
 import type {
-  BillingItem, Client, Dashboard, ReportData, Settings, Subscription, Task, WorkLog,
+  BillingItem, CalendarData, Client, Dashboard, ReportData, Settings, Subscription, Task, WorkLog,
 } from './types';
 
 /* Cheile de cache; invalidam larg dupa mutatii, aplicatia are volum mic de date */
@@ -14,6 +14,7 @@ export const keys = {
   worklogs: (filters?: unknown) => ['worklogs', filters ?? {}] as const,
   tasks: (filters?: unknown) => ['tasks', filters ?? {}] as const,
   settings: ['settings'] as const,
+  calendar: (filters?: unknown) => ['calendar', filters ?? {}] as const,
   reports: (filters?: unknown) => ['reports', filters ?? {}] as const,
 };
 
@@ -55,6 +56,13 @@ export function useWorkLogs(filters: Record<string, string | undefined> = {}) {
 
 export function useTasks(filters: { done?: string; clientId?: string } = {}) {
   return useQuery({ queryKey: keys.tasks(filters), queryFn: () => api.get<Task[]>(`/tasks${qs(filters)}`) });
+}
+
+export function useCalendar(from: string, to: string) {
+  return useQuery({
+    queryKey: keys.calendar({ from, to }),
+    queryFn: () => api.get<CalendarData>(`/calendar${qs({ from, to })}`),
+  });
 }
 
 export function useSettings() {
