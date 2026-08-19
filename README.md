@@ -17,8 +17,8 @@ aici ții evidența a *ce* trebuie facturat, *când*, și marchezi ce ai emis de
 | **Scadențar** | Pozițiile de facturat, generate automat din abonamente; marchezi „facturat" / „încasat" și treci numărul facturii din ERP |
 | **Ore & intervenții** | Suport tehnic la oră, cu tarif calculat automat pe interval |
 | **Task-uri** | Lucruri de făcut, cu sau fără client asociat |
-| **Rapoarte** | Totaluri pe client și pe lună, cu export CSV |
-| **Setări** | Sigla firmei, tarife orare, prețuri pe utilizator (ERP/CRM), program de lucru, curs EUR/RON, date firmă, schimbare parolă |
+| **Rapoarte** | Totaluri pe client și pe lună, cu TVA calculat și export CSV |
+| **Setări** | Sigla firmei, tarife orare, prețuri pe utilizator (ERP/CRM), program de lucru, curs EUR/RON, cotă TVA, date firmă, schimbare parolă |
 
 ### Tarifele orare
 
@@ -49,6 +49,13 @@ Pentru fiecare abonament activ se generează automat câte o poziție per perioa
 de la prima scadență până la 60 de zile în viitor. Generarea e idempotentă (nu
 apar dublări), iar pozițiile deja marcate ca facturate nu se modifică.
 Sumele sunt în EUR, cu echivalentul în RON afișat la cursul din Setări.
+
+### TVA
+
+Toate prețurile din platformă (abonamente, tarife orare) sunt **fără TVA**.
+Cota se configurează în Setări (implicit 21%) și se aplică doar în rapoarte,
+unde apar alături totalul fără TVA, TVA-ul și totalul cu TVA — inclusiv în
+exportul CSV.
 
 ## Stack
 

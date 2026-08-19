@@ -46,6 +46,10 @@ model Settings {
   /// Curs EUR -> RON folosit pentru afisarea echivalentului in lei
   eurRon Float @default(5.08)
 
+  /// Cota de TVA (procent) aplicata peste preturi. Toate sumele din aplicatie
+  /// sunt fara TVA; cota se foloseste doar la afisarea totalurilor din rapoarte.
+  vatRate Float @default(21)
+
   /// Cu cate zile inainte de scadenta apare alerta "de facturat"
   billingLeadDays Int @default(7)
 

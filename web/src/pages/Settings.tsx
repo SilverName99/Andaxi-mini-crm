@@ -96,10 +96,13 @@ export function SettingsPage() {
         </Card>
 
         <Card>
-          <CardTitle title="Monedă și scadențe" subtitle="Echivalentul în lei și alertele de facturare" icon={<Coins className="h-5 w-5" />} />
+          <CardTitle title="Monedă, TVA și scadențe" subtitle="Echivalentul în lei, cota de TVA și alertele de facturare" icon={<Coins className="h-5 w-5" />} />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Curs EUR → RON" hint="Se folosește doar pentru afișarea echivalentului în lei">
               <Input type="number" min={0} step="0.0001" value={form.eurRon} onChange={(e) => set('eurRon', Number(e.target.value))} />
+            </Field>
+            <Field label="Cotă TVA (%)" hint="Prețurile din platformă sunt fără TVA; cota se aplică în rapoarte">
+              <Input type="number" min={0} max={100} step="0.5" value={form.vatRate} onChange={(e) => set('vatRate', Number(e.target.value))} />
             </Field>
             <Field label="Alertă cu câte zile înainte" hint="Câte zile înainte de scadență apare poziția ca urgentă">
               <Input type="number" min={0} max={90} value={form.billingLeadDays} onChange={(e) => set('billingLeadDays', Number(e.target.value))} />
@@ -109,8 +112,11 @@ export function SettingsPage() {
             <p className="font-semibold text-slate-700">Exemplu de calcul</p>
             <p className="mt-1">
               O intervenție de 3 ore, între {minutesToHhMm(form.standardEnd)} și {minutesToHhMm(((form.standardEnd + 180) % 1440))}:
-              {' '}<span className="font-bold text-slate-900">{(3 * form.offHoursRate).toFixed(0)} €</span>
-              {' '}({(3 * form.offHoursRate * form.eurRon).toFixed(0)} RON)
+              {' '}<span className="font-bold text-slate-900">{(3 * form.offHoursRate).toFixed(0)} €</span> fără TVA
+              {' '}({(3 * form.offHoursRate * form.eurRon).toFixed(0)} RON) · cu TVA{' '}
+              <span className="font-bold text-slate-900">
+                {(3 * form.offHoursRate * (1 + form.vatRate / 100)).toFixed(0)} €
+              </span>
             </p>
           </div>
         </Card>

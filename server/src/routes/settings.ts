@@ -17,6 +17,7 @@ const settingsSchema = z.object({
   standardEnd: z.coerce.number().int().min(0).max(1440).optional(),
   weekendOffHours: z.boolean().optional(),
   eurRon: z.coerce.number().positive().optional(),
+  vatRate: z.coerce.number().min(0).max(100).optional(),
   billingLeadDays: z.coerce.number().int().min(0).max(90).optional(),
 
   // preturi pe utilizator pentru ERP / CRM

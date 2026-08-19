@@ -140,6 +140,8 @@ dashboardRouter.get(
       prisma.client.findMany({ select: { id: true, name: true, company: true, color: true } }),
     ]);
 
+    const vat = (net: number) => round2((net * settings.vatRate) / 100);
+
     const rows = clients
       .map((c) => {
         const clientItems = items.filter((i) => i.clientId === c.id && i.status !== 'SKIPPED');
@@ -147,12 +149,15 @@ dashboardRouter.get(
         const minutes = clientLogs.reduce((s, l) => s + l.standardMinutes + l.offHoursMinutes, 0);
         const recurent = round2(clientItems.reduce((s, i) => s + i.amountEur, 0));
         const ore = round2(clientLogs.reduce((s, l) => s + l.amountEur, 0));
+        const total = round2(recurent + ore);
         return {
           ...c,
           recurent,
           ore,
           minutes,
-          total: round2(recurent + ore),
+          total,
+          tva: vat(total),
+          totalCuTva: round2(total + vat(total)),
           incasat: round2(
             clientItems.filter((i) => i.status === 'PAID').reduce((s, i) => s + i.amountEur, 0) +
               clientLogs.filter((l) => l.status === 'PAID').reduce((s, l) => s + l.amountEur, 0),
@@ -176,6 +181,9 @@ dashboardRouter.get(
       return { month, recurent: round2(recurent), ore: round2(ore), total: round2(recurent + ore) };
     });
 
+    const totalNet = round2(rows.reduce((s, r) => s + r.total, 0));
+    const deFacturatNet = round2(rows.reduce((s, r) => s + r.deFacturat, 0));
+
     const standardMinutes = logs.filter((l) => l.billable).reduce((s, l) => s + l.standardMinutes, 0);
     const offHoursMinutes = logs.filter((l) => l.billable).reduce((s, l) => s + l.offHoursMinutes, 0);
 
@@ -188,9 +196,13 @@ dashboardRouter.get(
       totals: {
         recurent: round2(rows.reduce((s, r) => s + r.recurent, 0)),
         ore: round2(rows.reduce((s, r) => s + r.ore, 0)),
-        total: round2(rows.reduce((s, r) => s + r.total, 0)),
+        total: totalNet,
+        // TVA-ul se calculeaza pe totalul general, nu ca suma rotunjirilor per client
+        tva: vat(totalNet),
+        totalCuTva: round2(totalNet + vat(totalNet)),
         incasat: round2(rows.reduce((s, r) => s + r.incasat, 0)),
-        deFacturat: round2(rows.reduce((s, r) => s + r.deFacturat, 0)),
+        deFacturat: deFacturatNet,
+        deFacturatCuTva: round2(deFacturatNet + vat(deFacturatNet)),
         standardMinutes,
         offHoursMinutes,
       },

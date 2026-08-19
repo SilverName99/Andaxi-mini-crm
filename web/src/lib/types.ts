@@ -29,6 +29,8 @@ export interface Settings {
   standardEnd: number;
   weekendOffHours: boolean;
   eurRon: number;
+  /** Cota de TVA (%) aplicată peste prețuri; toate sumele din aplicație sunt fără TVA */
+  vatRate: number;
   billingLeadDays: number;
   // preturi pe utilizator (ERP / CRM)
   erpTier1Max: number;
@@ -198,7 +200,10 @@ export interface ReportRow extends ClientRef {
   recurent: number;
   ore: number;
   minutes: number;
+  /** Fără TVA */
   total: number;
+  tva: number;
+  totalCuTva: number;
   incasat: number;
   deFacturat: number;
 }
@@ -212,9 +217,13 @@ export interface ReportData {
   totals: {
     recurent: number;
     ore: number;
+    /** Fără TVA */
     total: number;
+    tva: number;
+    totalCuTva: number;
     incasat: number;
     deFacturat: number;
+    deFacturatCuTva: number;
     standardMinutes: number;
     offHoursMinutes: number;
   };

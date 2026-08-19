@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { BarChart3, Clock4, Download, Moon, Repeat, Sun, Wallet } from 'lucide-react';
+import { BarChart3, Clock4, Download, Moon, Receipt, Repeat, Sun, Wallet } from 'lucide-react';
 import { useReports } from '../lib/queries';
 import { PageHeader } from '../components/Layout';
 import { DateField } from '../components/DateField';
@@ -27,18 +27,29 @@ export function Reports() {
 
   return (
     <div className="animate-fade-up">
-      <PageHeader title="Rapoarte" subtitle="Cât ai facturat și cât mai ai de facturat, pe client și pe lună">
+      <PageHeader
+        title="Rapoarte"
+        subtitle="Cât ai facturat și cât mai ai de facturat, pe client și pe lună · sumele sunt fără TVA"
+      >
         {data && (
           <Button
             variant="secondary"
             icon={<Download className="h-4 w-4" />}
             onClick={() =>
               downloadCsv(`raport-andaxi-${from}_${to}.csv`, [
-                ['Client', 'Recurent EUR', 'Ore EUR', 'Minute lucrate', 'Total EUR', 'Incasat EUR', 'De facturat EUR'],
+                [
+                  'Client', 'Recurent EUR', 'Ore EUR', 'Minute lucrate', 'Total fara TVA EUR',
+                  `TVA ${data.settings.vatRate}% EUR`, 'Total cu TVA EUR', 'Incasat EUR', 'De facturat EUR',
+                ],
                 ...data.rows.map((row) => [
-                  row.company || row.name, row.recurent, row.ore, row.minutes, row.total, row.incasat, row.deFacturat,
+                  row.company || row.name, row.recurent, row.ore, row.minutes, row.total,
+                  row.tva, row.totalCuTva, row.incasat, row.deFacturat,
                 ]),
-                ['TOTAL', data.totals.recurent, data.totals.ore, data.totals.standardMinutes + data.totals.offHoursMinutes, data.totals.total, data.totals.incasat, data.totals.deFacturat],
+                [
+                  'TOTAL', data.totals.recurent, data.totals.ore,
+                  data.totals.standardMinutes + data.totals.offHoursMinutes, data.totals.total,
+                  data.totals.tva, data.totals.totalCuTva, data.totals.incasat, data.totals.deFacturat,
+                ],
               ])
             }
           >
@@ -73,12 +84,19 @@ export function Reports() {
         <ErrorBlock message={error instanceof Error ? error.message : 'Eroare la încărcare'} />
       ) : (
         <>
-          <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
             <StatCard
-              label="Total perioadă"
+              label="Total fără TVA"
               value={formatEur(data.totals.total)}
               hint={formatRon(data.totals.total, data.settings.eurRon)}
               icon={<BarChart3 className="h-5 w-5" />}
+              tone="accent"
+            />
+            <StatCard
+              label={`Total cu TVA (${data.settings.vatRate}%)`}
+              value={formatEur(data.totals.totalCuTva)}
+              hint={`TVA ${formatEur(data.totals.tva)} · ${formatRon(data.totals.totalCuTva, data.settings.eurRon)}`}
+              icon={<Receipt className="h-5 w-5" />}
               tone="accent"
             />
             <StatCard
@@ -96,7 +114,7 @@ export function Reports() {
             <StatCard
               label="De facturat"
               value={formatEur(data.totals.deFacturat)}
-              hint={formatRon(data.totals.deFacturat, data.settings.eurRon)}
+              hint={`${formatEur(data.totals.deFacturatCuTva)} cu TVA`}
               icon={<Wallet className="h-5 w-5" />}
               tone={data.totals.deFacturat > 0 ? 'danger' : 'success'}
             />
@@ -149,14 +167,16 @@ export function Reports() {
           ) : (
             <Card className="overflow-hidden p-0">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-sm">
+                <table className="w-full min-w-[980px] text-sm">
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50/70 text-left text-xs uppercase tracking-wide text-slate-500">
                       <th className="px-4 py-3 font-semibold">Client</th>
                       <th className="px-4 py-3 text-right font-semibold">Recurent</th>
                       <th className="px-4 py-3 text-right font-semibold">Ore</th>
                       <th className="px-4 py-3 text-right font-semibold">Timp</th>
-                      <th className="px-4 py-3 text-right font-semibold">Total</th>
+                      <th className="px-4 py-3 text-right font-semibold">Total fără TVA</th>
+                      <th className="px-4 py-3 text-right font-semibold">TVA {data.settings.vatRate}%</th>
+                      <th className="px-4 py-3 text-right font-semibold">Total cu TVA</th>
                       <th className="px-4 py-3 text-right font-semibold">Încasat</th>
                       <th className="px-4 py-3 text-right font-semibold">De facturat</th>
                     </tr>
@@ -174,6 +194,8 @@ export function Reports() {
                         <td className="px-4 py-3 text-right text-slate-600">{formatEur(row.ore)}</td>
                         <td className="px-4 py-3 text-right text-slate-500">{formatMinutes(row.minutes)}</td>
                         <td className="px-4 py-3 text-right font-bold text-slate-900">{formatEur(row.total)}</td>
+                        <td className="px-4 py-3 text-right text-slate-500">{formatEur(row.tva)}</td>
+                        <td className="px-4 py-3 text-right font-bold text-indigo-600">{formatEur(row.totalCuTva)}</td>
                         <td className="px-4 py-3 text-right text-emerald-600">{formatEur(row.incasat)}</td>
                         <td className="px-4 py-3 text-right font-semibold text-violet-600">{formatEur(row.deFacturat)}</td>
                       </tr>
@@ -186,6 +208,8 @@ export function Reports() {
                       <td className="px-4 py-3 text-right">{formatEur(data.totals.ore)}</td>
                       <td className="px-4 py-3 text-right">{formatMinutes(data.totals.standardMinutes + data.totals.offHoursMinutes)}</td>
                       <td className="px-4 py-3 text-right">{formatEur(data.totals.total)}</td>
+                      <td className="px-4 py-3 text-right text-slate-600">{formatEur(data.totals.tva)}</td>
+                      <td className="px-4 py-3 text-right text-indigo-700">{formatEur(data.totals.totalCuTva)}</td>
                       <td className="px-4 py-3 text-right text-emerald-700">{formatEur(data.totals.incasat)}</td>
                       <td className="px-4 py-3 text-right text-violet-700">{formatEur(data.totals.deFacturat)}</td>
                     </tr>
