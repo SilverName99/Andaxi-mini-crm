@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, Building2, CalendarClock, Clock4, Globe, Mail, MapPin, Pencil, Phone, Plus, Repeat, StickyNote,
+  ArrowLeft, Building2, CalendarClock, Clock4, Globe, Mail, MapPin, Pencil, Phone, Plus, Repeat, StickyNote, Wallet,
 } from 'lucide-react';
 import { useClient, useSettings } from '../lib/queries';
-import { Avatar, Badge, Button, Card, CardTitle, ErrorBlock, LoadingBlock, Segmented } from '../components/ui';
+import { Avatar, Badge, Button, Card, CardTitle, ErrorBlock, LoadingBlock, Segmented, StatCard } from '../components/ui';
 import { ClientForm } from './Clients';
 import { SubscriptionForm } from './Subscriptions';
 import { WorkLogForm } from './WorkLogs';
@@ -42,12 +42,12 @@ export function ClientDetail() {
 
   return (
     <div className="animate-fade-up">
-      <Link to="/clienti" className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-stone-500 transition hover:text-orange-600">
+      <Link to="/clienti" className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition hover:text-indigo-600">
         <ArrowLeft className="h-4 w-4" /> Înapoi la clienți
       </Link>
 
       <Card className="mb-4 overflow-hidden p-0">
-        <div className="h-24 bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500" />
+        <div className="h-24 bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-500" />
         <div className="flex flex-col gap-4 px-6 pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-end gap-4">
             <div className="-mt-9">
@@ -55,10 +55,10 @@ export function ClientDetail() {
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-extrabold text-stone-900">{client.company || client.name}</h1>
+                <h1 className="text-2xl font-extrabold text-slate-900">{client.company || client.name}</h1>
                 <Badge className={CLIENT_STATUS[client.status].chip}>{CLIENT_STATUS[client.status].text}</Badge>
               </div>
-              {client.company && <p className="text-sm text-stone-500">{client.contact || client.name}</p>}
+              {client.company && <p className="text-sm text-slate-500">{client.contact || client.name}</p>}
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -70,18 +70,32 @@ export function ClientDetail() {
       </Card>
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[
-          { label: 'Recurent lunar', value: formatEur(mrr), sub: settings ? formatRon(mrr, settings.eurRon) : '', gradient: 'from-orange-500 to-amber-500' },
-          { label: 'Abonamente active', value: String(subscriptions.filter((s) => s.status === 'ACTIVE').length), sub: `${subscriptions.length} în total`, gradient: 'from-stone-700 to-stone-900' },
-          { label: 'Ore lucrate', value: formatMinutes(minutes), sub: `${workLogs.length} intervenții`, gradient: 'from-orange-600 to-amber-600' },
-          { label: 'De facturat', value: formatEur(unbilled), sub: 'abonamente + ore', gradient: 'from-amber-500 to-orange-600' },
-        ].map((stat) => (
-          <div key={stat.label} className={`rounded-3xl bg-gradient-to-br ${stat.gradient} p-4 text-white shadow-soft`}>
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/80">{stat.label}</p>
-            <p className="mt-2 text-xl font-extrabold">{stat.value}</p>
-            {stat.sub && <p className="text-[11px] text-white/70">{stat.sub}</p>}
-          </div>
-        ))}
+        <StatCard
+          label="Recurent lunar"
+          value={formatEur(mrr)}
+          hint={settings && formatRon(mrr, settings.eurRon)}
+          icon={<Repeat className="h-5 w-5" />}
+          tone="accent"
+        />
+        <StatCard
+          label="Abonamente active"
+          value={String(subscriptions.filter((s) => s.status === 'ACTIVE').length)}
+          hint={`${subscriptions.length} în total`}
+          icon={<CalendarClock className="h-5 w-5" />}
+        />
+        <StatCard
+          label="Ore lucrate"
+          value={formatMinutes(minutes)}
+          hint={`${workLogs.length} intervenții`}
+          icon={<Clock4 className="h-5 w-5" />}
+        />
+        <StatCard
+          label="De facturat"
+          value={formatEur(unbilled)}
+          hint="abonamente + ore"
+          icon={<Wallet className="h-5 w-5" />}
+          tone={unbilled > 0 ? 'danger' : 'success'}
+        />
       </div>
 
       <div className="mb-4">
@@ -100,9 +114,9 @@ export function ClientDetail() {
       {tab === 'abonamente' && (
         <div className="flex flex-col gap-3">
           {subscriptions.length === 0 ? (
-            <Card className="py-10 text-center text-sm text-stone-400">
+            <Card className="py-10 text-center text-sm text-slate-400">
               Niciun abonament.{' '}
-              <button onClick={() => setAddingSub(true)} className="font-semibold text-orange-600 hover:underline">
+              <button onClick={() => setAddingSub(true)} className="font-semibold text-indigo-600 hover:underline">
                 Adaugă unul
               </button>
             </Card>
@@ -111,7 +125,7 @@ export function ClientDetail() {
               <Card key={sub.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-bold text-stone-800">{sub.label}</p>
+                    <p className="font-bold text-slate-800">{sub.label}</p>
                     <Badge className={SUBSCRIPTION_STATUS[sub.status].chip}>{SUBSCRIPTION_STATUS[sub.status].text}</Badge>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
@@ -119,11 +133,11 @@ export function ClientDetail() {
                     <Badge className={PRODUCT[sub.product].chip}>{PRODUCT[sub.product].text}</Badge>
                     <Badge className={CYCLE[sub.cycle].chip}>{CYCLE[sub.cycle].text}</Badge>
                   </div>
-                  {sub.notes && <p className="mt-2 text-xs text-stone-500">{sub.notes}</p>}
+                  {sub.notes && <p className="mt-2 text-xs text-slate-500">{sub.notes}</p>}
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-extrabold text-stone-900">{formatEur(sub.amountEur)}</p>
-                  <p className="flex items-center justify-end gap-1 text-xs text-stone-400">
+                  <p className="text-lg font-extrabold text-slate-900">{formatEur(sub.amountEur)}</p>
+                  <p className="flex items-center justify-end gap-1 text-xs text-slate-400">
                     <CalendarClock className="h-3.5 w-3.5" /> {formatDate(sub.nextDueDate)}
                   </p>
                 </div>
@@ -136,9 +150,9 @@ export function ClientDetail() {
       {tab === 'ore' && (
         <div className="flex flex-col gap-2">
           {workLogs.length === 0 ? (
-            <Card className="py-10 text-center text-sm text-stone-400">
+            <Card className="py-10 text-center text-sm text-slate-400">
               Nicio intervenție înregistrată.{' '}
-              <button onClick={() => setAddingLog(true)} className="font-semibold text-orange-600 hover:underline">
+              <button onClick={() => setAddingLog(true)} className="font-semibold text-indigo-600 hover:underline">
                 Adaugă una
               </button>
             </Card>
@@ -147,16 +161,16 @@ export function ClientDetail() {
               <Card key={log.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-bold text-stone-800">{formatDate(log.date)}</span>
-                    <span className="text-xs text-stone-400">{minutesToHhMm(log.startMinutes)}–{minutesToHhMm(log.endMinutes)}</span>
+                    <span className="text-sm font-bold text-slate-800">{formatDate(log.date)}</span>
+                    <span className="text-xs text-slate-400">{minutesToHhMm(log.startMinutes)}–{minutesToHhMm(log.endMinutes)}</span>
                     <Badge className={WORK_CATEGORY[log.category].chip}>{WORK_CATEGORY[log.category].text}</Badge>
                     <Badge className={WORK_STATUS[log.status].chip}>{WORK_STATUS[log.status].text}</Badge>
                   </div>
-                  <p className="mt-1 text-sm text-stone-600">{log.description || '—'}</p>
+                  <p className="mt-1 text-sm text-slate-600">{log.description || '—'}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-extrabold text-stone-900">{formatEur(log.amountEur)}</p>
-                  <p className="text-xs text-stone-400">{formatMinutes(log.standardMinutes + log.offHoursMinutes)}</p>
+                  <p className="font-extrabold text-slate-900">{formatEur(log.amountEur)}</p>
+                  <p className="text-xs text-slate-400">{formatMinutes(log.standardMinutes + log.offHoursMinutes)}</p>
                 </div>
               </Card>
             ))
@@ -167,12 +181,12 @@ export function ClientDetail() {
       {tab === 'scadentar' && (
         <Card className="overflow-hidden p-0">
           {billingItems.length === 0 ? (
-            <p className="py-10 text-center text-sm text-stone-400">Nicio poziție generată încă.</p>
+            <p className="py-10 text-center text-sm text-slate-400">Nicio poziție generată încă.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[620px] text-sm">
                 <thead>
-                  <tr className="border-b border-stone-100 bg-stone-50/70 text-left text-xs uppercase tracking-wide text-stone-500">
+                  <tr className="border-b border-slate-100 bg-slate-50/70 text-left text-xs uppercase tracking-wide text-slate-500">
                     <th className="px-4 py-3 font-semibold">Serviciu</th>
                     <th className="px-4 py-3 font-semibold">Perioadă</th>
                     <th className="px-4 py-3 font-semibold">Scadență</th>
@@ -180,13 +194,13 @@ export function ClientDetail() {
                     <th className="px-4 py-3 font-semibold">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-100">
+                <tbody className="divide-y divide-slate-100">
                   {billingItems.map((item) => (
-                    <tr key={item.id} className="hover:bg-stone-50/70">
-                      <td className="px-4 py-3 font-medium text-stone-700">{item.subscription?.label}</td>
-                      <td className="px-4 py-3 text-xs text-stone-500">{formatDate(item.periodStart)} – {formatDate(item.periodEnd)}</td>
-                      <td className="px-4 py-3 text-stone-600">{formatDate(item.dueDate)}</td>
-                      <td className="px-4 py-3 text-right font-bold text-stone-900">{formatEur(item.amountEur)}</td>
+                    <tr key={item.id} className="hover:bg-slate-50/70">
+                      <td className="px-4 py-3 font-medium text-slate-700">{item.subscription?.label}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">{formatDate(item.periodStart)} – {formatDate(item.periodEnd)}</td>
+                      <td className="px-4 py-3 text-slate-600">{formatDate(item.dueDate)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-900">{formatEur(item.amountEur)}</td>
                       <td className="px-4 py-3">
                         <Badge className={BILLING_STATUS[item.status].chip}>{BILLING_STATUS[item.status].text}</Badge>
                       </td>
@@ -215,12 +229,12 @@ export function ClientDetail() {
                 .filter((row) => row.value)
                 .map((row) => (
                   <div key={row.label} className="flex items-start gap-3">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-stone-100 text-stone-500">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-500">
                       <row.icon className="h-4 w-4" />
                     </span>
                     <div>
-                      <dt className="text-xs font-semibold uppercase tracking-wide text-stone-400">{row.label}</dt>
-                      <dd className="text-stone-700">{row.value}</dd>
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">{row.label}</dt>
+                      <dd className="text-slate-700">{row.value}</dd>
                     </div>
                   </div>
                 ))}
@@ -229,7 +243,7 @@ export function ClientDetail() {
 
           <Card>
             <CardTitle title="Notițe" icon={<StickyNote className="h-5 w-5" />} />
-            <p className="whitespace-pre-wrap text-sm text-stone-600">{client.notes || 'Fără notițe.'}</p>
+            <p className="whitespace-pre-wrap text-sm text-slate-600">{client.notes || 'Fără notițe.'}</p>
           </Card>
 
           {(client.tasks?.length ?? 0) > 0 && (
@@ -238,8 +252,8 @@ export function ClientDetail() {
               <ul className="flex flex-col gap-2">
                 {client.tasks!.map((task) => (
                   <li key={task.id} className="flex items-center justify-between gap-3 text-sm">
-                    <span className={task.done ? 'text-stone-400 line-through' : 'text-stone-700'}>{task.title}</span>
-                    <span className="text-xs text-stone-400">{task.dueDate ? formatDate(task.dueDate) : '—'}</span>
+                    <span className={task.done ? 'text-slate-400 line-through' : 'text-slate-700'}>{task.title}</span>
+                    <span className="text-xs text-slate-400">{task.dueDate ? formatDate(task.dueDate) : '—'}</span>
                   </li>
                 ))}
               </ul>

@@ -68,13 +68,13 @@ export function SettingsPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Tarif program normal (EUR/h)">
               <div className="relative">
-                <Sun className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-orange-500" />
+                <Sun className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-indigo-500" />
                 <Input type="number" min={0} step="0.5" className="pl-10" value={form.standardRate} onChange={(e) => set('standardRate', Number(e.target.value))} />
               </div>
             </Field>
             <Field label="Tarif în afara programului (EUR/h)">
               <div className="relative">
-                <Moon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
+                <Moon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                 <Input type="number" min={0} step="0.5" className="pl-10" value={form.offHoursRate} onChange={(e) => set('offHoursRate', Number(e.target.value))} />
               </div>
             </Field>
@@ -105,11 +105,11 @@ export function SettingsPage() {
               <Input type="number" min={0} max={90} value={form.billingLeadDays} onChange={(e) => set('billingLeadDays', Number(e.target.value))} />
             </Field>
           </div>
-          <div className="mt-4 rounded-2xl bg-stone-50 p-4 text-sm text-stone-600">
-            <p className="font-semibold text-stone-700">Exemplu de calcul</p>
+          <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
+            <p className="font-semibold text-slate-700">Exemplu de calcul</p>
             <p className="mt-1">
               O intervenție de 3 ore, între {minutesToHhMm(form.standardEnd)} și {minutesToHhMm(((form.standardEnd + 180) % 1440))}:
-              {' '}<span className="font-bold text-stone-900">{(3 * form.offHoursRate).toFixed(0)} €</span>
+              {' '}<span className="font-bold text-slate-900">{(3 * form.offHoursRate).toFixed(0)} €</span>
               {' '}({(3 * form.offHoursRate * form.eurRon).toFixed(0)} RON)
             </p>
           </div>
@@ -135,11 +135,11 @@ export function SettingsPage() {
             </Field>
           </div>
 
-          <div className="mt-4 rounded-2xl bg-stone-50 p-4 text-sm text-stone-600">
-            <p className="font-semibold text-stone-700">Exemplu</p>
+          <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
+            <p className="font-semibold text-slate-700">Exemplu</p>
             <p className="mt-1">
               5 utilizatori ERP, plată anuală: 5 × {form.erpTier1Price} € × 12 luni − {form.discountAnnual}% ={' '}
-              <span className="font-bold text-stone-900">
+              <span className="font-bold text-slate-900">
                 {(5 * form.erpTier1Price * 12 * (1 - form.discountAnnual / 100)).toFixed(0)} €
               </span>
             </p>
@@ -191,8 +191,8 @@ function TierEditor({
   const numar = (key: keyof Settings) => Number(form[key]);
 
   return (
-    <div className="rounded-2xl border border-stone-200 p-4">
-      <p className="mb-3 text-sm font-bold text-stone-800">{titlu}</p>
+    <div className="rounded-2xl border border-slate-200 p-4">
+      <p className="mb-3 text-sm font-bold text-slate-800">{titlu}</p>
       <div className="flex flex-col gap-3">
         <div className="grid grid-cols-[1fr,auto] items-end gap-3">
           <Field label={`1 – ${numar(max1)} utilizatori`}>

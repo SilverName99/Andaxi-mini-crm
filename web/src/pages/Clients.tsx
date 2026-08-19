@@ -172,7 +172,7 @@ export function Clients() {
 
       <Card className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -212,16 +212,16 @@ export function Clients() {
                   <Link to={`/clienti/${client.id}`} className="flex min-w-0 items-center gap-3">
                     <Avatar name={client.company || client.name} color={client.color as AccentColor} />
                     <div className="min-w-0">
-                      <p className="truncate font-bold text-stone-900 group-hover:text-orange-700">
+                      <p className="truncate font-bold text-slate-900 group-hover:text-indigo-700">
                         {client.company || client.name}
                       </p>
-                      {client.company && <p className="truncate text-xs text-stone-500">{client.name}</p>}
+                      {client.company && <p className="truncate text-xs text-slate-500">{client.name}</p>}
                     </div>
                   </Link>
                   <Badge className={CLIENT_STATUS[client.status].chip}>{CLIENT_STATUS[client.status].text}</Badge>
                 </div>
 
-                <div className="mt-4 flex flex-col gap-1.5 text-xs text-stone-500">
+                <div className="mt-4 flex flex-col gap-1.5 text-xs text-slate-500">
                   {client.email && (
                     <span className="flex items-center gap-2 truncate"><Mail className="h-3.5 w-3.5 shrink-0" /> {client.email}</span>
                   )}
@@ -240,22 +240,22 @@ export function Clients() {
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center justify-between border-t border-stone-100 pt-3">
+              <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
                 <div>
-                  <p className="text-xs text-stone-400">Recurent lunar</p>
-                  <p className="text-sm font-extrabold text-stone-900">{formatEur(monthlyValue(client))}</p>
+                  <p className="text-xs text-slate-400">Recurent lunar</p>
+                  <p className="text-sm font-extrabold text-slate-900">{formatEur(monthlyValue(client))}</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setEditing(client)}
-                    className="rounded-xl p-2 text-stone-400 transition hover:bg-orange-50 hover:text-orange-600"
+                    className="rounded-xl p-2 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600"
                     aria-label="Editează"
                   >
                     <Pencil className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => setDeleting(client)}
-                    className="rounded-xl p-2 text-stone-400 transition hover:bg-red-50 hover:text-red-600"
+                    className="rounded-xl p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
                     aria-label="Șterge"
                   >
                     <Trash2 className="h-4 w-4" />

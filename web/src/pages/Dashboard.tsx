@@ -3,54 +3,16 @@ import {
   Area, AreaChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import {
-  AlertTriangle, ArrowUpRight, CalendarClock, Clock4, ListChecks, Repeat, TrendingUp, Users, Wallet,
+  AlertTriangle, CalendarClock, Clock4, ListChecks, Repeat, TrendingUp, Users, Wallet,
 } from 'lucide-react';
 import { useDashboard } from '../lib/queries';
 import { PageHeader } from '../components/Layout';
-import { Badge, Card, CardTitle, EmptyState, ErrorBlock, LoadingBlock } from '../components/ui';
+import { Badge, Card, CardTitle, EmptyState, ErrorBlock, LoadingBlock, StatCard } from '../components/ui';
 import { formatDate, formatEur, formatMinutes, formatMonth, formatRon } from '../lib/format';
 import { BILLING_STATUS, PRIORITY, PRODUCT } from '../lib/labels';
 import { cn } from '../lib/cn';
 
-const PIE_COLORS = ['#ea580c', '#f97316', '#fb923c', '#f59e0b', '#fcd34d', '#a8a29e'];
-
-function StatCard({
-  label, value, hint, icon: Icon, gradient, to,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  icon: typeof Users;
-  gradient: string;
-  to?: string;
-}) {
-  const content = (
-    <div
-      className={cn(
-        'group relative overflow-hidden rounded-3xl bg-gradient-to-br p-5 text-white shadow-soft transition',
-        gradient,
-        to && 'hover:-translate-y-0.5 hover:brightness-105',
-      )}
-    >
-      <div className="absolute -right-6 -top-8 h-28 w-28 rounded-full bg-white/15" />
-      <div className="absolute -bottom-10 -left-4 h-24 w-24 rounded-full bg-white/10" />
-      <div className="relative flex items-start justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-white/80">{label}</p>
-          <p className="mt-2 text-2xl font-extrabold leading-none">{value}</p>
-          {hint && <p className="mt-2 text-xs font-medium text-white/80">{hint}</p>}
-        </div>
-        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/20 backdrop-blur">
-          <Icon className="h-5 w-5" strokeWidth={2.3} />
-        </span>
-      </div>
-      {to && (
-        <ArrowUpRight className="absolute bottom-4 right-4 h-4 w-4 opacity-0 transition group-hover:opacity-100" />
-      )}
-    </div>
-  );
-  return to ? <Link to={to}>{content}</Link> : content;
-}
+const PIE_COLORS = ['#4f46e5', '#6366f1', '#818cf8', '#8b5cf6', '#c4b5fd', '#94a3b8'];
 
 export function Dashboard() {
   const { data, isLoading, error } = useDashboard();
@@ -74,32 +36,30 @@ export function Dashboard() {
           label="Venit recurent lunar"
           value={formatEur(kpis.mrr)}
           hint={`${formatRon(kpis.mrr, settings.eurRon)} · ${formatEur(kpis.arr)}/an`}
-          icon={TrendingUp}
-          gradient="from-orange-500 to-amber-500"
+          icon={<TrendingUp className="h-5 w-5" strokeWidth={2.3} />}
+          tone="accent"
           to="/abonamente"
         />
         <StatCard
           label="De facturat"
           value={formatEur(kpis.pendingAmount)}
           hint={`${kpis.pendingCount} poziții în scadențar`}
-          icon={CalendarClock}
-          gradient="from-amber-500 to-orange-600"
+          icon={<CalendarClock className="h-5 w-5" strokeWidth={2.3} />}
+          tone={kpis.overdueCount > 0 ? 'danger' : 'neutral'}
           to="/scadentar"
         />
         <StatCard
           label="Ore nefacturate"
           value={formatEur(kpis.unbilledHoursAmount)}
           hint={`${formatMinutes(kpis.unbilledHoursMinutes)} de lucru`}
-          icon={Clock4}
-          gradient="from-orange-600 to-amber-600"
+          icon={<Clock4 className="h-5 w-5" strokeWidth={2.3} />}
           to="/interventii"
         />
         <StatCard
           label="Clienți activi"
           value={String(kpis.clientsActive)}
           hint={`${kpis.subscriptionsActive} abonamente active · ${kpis.clientsTotal} clienți total`}
-          icon={Users}
-          gradient="from-stone-700 to-stone-900"
+          icon={<Users className="h-5 w-5" strokeWidth={2.3} />}
           to="/clienti"
         />
       </div>
@@ -133,27 +93,27 @@ export function Dashboard() {
               <AreaChart data={chartData} margin={{ top: 5, right: 8, left: -18, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gradRecurent" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#f97316" stopOpacity={0.75} />
-                    <stop offset="100%" stopColor="#f97316" stopOpacity={0.05} />
+                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.75} />
+                    <stop offset="100%" stopColor="#6366f1" stopOpacity={0.05} />
                   </linearGradient>
                   <linearGradient id="gradOre" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#78716c" stopOpacity={0.7} />
-                    <stop offset="100%" stopColor="#78716c" stopOpacity={0.05} />
+                    <stop offset="0%" stopColor="#94a3b8" stopOpacity={0.7} />
+                    <stop offset="100%" stopColor="#94a3b8" stopOpacity={0.05} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="4 4" stroke="#e7e5e4" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#a8a29e' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: '#a8a29e' }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="4 4" stroke="#e2e8f0" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                 <Tooltip
                   formatter={(value: number, name) => [formatEur(value), name === 'recurent' ? 'Recurent' : 'Ore']}
-                  contentStyle={{ borderRadius: 16, border: '1px solid #e7e5e4', fontSize: 13 }}
+                  contentStyle={{ borderRadius: 16, border: '1px solid #e2e8f0', fontSize: 13 }}
                 />
                 <Legend
                   formatter={(value) => (value === 'recurent' ? 'Recurent' : 'Ore intervenție')}
                   wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
                 />
-                <Area type="monotone" dataKey="recurent" stroke="#f97316" strokeWidth={2.5} fill="url(#gradRecurent)" />
-                <Area type="monotone" dataKey="ore" stroke="#78716c" strokeWidth={2.5} fill="url(#gradOre)" />
+                <Area type="monotone" dataKey="recurent" stroke="#6366f1" strokeWidth={2.5} fill="url(#gradRecurent)" />
+                <Area type="monotone" dataKey="ore" stroke="#94a3b8" strokeWidth={2.5} fill="url(#gradOre)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -174,7 +134,7 @@ export function Dashboard() {
                   </Pie>
                   <Tooltip
                     formatter={(value: number) => `${formatEur(value)}/lună`}
-                    contentStyle={{ borderRadius: 16, border: '1px solid #e7e5e4', fontSize: 13 }}
+                    contentStyle={{ borderRadius: 16, border: '1px solid #e2e8f0', fontSize: 13 }}
                   />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                 </PieChart>
@@ -191,7 +151,7 @@ export function Dashboard() {
             subtitle="Ce urmează de facturat în 30 de zile"
             icon={<CalendarClock className="h-5 w-5" />}
             action={
-              <Link to="/scadentar" className="text-xs font-semibold text-orange-600 hover:underline">
+              <Link to="/scadentar" className="text-xs font-semibold text-indigo-600 hover:underline">
                 Vezi scadențarul
               </Link>
             }
@@ -199,21 +159,21 @@ export function Dashboard() {
           {data.upcoming.length === 0 && data.overdue.length === 0 ? (
             <EmptyState icon={<CalendarClock className="h-6 w-6" />} title="Nimic de facturat" message="Nu ai poziții scadente în perioada următoare." />
           ) : (
-            <ul className="flex flex-col divide-y divide-stone-100">
+            <ul className="flex flex-col divide-y divide-slate-100">
               {[...data.overdue, ...data.upcoming].slice(0, 8).map((item) => {
                 const late = item.dueDate < data.today;
                 return (
                   <li key={item.id} className="flex items-center justify-between gap-3 py-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-stone-800">
+                      <p className="truncate text-sm font-semibold text-slate-800">
                         {item.client?.company || item.client?.name}
                       </p>
-                      <p className="truncate text-xs text-stone-500">{item.subscription?.label}</p>
+                      <p className="truncate text-xs text-slate-500">{item.subscription?.label}</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
                       <div className="text-right">
-                        <p className="text-sm font-bold text-stone-900">{formatEur(item.amountEur)}</p>
-                        <p className={cn('text-xs font-medium', late ? 'text-red-600' : 'text-stone-500')}>
+                        <p className="text-sm font-bold text-slate-900">{formatEur(item.amountEur)}</p>
+                        <p className={cn('text-xs font-medium', late ? 'text-red-600' : 'text-slate-500')}>
                           {formatDate(item.dueDate)}
                         </p>
                       </div>
@@ -232,20 +192,20 @@ export function Dashboard() {
           <Card>
             <CardTitle title="Top clienți" subtitle="Recurent lunar + ore (6 luni)" icon={<Wallet className="h-5 w-5" />} />
             {data.topClients.length === 0 ? (
-              <p className="py-6 text-center text-sm text-stone-400">Încă niciun client cu activitate.</p>
+              <p className="py-6 text-center text-sm text-slate-400">Încă niciun client cu activitate.</p>
             ) : (
               <ul className="flex flex-col gap-3">
                 {data.topClients.map((client) => (
                   <li key={client.id}>
                     <Link to={`/clienti/${client.id}`} className="flex items-center justify-between gap-3 group">
-                      <span className="min-w-0 truncate text-sm font-semibold text-stone-700 group-hover:text-orange-700">
+                      <span className="min-w-0 truncate text-sm font-semibold text-slate-700 group-hover:text-indigo-700">
                         {client.company || client.name}
                       </span>
-                      <span className="shrink-0 text-sm font-bold text-stone-900">{formatEur(client.total)}</span>
+                      <span className="shrink-0 text-sm font-bold text-slate-900">{formatEur(client.total)}</span>
                     </Link>
-                    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
+                    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-500"
+                        className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500"
                         style={{ width: `${Math.max(6, (client.total / data.topClients[0].total) * 100)}%` }}
                       />
                     </div>
@@ -260,20 +220,20 @@ export function Dashboard() {
               title="Task-uri deschise"
               icon={<ListChecks className="h-5 w-5" />}
               action={
-                <Link to="/taskuri" className="text-xs font-semibold text-orange-600 hover:underline">
+                <Link to="/taskuri" className="text-xs font-semibold text-indigo-600 hover:underline">
                   Toate
                 </Link>
               }
             />
             {data.tasks.length === 0 ? (
-              <p className="py-6 text-center text-sm text-stone-400">Nimic în așteptare. 🎉</p>
+              <p className="py-6 text-center text-sm text-slate-400">Nimic în așteptare. 🎉</p>
             ) : (
               <ul className="flex flex-col gap-2.5">
                 {data.tasks.map((task) => (
                   <li key={task.id} className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-stone-700">{task.title}</p>
-                      <p className="text-xs text-stone-400">
+                      <p className="truncate text-sm font-medium text-slate-700">{task.title}</p>
+                      <p className="text-xs text-slate-400">
                         {task.client?.name ? `${task.client.name} · ` : ''}
                         {task.dueDate ? formatDate(task.dueDate) : 'fără termen'}
                       </p>

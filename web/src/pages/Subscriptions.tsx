@@ -123,7 +123,7 @@ export function SubscriptionForm({
         {perUser ? (
           <Field label="Număr utilizatori *" hint="Prețul se calculează automat din tarifele din Setări">
             <div className="relative">
-              <Users className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-orange-500" />
+              <Users className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-indigo-500" />
               <Input
                 type="number"
                 min={1}
@@ -163,18 +163,18 @@ export function SubscriptionForm({
       </div>
 
       {perUser && price && (
-        <div className="mt-4 rounded-3xl bg-gradient-to-br from-orange-500 to-amber-500 p-5 text-white">
+        <div className="mt-4 rounded-3xl border border-indigo-200 bg-indigo-50 p-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-white/80">Total pe ciclu</p>
-              <p className="text-2xl font-extrabold">{formatEur(price.amountEur)}</p>
-              <p className="text-xs text-white/80">{formatEur(price.monthlyEur)} / lună</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-400">Total pe ciclu</p>
+              <p className="text-2xl font-extrabold text-indigo-700">{formatEur(price.amountEur)}</p>
+              <p className="text-xs text-slate-500">{formatEur(price.monthlyEur)} / lună</p>
             </div>
-            <div className="flex flex-col gap-1.5 text-xs">
-              <span className="rounded-xl bg-white/15 px-3 py-1.5">
+            <div className="flex flex-col gap-1.5 text-xs font-medium text-slate-600">
+              <span className="rounded-xl bg-white px-3 py-1.5">
                 {price.users} utilizatori × {formatEur(price.pricePerUser)} / lună
               </span>
-              <span className="rounded-xl bg-white/15 px-3 py-1.5">
+              <span className="rounded-xl bg-white px-3 py-1.5">
                 {price.months} {price.months === 1 ? 'lună' : 'luni'}
                 {price.discountPercent > 0 && ` · reducere ${price.discountPercent}% (din ${formatEur(price.fullEur)})`}
               </span>
@@ -290,8 +290,8 @@ export function Subscriptions() {
                   <Link to={`/clienti/${sub.clientId}`} className="flex min-w-0 items-center gap-3">
                     <Avatar name={sub.client?.company || sub.client?.name || '?'} color={(sub.client?.color ?? 'violet') as AccentColor} size="sm" />
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-stone-900">{sub.label}</p>
-                      <p className="truncate text-xs text-stone-500">{sub.client?.company || sub.client?.name}</p>
+                      <p className="truncate text-sm font-bold text-slate-900">{sub.label}</p>
+                      <p className="truncate text-xs text-slate-500">{sub.client?.company || sub.client?.name}</p>
                     </div>
                   </Link>
                   <Badge className={SUBSCRIPTION_STATUS[sub.status].chip}>{SUBSCRIPTION_STATUS[sub.status].text}</Badge>
@@ -302,32 +302,32 @@ export function Subscriptions() {
                   <Badge className={PRODUCT[sub.product].chip}>{PRODUCT[sub.product].text}</Badge>
                   <Badge className={CYCLE[sub.cycle].chip}>{CYCLE[sub.cycle].text}</Badge>
                   {sub.users ? (
-                    <Badge className="bg-orange-100 text-orange-700" >
+                    <Badge className="bg-indigo-100 text-indigo-700" >
                       {sub.users} utilizatori
                     </Badge>
                   ) : null}
                 </div>
 
-                <div className="mt-4 flex items-end justify-between rounded-2xl bg-stone-50 px-4 py-3">
+                <div className="mt-4 flex items-end justify-between rounded-2xl bg-slate-50 px-4 py-3">
                   <div>
-                    <p className="text-xs text-stone-400">Valoare</p>
-                    <p className="text-lg font-extrabold text-stone-900">{formatEur(sub.amountEur)}</p>
-                    <p className="text-[11px] text-stone-400">{formatEur(sub.amountEur / CYCLE[sub.cycle].months)}/lună</p>
+                    <p className="text-xs text-slate-400">Valoare</p>
+                    <p className="text-lg font-extrabold text-slate-900">{formatEur(sub.amountEur)}</p>
+                    <p className="text-[11px] text-slate-400">{formatEur(sub.amountEur / CYCLE[sub.cycle].months)}/lună</p>
                   </div>
                   <div className="text-right">
-                    <p className="flex items-center justify-end gap-1 text-xs text-stone-400">
+                    <p className="flex items-center justify-end gap-1 text-xs text-slate-400">
                       <CalendarClock className="h-3.5 w-3.5" /> Următoarea
                     </p>
-                    <p className="text-sm font-bold text-stone-700">{formatDate(sub.nextDueDate)}</p>
+                    <p className="text-sm font-bold text-slate-700">{formatDate(sub.nextDueDate)}</p>
                   </div>
                 </div>
-                {sub.notes && <p className="mt-3 line-clamp-2 text-xs text-stone-500">{sub.notes}</p>}
+                {sub.notes && <p className="mt-3 line-clamp-2 text-xs text-slate-500">{sub.notes}</p>}
               </div>
 
-              <div className="mt-4 flex items-center justify-between border-t border-stone-100 pt-3 text-xs text-stone-400">
+              <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-400">
                 <span>Din {formatDate(sub.startDate)}{sub.endDate ? ` până în ${formatDate(sub.endDate)}` : ''}</span>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => setEditing(sub)} className="rounded-xl p-2 transition hover:bg-orange-50 hover:text-orange-600" aria-label="Editează">
+                  <button onClick={() => setEditing(sub)} className="rounded-xl p-2 transition hover:bg-indigo-50 hover:text-indigo-600" aria-label="Editează">
                     <Pencil className="h-4 w-4" />
                   </button>
                   <button onClick={() => setDeleting(sub)} className="rounded-xl p-2 transition hover:bg-red-50 hover:text-red-600" aria-label="Șterge">

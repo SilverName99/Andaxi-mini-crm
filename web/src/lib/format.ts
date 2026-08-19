@@ -77,21 +77,21 @@ export function initials(name: string): string {
 }
 
 /**
- * Paleta de accent a clientilor — toate nuantele sunt din familia calda
- * (portocaliu/chihlimbar/teracota), ca interfata sa ramana unitara.
+ * Paleta de accent a clientilor — nuante reci, din aceeasi familie cu interfata
+ * (indigo/violet/albastru), ca fisele sa se distinga fara sa strige.
  * Cheile sunt identificatorii salvati in baza de date; le pastram neschimbate
  * ca fisele existente sa nu-si piarda culoarea. Clasele sunt scrise complet,
  * altfel Tailwind le-ar elimina la build.
  */
 export const ACCENT: Record<AccentColor, { chip: string; gradient: string; ring: string; dot: string }> = {
-  violet:  { chip: 'bg-orange-100 text-orange-700', gradient: 'from-orange-500 to-amber-500',  ring: 'ring-orange-200', dot: 'bg-orange-500' },
-  blue:    { chip: 'bg-amber-100 text-amber-700',   gradient: 'from-amber-500 to-yellow-500',  ring: 'ring-amber-200',  dot: 'bg-amber-500' },
-  emerald: { chip: 'bg-orange-100 text-orange-800', gradient: 'from-orange-600 to-red-500',    ring: 'ring-orange-200', dot: 'bg-orange-600' },
-  amber:   { chip: 'bg-amber-100 text-amber-800',   gradient: 'from-amber-400 to-orange-400',  ring: 'ring-amber-200',  dot: 'bg-amber-400' },
-  rose:    { chip: 'bg-red-100 text-red-700',       gradient: 'from-red-500 to-orange-500',    ring: 'ring-red-200',    dot: 'bg-red-500' },
-  cyan:    { chip: 'bg-yellow-100 text-yellow-800', gradient: 'from-yellow-500 to-amber-500',  ring: 'ring-yellow-200', dot: 'bg-yellow-500' },
-  fuchsia: { chip: 'bg-orange-200 text-orange-900', gradient: 'from-orange-700 to-amber-600',  ring: 'ring-orange-300', dot: 'bg-orange-700' },
-  lime:    { chip: 'bg-stone-200 text-stone-700',   gradient: 'from-stone-500 to-stone-700',   ring: 'ring-stone-300',  dot: 'bg-stone-500' },
+  violet:  { chip: 'bg-indigo-100 text-indigo-700',   gradient: 'from-indigo-500 to-violet-500',  ring: 'ring-indigo-200',  dot: 'bg-indigo-500' },
+  blue:    { chip: 'bg-blue-100 text-blue-700',       gradient: 'from-blue-500 to-indigo-500',    ring: 'ring-blue-200',    dot: 'bg-blue-500' },
+  emerald: { chip: 'bg-sky-100 text-sky-700',         gradient: 'from-sky-500 to-blue-500',       ring: 'ring-sky-200',     dot: 'bg-sky-500' },
+  amber:   { chip: 'bg-violet-100 text-violet-700',   gradient: 'from-violet-500 to-purple-500',  ring: 'ring-violet-200',  dot: 'bg-violet-500' },
+  rose:    { chip: 'bg-fuchsia-100 text-fuchsia-700', gradient: 'from-fuchsia-500 to-pink-500',   ring: 'ring-fuchsia-200', dot: 'bg-fuchsia-500' },
+  cyan:    { chip: 'bg-cyan-100 text-cyan-700',       gradient: 'from-cyan-500 to-sky-500',       ring: 'ring-cyan-200',    dot: 'bg-cyan-500' },
+  fuchsia: { chip: 'bg-purple-100 text-purple-700',   gradient: 'from-purple-600 to-indigo-600',  ring: 'ring-purple-200',  dot: 'bg-purple-600' },
+  lime:    { chip: 'bg-slate-200 text-slate-700',     gradient: 'from-slate-500 to-slate-700',    ring: 'ring-slate-300',   dot: 'bg-slate-500' },
 };
 
 export const ACCENT_COLORS: AccentColor[] = ['violet', 'blue', 'emerald', 'amber', 'rose', 'cyan', 'fuchsia', 'lime'];

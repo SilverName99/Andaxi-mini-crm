@@ -162,7 +162,7 @@ export function DateField({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-xl p-2 text-stone-400 transition hover:bg-orange-50 hover:text-orange-600"
+        className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-xl p-2 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600"
         aria-label="Deschide calendarul"
       >
         <Calendar className="h-4 w-4" />
@@ -171,7 +171,7 @@ export function DateField({
       {open && (
         <div
           className={cn(
-            'animate-fade-up absolute z-30 w-72 rounded-3xl border border-stone-200 bg-white p-3 shadow-soft',
+            'animate-fade-up absolute z-30 w-72 rounded-3xl border border-slate-200 bg-white p-3 shadow-soft',
             inSus ? 'bottom-full mb-2' : 'top-full mt-2',
           )}
         >
@@ -179,18 +179,18 @@ export function DateField({
             <button
               type="button"
               onClick={() => setAnchor(schimbaLuna(anchor, -1))}
-              className="rounded-xl p-1.5 text-stone-500 transition hover:bg-stone-100"
+              className="rounded-xl p-1.5 text-slate-500 transition hover:bg-slate-100"
               aria-label="Luna anterioară"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="text-sm font-bold capitalize text-stone-800">
+            <span className="text-sm font-bold capitalize text-slate-800">
               {LUNI[anchorM - 1]} {anchorY}
             </span>
             <button
               type="button"
               onClick={() => setAnchor(schimbaLuna(anchor, 1))}
-              className="rounded-xl p-1.5 text-stone-500 transition hover:bg-stone-100"
+              className="rounded-xl p-1.5 text-slate-500 transition hover:bg-slate-100"
               aria-label="Luna următoare"
             >
               <ChevronRight className="h-4 w-4" />
@@ -199,7 +199,7 @@ export function DateField({
 
           <div className="grid grid-cols-7 gap-0.5 text-center">
             {ZILE.map((zi) => (
-              <span key={zi} className="py-1 text-[11px] font-semibold uppercase text-stone-400">
+              <span key={zi} className="py-1 text-[11px] font-semibold uppercase text-slate-400">
                 {zi}
               </span>
             ))}
@@ -219,10 +219,10 @@ export function DateField({
                   className={cn(
                     'rounded-xl py-1.5 text-sm font-medium transition',
                     selectat
-                      ? 'bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-glow'
+                      ? 'bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-glow'
                       : esteAzi
-                        ? 'bg-orange-50 font-bold text-orange-700'
-                        : 'text-stone-700 hover:bg-stone-100',
+                        ? 'bg-indigo-50 font-bold text-indigo-700'
+                        : 'text-slate-700 hover:bg-slate-100',
                   )}
                 >
                   {Number(iso.slice(8))}
@@ -231,7 +231,7 @@ export function DateField({
             })}
           </div>
 
-          <div className="mt-2 flex justify-between border-t border-stone-100 pt-2">
+          <div className="mt-2 flex justify-between border-t border-slate-100 pt-2">
             <button
               type="button"
               onClick={() => {
@@ -240,7 +240,7 @@ export function DateField({
                 setAnchor(`${azi.slice(0, 7)}-01`);
                 setOpen(false);
               }}
-              className="rounded-xl px-2.5 py-1 text-xs font-semibold text-orange-600 transition hover:bg-orange-50"
+              className="rounded-xl px-2.5 py-1 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50"
             >
               Azi
             </button>
@@ -252,7 +252,7 @@ export function DateField({
                   setText('');
                   setOpen(false);
                 }}
-                className="rounded-xl px-2.5 py-1 text-xs font-semibold text-stone-400 transition hover:bg-stone-100"
+                className="rounded-xl px-2.5 py-1 text-xs font-semibold text-slate-400 transition hover:bg-slate-100"
               >
                 Șterge
               </button>

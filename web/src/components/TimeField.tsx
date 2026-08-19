@@ -41,7 +41,7 @@ export function TimeField({
 
   return (
     <div className={cn('relative', className)}>
-      <Clock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+      <Clock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
       <input
         type="text"
         inputMode="numeric"

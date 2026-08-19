@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { AlertTriangle, Check, Loader2, X } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { ACCENT, initials } from '../lib/format';
@@ -11,10 +12,10 @@ type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 
 const BUTTON_STYLES: Record<ButtonVariant, string> = {
   primary:
-    'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-glow hover:brightness-110 focus-visible:ring-orange-300',
+    'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-glow hover:brightness-110 focus-visible:ring-indigo-300',
   secondary:
-    'bg-white text-stone-700 border border-stone-200 hover:bg-stone-50 hover:border-stone-300 focus-visible:ring-stone-200',
-  ghost: 'text-stone-600 hover:bg-stone-100 focus-visible:ring-stone-200',
+    'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 focus-visible:ring-slate-200',
+  ghost: 'text-slate-600 hover:bg-slate-100 focus-visible:ring-slate-200',
   danger: 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:brightness-110 focus-visible:ring-red-200',
   success: 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:brightness-110 focus-visible:ring-emerald-200',
 };
@@ -79,18 +80,65 @@ export function CardTitle({
     <div className="mb-4 flex items-start justify-between gap-3">
       <div className="flex items-center gap-3">
         {icon && (
-          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 text-white">
+          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white">
             {icon}
           </span>
         )}
         <div>
-          <h2 className="text-base font-bold text-stone-900">{title}</h2>
-          {subtitle && <p className="text-xs text-stone-500">{subtitle}</p>}
+          <h2 className="text-base font-bold text-slate-900">{title}</h2>
+          {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
         </div>
       </div>
       {action}
     </div>
   );
+}
+
+/* -------------------------------------------------------------- Statistici */
+
+type StatTone = 'accent' | 'neutral' | 'success' | 'danger';
+
+const STAT_TONES: Record<StatTone, { value: string; chip: string }> = {
+  accent: { value: 'text-indigo-600', chip: 'bg-indigo-100 text-indigo-600' },
+  neutral: { value: 'text-slate-900', chip: 'bg-slate-100 text-slate-500' },
+  success: { value: 'text-emerald-600', chip: 'bg-emerald-100 text-emerald-600' },
+  danger: { value: 'text-red-600', chip: 'bg-red-100 text-red-600' },
+};
+
+/**
+ * Cifra dintr-un rand de indicatori. Cardul ramane alb; culoarea o poarta doar
+ * valoarea si iconita, ca privirea sa mearga la numere, nu la fundal.
+ */
+export function StatCard({
+  label,
+  value,
+  hint,
+  icon,
+  tone = 'neutral',
+  to,
+}: {
+  label: string;
+  value: string;
+  hint?: ReactNode;
+  icon: ReactNode;
+  tone?: StatTone;
+  to?: string;
+}) {
+  const content = (
+    <div className={cn('card h-full p-5 transition', to && 'hover:-translate-y-0.5 hover:shadow-soft')}>
+      {/* eticheta si iconita pe acelasi rand, cifra dedesubt pe toata latimea,
+          ca sumele lungi sa nu intre peste iconita */}
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+        <span className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-2xl', STAT_TONES[tone].chip)}>
+          {icon}
+        </span>
+      </div>
+      <p className={cn('mt-3 text-2xl font-extrabold leading-tight', STAT_TONES[tone].value)}>{value}</p>
+      {hint && <p className="mt-1.5 text-xs font-medium text-slate-400">{hint}</p>}
+    </div>
+  );
+  return to ? <Link to={to}>{content}</Link> : content;
 }
 
 /* ----------------------------------------------------------------- Badge */
@@ -108,7 +156,7 @@ export function Badge({
     <span
       className={cn(
         'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold',
-        className ?? 'bg-stone-100 text-stone-600',
+        className ?? 'bg-slate-100 text-slate-600',
       )}
     >
       {dot && <span className={cn('h-1.5 w-1.5 rounded-full', dot)} />}
@@ -150,7 +198,7 @@ export function Field({
     <div className={className}>
       {label && <label className="label-base">{label}</label>}
       {children}
-      {hint && !error && <p className="mt-1 text-xs text-stone-400">{hint}</p>}
+      {hint && !error && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
       {error && <p className="mt-1 text-xs font-medium text-red-600">{error}</p>}
     </div>
   );
@@ -195,16 +243,16 @@ export function Toggle({
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between gap-4 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-left transition hover:border-stone-300"
+      className="flex w-full items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-300"
     >
       <span>
-        <span className="block text-sm font-semibold text-stone-700">{label}</span>
-        {hint && <span className="block text-xs text-stone-400">{hint}</span>}
+        <span className="block text-sm font-semibold text-slate-700">{label}</span>
+        {hint && <span className="block text-xs text-slate-400">{hint}</span>}
       </span>
       <span
         className={cn(
           'relative h-6 w-11 shrink-0 rounded-full transition',
-          checked ? 'bg-gradient-to-r from-orange-500 to-amber-500' : 'bg-stone-300',
+          checked ? 'bg-gradient-to-r from-indigo-500 to-violet-500' : 'bg-slate-300',
         )}
       >
         <span
@@ -229,7 +277,7 @@ export function Segmented<T extends string>({
   options: { value: T; label: string; count?: number }[];
 }) {
   return (
-    <div className="inline-flex flex-wrap gap-1 rounded-2xl bg-stone-100 p-1">
+    <div className="inline-flex flex-wrap gap-1 rounded-2xl bg-slate-100 p-1">
       {opts.map((o) => (
         <button
           key={o.value}
@@ -237,11 +285,11 @@ export function Segmented<T extends string>({
           onClick={() => onChange(o.value)}
           className={cn(
             'rounded-xl px-3 py-1.5 text-xs font-semibold transition',
-            value === o.value ? 'bg-white text-orange-700 shadow-sm' : 'text-stone-500 hover:text-stone-700',
+            value === o.value ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700',
           )}
         >
           {o.label}
-          {o.count !== undefined && <span className="ml-1.5 text-stone-400">{o.count}</span>}
+          {o.count !== undefined && <span className="ml-1.5 text-slate-400">{o.count}</span>}
         </button>
       ))}
     </div>
@@ -279,22 +327,22 @@ export function Modal({
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-stone-900/40 p-0 backdrop-blur-sm sm:items-center sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-900/40 p-0 backdrop-blur-sm sm:items-center sm:p-6">
       <div
         className={cn(
           'animate-fade-up w-full rounded-t-4xl bg-white shadow-soft sm:rounded-4xl',
           size === 'lg' ? 'sm:max-w-3xl' : 'sm:max-w-xl',
         )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-stone-100 px-6 py-5">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
           <div>
-            <h3 className="text-lg font-bold text-stone-900">{title}</h3>
-            {subtitle && <p className="text-sm text-stone-500">{subtitle}</p>}
+            <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+            {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
+            className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
             aria-label="Închide"
           >
             <X className="h-5 w-5" />
@@ -330,7 +378,7 @@ export function ConfirmDialog({
         <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-red-100 text-red-600">
           <AlertTriangle className="h-6 w-6" />
         </span>
-        <p className="text-sm text-stone-600">{message}</p>
+        <p className="text-sm text-slate-600">{message}</p>
       </div>
       <div className="mt-6 flex justify-end gap-2">
         <Button variant="secondary" onClick={onCancel}>
@@ -347,12 +395,12 @@ export function ConfirmDialog({
 /* ---------------------------------------------------------------- Stari */
 
 export function Spinner({ className }: { className?: string }) {
-  return <Loader2 className={cn('h-5 w-5 animate-spin text-orange-500', className)} />;
+  return <Loader2 className={cn('h-5 w-5 animate-spin text-indigo-500', className)} />;
 }
 
 export function LoadingBlock({ label = 'Se încarcă…' }: { label?: string }) {
   return (
-    <div className="flex items-center justify-center gap-3 rounded-3xl border border-dashed border-stone-200 bg-white/60 py-16 text-sm text-stone-500">
+    <div className="flex items-center justify-center gap-3 rounded-3xl border border-dashed border-slate-200 bg-white/60 py-16 text-sm text-slate-500">
       <Spinner /> {label}
     </div>
   );
@@ -370,12 +418,12 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-stone-200 bg-white/60 px-6 py-14 text-center">
-      <span className="grid h-14 w-14 place-items-center rounded-3xl bg-gradient-to-br from-orange-100 to-amber-100 text-orange-600">
+    <div className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-slate-200 bg-white/60 px-6 py-14 text-center">
+      <span className="grid h-14 w-14 place-items-center rounded-3xl bg-gradient-to-br from-indigo-100 to-violet-100 text-indigo-600">
         {icon}
       </span>
-      <h3 className="text-base font-bold text-stone-800">{title}</h3>
-      <p className="max-w-sm text-sm text-stone-500">{message}</p>
+      <h3 className="text-base font-bold text-slate-800">{title}</h3>
+      <p className="max-w-sm text-sm text-slate-500">{message}</p>
       {action}
     </div>
   );
