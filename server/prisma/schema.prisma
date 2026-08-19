@@ -1,0 +1,211 @@
+// Mini-CRM Andaxi — schema Prisma
+// SQLite pentru simplitate (un singur utilizator). Trecerea la PostgreSQL
+// necesita doar schimbarea provider-ului + DATABASE_URL (nu se folosesc enum-uri,
+// tocmai pentru portabilitate intre SQLite si Postgres).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+/// Setari globale ale aplicatiei (un singur rand, id = "singleton")
+model Settings {
+  id String @id @default("singleton")
+
+  // Date firma (folosite in rapoarte / export catre ERP)
+  companyName String @default("Andaxi")
+  companyCui  String @default("")
+  companyIban String @default("")
+  companyEmail String @default("")
+
+  // Tarife orare (EUR)
+  standardRate  Float @default(45)
+  offHoursRate  Float @default(90)
+  /// Inceputul intervalului cu tarif standard, in minute de la miezul noptii (09:00 = 540)
+  standardStart Int   @default(540)
+  /// Sfarsitul intervalului cu tarif standard (16:00 = 960)
+  standardEnd   Int   @default(960)
+  /// Daca e activ, orele din weekend se taxeaza integral cu tariful majorat
+  weekendOffHours Boolean @default(false)
+
+  /// Curs EUR -> RON folosit pentru afisarea echivalentului in lei
+  eurRon Float @default(5.08)
+
+  /// Cu cate zile inainte de scadenta apare alerta "de facturat"
+  billingLeadDays Int @default(7)
+
+  updatedAt DateTime @updatedAt
+}
+
+model Client {
+  id        String  @id @default(cuid())
+  name      String
+  company   String  @default("")
+  cui       String  @default("")
+  regCom    String  @default("")
+  email     String  @default("")
+  phone     String  @default("")
+  contact   String  @default("")
+  website   String  @default("")
+  address   String  @default("")
+  city      String  @default("")
+  county    String  @default("")
+  country   String  @default("Romania")
+  /// ACTIVE | PROSPECT | INACTIVE
+  status    String  @default("ACTIVE")
+  /// Culoare accent pentru UI (hex sau nume de tema)
+  color     String  @default("violet")
+  notes     String  @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscriptions Subscription[]
+  workLogs      WorkLog[]
+  billingItems  BillingItem[]
+  tasks         Task[]
+
+  @@index([status])
+}
+
+/// Abonament recurent: gazduire si/sau mentenanta pentru un produs al clientului
+model Subscription {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  label String
+  /// HOSTING | MENTENANTA | HOSTING_MENTENANTA
+  kind  String @default("HOSTING_MENTENANTA")
+  /// LANDING_PAGE | PREZENTARE | ECOMMERCE | CRM | ERP | ALTUL
+  product String @default("PREZENTARE")
+
+  /// Suma pe ciclu, in EUR
+  amountEur Float
+  /// MONTHLY | SEMIANNUAL | ANNUAL
+  cycle     String @default("MONTHLY")
+
+  /// Data primei facturi din serie (YYYY-MM-DD)
+  startDate String
+  /// Data urmatoarei scadente (YYYY-MM-DD); avanseaza pe masura ce se genereaza pozitii
+  nextDueDate String
+  /// Optional, data de final a contractului (YYYY-MM-DD)
+  endDate   String?
+
+  /// ACTIVE | PAUSED | CANCELLED
+  status String @default("ACTIVE")
+  notes  String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  billingItems BillingItem[]
+
+  @@index([clientId])
+  @@index([status])
+}
+
+/// O pozitie de facturat generata dintr-un abonament (o perioada = o pozitie)
+model BillingItem {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  clientId       String
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  /// Perioada acoperita (YYYY-MM-DD)
+  periodStart String
+  periodEnd   String
+  /// Data la care trebuie emisa factura (YYYY-MM-DD)
+  dueDate     String
+
+  amountEur Float
+  /// PENDING | INVOICED | PAID | SKIPPED
+  status    String  @default("PENDING")
+  /// Numarul facturii emise in ERP (referinta externa)
+  invoiceRef String @default("")
+  invoicedAt String?
+  paidAt     String?
+  notes      String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([subscriptionId, periodStart])
+  @@index([status])
+  @@index([dueDate])
+}
+
+/// Ore de interventie / suport tehnic
+model WorkLog {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  /// YYYY-MM-DD
+  date         String
+  /// Minute de la miezul noptii
+  startMinutes Int
+  endMinutes   Int
+
+  description String @default("")
+  /// SUPORT | INTERVENTIE | DEZVOLTARE | CONSULTANTA | ALTUL
+  category    String @default("SUPORT")
+
+  /// Minutele facturate la tarif standard, respectiv majorat (calculate la salvare)
+  standardMinutes Int
+  offHoursMinutes Int
+  /// Tarifele aplicate (istoric, ca modificarea setarilor sa nu rescrie trecutul)
+  standardRate Float
+  offHoursRate Float
+  /// Total EUR pentru inregistrare (poate fi suprascris manual)
+  amountEur    Float
+  /// Daca e true, amountEur a fost setat manual si nu se recalculeaza
+  manualAmount Boolean @default(false)
+
+  billable Boolean @default(true)
+  /// PENDING | INVOICED | PAID | NONBILLABLE
+  status   String  @default("PENDING")
+  invoiceRef String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([date])
+  @@index([status])
+}
+
+/// Task-uri / remindere simple, pentru "ordine in firma"
+model Task {
+  id       String  @id @default(cuid())
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  title    String
+  details  String  @default("")
+  /// YYYY-MM-DD
+  dueDate  String?
+  /// LOW | MEDIUM | HIGH
+  priority String  @default("MEDIUM")
+  done     Boolean @default(false)
+  doneAt   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([done])
+  @@index([dueDate])
+}

@@ -1,0 +1,20 @@
+{
+  "name": "andaxi-mini-crm",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Mini-CRM pentru Andaxi: clienti, abonamente recurente (gazduire/mentenanta) si ore de interventie",
+  "engines": { "node": ">=20" },
+  "workspaces": ["server", "web"],
+  "scripts": {
+    "dev": "npm run dev --workspace=server & npm run dev --workspace=web",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:web": "npm run dev --workspace=web",
+    "build": "npm run build --workspace=server && npm run build --workspace=web",
+    "typecheck": "npm run typecheck --workspace=server && npm run typecheck --workspace=web",
+    "test": "npm run test --workspace=server",
+    "db:generate": "npm run db:generate --workspace=server",
+    "db:push": "npm run db:push --workspace=server",
+    "db:seed": "npm run db:seed --workspace=server",
+    "setup": "npm install && npm run db:generate && npm run db:push && npm run db:seed"
+  }
+}

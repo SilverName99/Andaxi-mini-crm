@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04';
+  }
+  ::selection {
+    @apply bg-violet-200 text-violet-900;
+  }
+  /* scrollbar discret, ca sa nu strice rotunjimile */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-slate-300;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-3xl border border-slate-200/70 bg-white shadow-card;
+  }
+  .input-base {
+    @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800
+      placeholder:text-slate-400 transition
+      focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-100;
+  }
+  .label-base {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500;
+  }
+}

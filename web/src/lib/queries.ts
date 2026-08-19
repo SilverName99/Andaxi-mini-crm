@@ -1,0 +1,81 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api, qs } from './api';
+import type {
+  BillingItem, Client, Dashboard, ReportData, Settings, Subscription, Task, WorkLog,
+} from './types';
+
+/* Cheile de cache; invalidam larg dupa mutatii, aplicatia are volum mic de date */
+export const keys = {
+  dashboard: ['dashboard'] as const,
+  clients: (filters?: unknown) => ['clients', filters ?? {}] as const,
+  client: (id: string) => ['client', id] as const,
+  subscriptions: (filters?: unknown) => ['subscriptions', filters ?? {}] as const,
+  billing: (filters?: unknown) => ['billing', filters ?? {}] as const,
+  worklogs: (filters?: unknown) => ['worklogs', filters ?? {}] as const,
+  tasks: (filters?: unknown) => ['tasks', filters ?? {}] as const,
+  settings: ['settings'] as const,
+  reports: (filters?: unknown) => ['reports', filters ?? {}] as const,
+};
+
+export function useDashboard() {
+  return useQuery({ queryKey: keys.dashboard, queryFn: () => api.get<Dashboard>('/dashboard') });
+}
+
+export function useClients(filters: { status?: string; q?: string } = {}) {
+  return useQuery({
+    queryKey: keys.clients(filters),
+    queryFn: () => api.get<Client[]>(`/clients${qs(filters)}`),
+  });
+}
+
+export function useClient(id: string) {
+  return useQuery({ queryKey: keys.client(id), queryFn: () => api.get<Client>(`/clients/${id}`) });
+}
+
+export function useSubscriptions(filters: { clientId?: string; status?: string } = {}) {
+  return useQuery({
+    queryKey: keys.subscriptions(filters),
+    queryFn: () => api.get<Subscription[]>(`/subscriptions${qs(filters)}`),
+  });
+}
+
+export function useBilling(filters: Record<string, string | undefined> = {}) {
+  return useQuery({
+    queryKey: keys.billing(filters),
+    queryFn: () => api.get<BillingItem[]>(`/billing${qs(filters)}`),
+  });
+}
+
+export function useWorkLogs(filters: Record<string, string | undefined> = {}) {
+  return useQuery({
+    queryKey: keys.worklogs(filters),
+    queryFn: () => api.get<WorkLog[]>(`/worklogs${qs(filters)}`),
+  });
+}
+
+export function useTasks(filters: { done?: string; clientId?: string } = {}) {
+  return useQuery({ queryKey: keys.tasks(filters), queryFn: () => api.get<Task[]>(`/tasks${qs(filters)}`) });
+}
+
+export function useSettings() {
+  return useQuery({ queryKey: keys.settings, queryFn: () => api.get<Settings>('/settings') });
+}
+
+export function useReports(filters: { from?: string; to?: string } = {}) {
+  return useQuery({
+    queryKey: keys.reports(filters),
+    queryFn: () => api.get<ReportData>(`/dashboard/reports${qs(filters)}`),
+  });
+}
+
+/**
+ * Mutatie generica: dupa succes invalideaza tot cache-ul, pentru ca aproape
+ * orice modificare afecteaza si dashboard-ul si rapoartele.
+ */
+export function useCrudMutation<TInput, TResult>(fn: (input: TInput) => Promise<TResult>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => queryClient.invalidateQueries(),
+  });
+}
