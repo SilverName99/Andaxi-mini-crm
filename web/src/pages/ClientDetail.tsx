@@ -73,7 +73,7 @@ export function ClientDetail() {
         <StatCard
           label="Recurent lunar"
           value={formatEur(mrr)}
-          hint={settings && formatRon(mrr, settings.eurRon)}
+          hint={`${formatEur(mrr * 12)} / an${settings ? ` · ${formatRon(mrr, settings.eurRon)}` : ''}`}
           icon={<Repeat className="h-5 w-5" />}
           tone="accent"
         />

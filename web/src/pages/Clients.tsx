@@ -242,8 +242,14 @@ export function Clients() {
 
               <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
                 <div>
-                  <p className="text-xs text-slate-400">Recurent lunar</p>
-                  <p className="text-sm font-extrabold text-slate-900">{formatEur(monthlyValue(client))}</p>
+                  <p className="text-xs text-slate-400">Recurent</p>
+                  <p className="text-sm font-extrabold text-slate-900">
+                    {formatEur(monthlyValue(client))}
+                    <span className="ml-1 text-xs font-semibold text-slate-400">/ lună</span>
+                  </p>
+                  <p className="text-xs font-medium text-slate-400">
+                    {formatEur(monthlyValue(client) * 12)} / an
+                  </p>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
