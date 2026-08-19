@@ -131,6 +131,9 @@ npm run db:seed
 npm run build --silent
 ok "aplicatia e construita"
 
+# parola a fost deja transformata in hash in baza de date; nu o mai tinem in .env
+sed -i 's/^SEED_PASSWORD=.*/SEED_PASSWORD=""/' "$ENV_FILE"
+
 chown -R www-data:www-data "$APP_DIR"
 
 # ─────────────────────────────────────────────── serviciu
