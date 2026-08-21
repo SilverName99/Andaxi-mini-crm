@@ -204,6 +204,8 @@ model WorkLog {
   /// Daca e true, amountEur a fost setat manual si nu se recalculeaza
   manualAmount Boolean @default(false)
 
+  attachments Attachment[]
+
   billable Boolean @default(true)
   /// PENDING | INVOICED | PAID | NONBILLABLE
   status   String  @default("PENDING")
@@ -237,4 +239,23 @@ model Task {
 
   @@index([done])
   @@index([dueDate])
+}
+
+/// Fisier atasat unei interventii (deviz, proces-verbal, raport etc.)
+model Attachment {
+  id        String  @id @default(cuid())
+  workLogId String
+  workLog   WorkLog @relation(fields: [workLogId], references: [id], onDelete: Cascade)
+
+  /// Numele original, asa cum l-a incarcat utilizatorul
+  fileName String
+  mimeType String
+  /// Marimea in bytes
+  size     Int
+  /// Calea pe disc, relativa la folderul de upload
+  path     String
+
+  createdAt DateTime @default(now())
+
+  @@index([workLogId])
 }

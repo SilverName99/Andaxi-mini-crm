@@ -51,3 +51,27 @@ export function qs(params: Record<string, string | number | undefined | null>): 
   const str = search.toString();
   return str ? `?${str}` : '';
 }
+
+/** Incarca un fisier ca binar brut (fara base64, care ar creste transferul cu o treime) */
+export async function uploadFile<T>(path: string, file: File): Promise<T> {
+  const response = await fetch(`/api${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+      'X-File-Name': encodeURIComponent(file.name),
+    },
+    body: file,
+  });
+
+  if (!response.ok) {
+    let message = `Eroare ${response.status}`;
+    try {
+      message = (await response.json()).error ?? message;
+    } catch {
+      /* raspuns fara JSON */
+    }
+    throw new ApiError(response.status, message);
+  }
+  return (await response.json()) as T;
+}

@@ -28,6 +28,16 @@ npm run db:push
 echo "→ Construiesc aplicatia…"
 npm run build
 
+# atasamentele pot ajunge la 10 MB, iar primele versiuni ale configuratiei nginx
+# limitau corpul cererii la 10M; ridicam limita, o singura data, pe fisierul nostru
+for site in /etc/nginx/sites-available/*; do
+  if [ -f "$site" ] && grep -q "andaxi-crm.access.log" "$site" && grep -q "client_max_body_size 10M;" "$site"; then
+    echo "→ Ridic limita de upload din nginx la 25M…"
+    sed -i 's/client_max_body_size 10M;/client_max_body_size 25M;/' "$site"
+    nginx -t >/dev/null 2>&1 && systemctl reload nginx
+  fi
+done
+
 echo "→ Repun drepturile pe fisiere…"
 chown -R www-data:www-data "$APP_DIR"
 

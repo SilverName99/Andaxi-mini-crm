@@ -124,6 +124,16 @@ export interface BillingItem {
   notes: string;
 }
 
+export interface Attachment {
+  id: string;
+  workLogId: string;
+  fileName: string;
+  mimeType: string;
+  /** Mărimea în bytes */
+  size: number;
+  createdAt: string;
+}
+
 export interface WorkLog {
   id: string;
   clientId: string;
@@ -142,6 +152,7 @@ export interface WorkLog {
   billable: boolean;
   status: WorkStatus;
   invoiceRef: string;
+  attachments?: Attachment[];
 }
 
 export interface Task {

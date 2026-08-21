@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { BadgeCheck, CheckCheck, Clock4, Moon, Pencil, Plus, Sun, Trash2, Wallet } from 'lucide-react';
-import { api } from '../lib/api';
-import { useClients, useCrudMutation, useSettings, useWorkLogs } from '../lib/queries';
+import {
+  BadgeCheck, CheckCheck, Clock4, Download, FileText, Moon, Paperclip, Pencil, Plus, Sun, Trash2, Wallet,
+} from 'lucide-react';
+import { api, uploadFile } from '../lib/api';
+import { useClients, useCrudMutation, useSettings, useWorkLog, useWorkLogs } from '../lib/queries';
 import { PageHeader } from '../components/Layout';
 import { DateField } from '../components/DateField';
 import { TimeField } from '../components/TimeField';
@@ -11,11 +13,12 @@ import {
   Segmented, Select, StatCard, Textarea, Toggle, useToast,
 } from '../components/ui';
 import {
-  addDaysIso, formatDate, formatEur, formatMinutes, formatRon, minutesToHhMm, startOfMonthIso, todayIso,
+  addDaysIso, formatDate, formatEur, formatFileSize, formatMinutes, formatRon, minutesToHhMm, startOfMonthIso,
+  todayIso,
 } from '../lib/format';
 import { WORK_CATEGORY, WORK_STATUS, options } from '../lib/labels';
 import { cn } from '../lib/cn';
-import type { AccentColor, RateSplit, WorkLog, WorkStatus } from '../lib/types';
+import type { AccentColor, Attachment, RateSplit, WorkLog, WorkStatus } from '../lib/types';
 
 interface FormState {
   clientId: string;
@@ -197,6 +200,7 @@ export function WorkLogs() {
   const [to, setTo] = useState(todayIso());
   const [editing, setEditing] = useState<WorkLog | null | undefined>(undefined);
   const [deleting, setDeleting] = useState<WorkLog | null>(null);
+  const [detalii, setDetalii] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const toast = useToast();
 
@@ -346,8 +350,9 @@ export function WorkLogs() {
                 {dayLogs.map((log) => (
                   <Card
                     key={log.id}
+                    onClick={() => setDetalii(log.id)}
                     className={cn(
-                      'flex flex-col gap-3 p-4 transition sm:flex-row sm:items-center sm:justify-between',
+                      'flex cursor-pointer flex-col gap-3 p-4 transition hover:border-slate-300 hover:shadow-soft sm:flex-row sm:items-center sm:justify-between',
                       selected.has(log.id) && 'ring-2 ring-indigo-300',
                     )}
                   >
@@ -356,6 +361,7 @@ export function WorkLogs() {
                         type="checkbox"
                         className="mt-1.5 h-4 w-4 shrink-0 rounded-md border-slate-300 text-indigo-600 focus:ring-indigo-300"
                         checked={selected.has(log.id)}
+                        onClick={(e) => e.stopPropagation()}
                         onChange={() =>
                           setSelected((prev) => {
                             const next = new Set(prev);
@@ -367,7 +373,11 @@ export function WorkLogs() {
                       <Avatar name={log.client?.company || log.client?.name || '?'} color={(log.client?.color ?? 'violet') as AccentColor} size="sm" />
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Link to={`/clienti/${log.clientId}`} className="text-sm font-bold text-slate-800 hover:text-indigo-700">
+                          <Link
+                            to={`/clienti/${log.clientId}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-sm font-bold text-slate-800 hover:text-indigo-700"
+                          >
                             {log.client?.company || log.client?.name}
                           </Link>
                           <Badge className={WORK_CATEGORY[log.category].chip}>{WORK_CATEGORY[log.category].text}</Badge>
@@ -400,10 +410,24 @@ export function WorkLogs() {
                         )}
                       </div>
                       <div className="flex items-center gap-1">
-                        <button onClick={() => setEditing(log)} className="rounded-xl p-2 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600" aria-label="Editează">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditing(log);
+                          }}
+                          className="rounded-xl p-2 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600"
+                          aria-label="Editează"
+                        >
                           <Pencil className="h-4 w-4" />
                         </button>
-                        <button onClick={() => setDeleting(log)} className="rounded-xl p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600" aria-label="Șterge">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleting(log);
+                          }}
+                          className="rounded-xl p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                          aria-label="Șterge"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
@@ -417,6 +441,7 @@ export function WorkLogs() {
       )}
 
       {editing !== undefined && <WorkLogForm open onClose={() => setEditing(undefined)} log={editing} />}
+      {detalii && <WorkLogDetail logId={detalii} onClose={() => setDetalii(null)} />}
 
       <ConfirmDialog
         open={Boolean(deleting)}
@@ -432,5 +457,208 @@ export function WorkLogs() {
         }}
       />
     </div>
+  );
+}
+
+/* ─────────────────────────────────────────────── detaliile unei intervenții ── */
+
+/** Tipurile pe care le acceptă serverul ca atașament */
+const TIPURI_ACCEPTATE =
+  '.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.png,.jpg,.jpeg,.webp';
+
+export function WorkLogDetail({ logId, onClose }: { logId: string; onClose: () => void }) {
+  const toast = useToast();
+  const { data: log, isLoading } = useWorkLog(logId);
+  const { data: settings } = useSettings();
+  const input = useRef<HTMLInputElement>(null);
+  const [editez, setEditez] = useState(false);
+  const [confirmStergere, setConfirmStergere] = useState(false);
+  const [error, setError] = useState('');
+
+  const incarca = useCrudMutation((file: File) => uploadFile<Attachment>(`/worklogs/${logId}/attachments`, file));
+  const stergeFisier = useCrudMutation((attachmentId: string) =>
+    api.del(`/worklogs/${logId}/attachments/${attachmentId}`),
+  );
+  const schimbaStatus = useCrudMutation((status: WorkStatus) => api.patch(`/worklogs/${logId}/status`, { status }));
+  const stergeLog = useCrudMutation(() => api.del(`/worklogs/${logId}`));
+
+  async function laAlegereFisier(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setError('');
+    try {
+      await incarca.mutateAsync(file);
+      toast('Fișier atașat');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Nu am putut încărca fișierul');
+    }
+  }
+
+  if (editez && log) {
+    return <WorkLogForm open onClose={() => setEditez(false)} log={log} />;
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="lg"
+      title="Detalii intervenție"
+      subtitle={log ? `${log.client?.company || log.client?.name} · ${formatDate(log.date)}` : undefined}
+    >
+      {isLoading || !log ? (
+        <LoadingBlock />
+      ) : (
+        <div className="flex flex-col gap-5">
+          <div className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-50 p-4 text-sm sm:grid-cols-4">
+            {[
+              { eticheta: 'Data', valoare: formatDate(log.date) },
+              { eticheta: 'Interval', valoare: `${minutesToHhMm(log.startMinutes)}–${minutesToHhMm(log.endMinutes)}` },
+              { eticheta: 'Durată', valoare: formatMinutes(log.standardMinutes + log.offHoursMinutes) },
+              { eticheta: 'Categorie', valoare: WORK_CATEGORY[log.category].text },
+            ].map((item) => (
+              <div key={item.eticheta}>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{item.eticheta}</p>
+                <p className="font-semibold text-slate-800">{item.valoare}</p>
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Descriere</p>
+            <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{log.description || '—'}</p>
+          </div>
+
+          <div className="rounded-3xl border border-indigo-200 bg-indigo-50 p-5">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-400">Total</p>
+                <p className="text-2xl font-extrabold text-indigo-700">{formatEur(log.amountEur)}</p>
+                {settings && (
+                  <p className="text-xs text-slate-500">
+                    {formatRon(log.amountEur, settings.eurRon)}
+                    {log.manualAmount && ' · sumă impusă manual'}
+                    {!log.billable && ' · nefacturabil'}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5 text-xs font-medium text-slate-600">
+                {log.standardMinutes > 0 && (
+                  <span className="flex items-center gap-2 rounded-xl bg-white px-3 py-1.5">
+                    <Sun className="h-3.5 w-3.5 text-indigo-500" /> {formatMinutes(log.standardMinutes)} × {log.standardRate}€
+                  </span>
+                )}
+                {log.offHoursMinutes > 0 && (
+                  <span className="flex items-center gap-2 rounded-xl bg-white px-3 py-1.5">
+                    <Moon className="h-3.5 w-3.5 text-indigo-500" /> {formatMinutes(log.offHoursMinutes)} × {log.offHoursRate}€
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <Field label="Status facturare">
+            <Segmented
+              value={log.status}
+              onChange={(status) => schimbaStatus.mutate(status)}
+              options={(Object.keys(WORK_STATUS) as WorkStatus[]).map((key) => ({
+                value: key,
+                label: WORK_STATUS[key].text,
+              }))}
+            />
+            {log.invoiceRef && <p className="mt-2 text-xs text-slate-500">Factură: {log.invoiceRef}</p>}
+          </Field>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Fișiere atașate {log.attachments?.length ? `(${log.attachments.length})` : ''}
+              </p>
+              <input ref={input} type="file" accept={TIPURI_ACCEPTATE} className="hidden" onChange={laAlegereFisier} />
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={<Paperclip className="h-3.5 w-3.5" />}
+                loading={incarca.isPending}
+                onClick={() => input.current?.click()}
+              >
+                Adaugă fișier
+              </Button>
+            </div>
+
+            {log.attachments?.length ? (
+              <ul className="flex flex-col gap-2">
+                {log.attachments.map((attachment) => (
+                  <li
+                    key={attachment.id}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 px-3 py-2"
+                  >
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-500">
+                      <FileText className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-slate-800">{attachment.fileName}</p>
+                      <p className="text-xs text-slate-400">{formatFileSize(attachment.size)}</p>
+                    </div>
+                    <a
+                      href={`/api/worklogs/${logId}/attachments/${attachment.id}`}
+                      className="rounded-xl p-2 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600"
+                      title="Descarcă"
+                    >
+                      <Download className="h-4 w-4" />
+                    </a>
+                    <button
+                      onClick={async () => {
+                        await stergeFisier.mutateAsync(attachment.id);
+                        toast('Fișier șters');
+                      }}
+                      className="rounded-xl p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                      title="Șterge fișierul"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <button
+                type="button"
+                onClick={() => input.current?.click()}
+                className="flex w-full flex-col items-center gap-1 rounded-2xl border border-dashed border-slate-200 py-6 text-center transition hover:border-indigo-300 hover:bg-indigo-50/40"
+              >
+                <Paperclip className="h-5 w-5 text-slate-300" />
+                <span className="text-sm text-slate-400">Atașează un PDF, Word sau altă dovadă a lucrării</span>
+                <span className="text-xs text-slate-300">maximum 10 MB per fișier</span>
+              </button>
+            )}
+          </div>
+
+          {error && <ErrorBlock message={error} />}
+
+          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
+            <Button variant="ghost" icon={<Trash2 className="h-4 w-4" />} onClick={() => setConfirmStergere(true)}>
+              Șterge intervenția
+            </Button>
+            <Button variant="secondary" onClick={onClose}>Închide</Button>
+            <Button icon={<Pencil className="h-4 w-4" />} onClick={() => setEditez(true)}>Editează</Button>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={confirmStergere}
+        title="Ștergi intervenția?"
+        message="Se șterg definitiv și fișierele atașate."
+        loading={stergeLog.isPending}
+        onCancel={() => setConfirmStergere(false)}
+        onConfirm={async () => {
+          await stergeLog.mutateAsync(undefined);
+          toast('Intervenție ștearsă');
+          setConfirmStergere(false);
+          onClose();
+        }}
+      />
+    </Modal>
   );
 }

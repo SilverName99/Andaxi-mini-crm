@@ -95,3 +95,10 @@ export const ACCENT: Record<AccentColor, { chip: string; gradient: string; ring:
 };
 
 export const ACCENT_COLORS: AccentColor[] = ['violet', 'blue', 'emerald', 'amber', 'rose', 'cyan', 'fuchsia', 'lime'];
+
+/** 1536 -> "1,5 KB" */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10240 ? 1 : 0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

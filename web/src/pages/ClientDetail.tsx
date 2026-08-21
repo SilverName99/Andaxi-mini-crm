@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, Building2, CalendarClock, Clock4, Globe, Mail, MapPin, Pencil, Phone, Plus, Repeat, StickyNote, Wallet,
+  ArrowLeft, Building2, CalendarClock, Clock4, Globe, Mail, MapPin, Paperclip, Pencil, Phone, Plus, Repeat,
+  StickyNote, Wallet,
 } from 'lucide-react';
 import { useClient, useSettings } from '../lib/queries';
 import { Avatar, Badge, Button, Card, CardTitle, ErrorBlock, LoadingBlock, Segmented, StatCard } from '../components/ui';
 import { ClientForm } from './Clients';
 import { SubscriptionForm } from './Subscriptions';
-import { WorkLogForm } from './WorkLogs';
+import { WorkLogDetail, WorkLogForm } from './WorkLogs';
 import { formatDate, formatEur, formatMinutes, formatRon, minutesToHhMm } from '../lib/format';
 import {
   BILLING_STATUS, CLIENT_STATUS, CYCLE, PRODUCT, SUBSCRIPTION_KIND, SUBSCRIPTION_STATUS, WORK_CATEGORY, WORK_STATUS,
@@ -24,6 +25,7 @@ export function ClientDetail() {
   const [editingClient, setEditingClient] = useState(false);
   const [addingSub, setAddingSub] = useState(false);
   const [addingLog, setAddingLog] = useState(false);
+  const [detaliiLog, setDetaliiLog] = useState<string | null>(null);
 
   if (isLoading) return <LoadingBlock />;
   if (error || !client) return <ErrorBlock message={error instanceof Error ? error.message : 'Client inexistent'} />;
@@ -153,13 +155,22 @@ export function ClientDetail() {
             </Card>
           ) : (
             workLogs.map((log) => (
-              <Card key={log.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <Card
+                key={log.id}
+                onClick={() => setDetaliiLog(log.id)}
+                className="flex cursor-pointer flex-col gap-2 p-4 transition hover:border-slate-300 hover:shadow-soft sm:flex-row sm:items-center sm:justify-between"
+              >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-bold text-slate-800">{formatDate(log.date)}</span>
                     <span className="text-xs text-slate-400">{minutesToHhMm(log.startMinutes)}–{minutesToHhMm(log.endMinutes)}</span>
                     <Badge className={WORK_CATEGORY[log.category].chip}>{WORK_CATEGORY[log.category].text}</Badge>
                     <Badge className={WORK_STATUS[log.status].chip}>{WORK_STATUS[log.status].text}</Badge>
+                    {log.attachments?.length ? (
+                      <span className="flex items-center gap-1 text-xs font-semibold text-slate-500">
+                        <Paperclip className="h-3 w-3" /> {log.attachments.length}
+                      </span>
+                    ) : null}
                   </div>
                   <p className="mt-1 text-sm text-slate-600">{log.description || '—'}</p>
                 </div>
@@ -260,6 +271,7 @@ export function ClientDetail() {
       {editingClient && <ClientForm open onClose={() => setEditingClient(false)} client={client} />}
       {addingSub && <SubscriptionForm open onClose={() => setAddingSub(false)} defaultClientId={client.id} />}
       {addingLog && <WorkLogForm open onClose={() => setAddingLog(false)} defaultClientId={client.id} />}
+      {detaliiLog && <WorkLogDetail logId={detaliiLog} onClose={() => setDetaliiLog(null)} />}
     </div>
   );
 }

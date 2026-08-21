@@ -182,7 +182,7 @@ server {
     listen [::]:80;
     server_name $DOMAIN;
 
-    client_max_body_size 10M;
+    client_max_body_size 25M;
     access_log /var/log/nginx/andaxi-crm.access.log;
     error_log  /var/log/nginx/andaxi-crm.error.log;
 

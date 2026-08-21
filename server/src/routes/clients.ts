@@ -59,7 +59,11 @@ clientsRouter.get(
       where: { id: req.params.id },
       include: {
         subscriptions: { orderBy: { createdAt: 'desc' } },
-        workLogs: { orderBy: [{ date: 'desc' }, { startMinutes: 'desc' }], take: 100 },
+        workLogs: {
+          orderBy: [{ date: 'desc' }, { startMinutes: 'desc' }],
+          take: 100,
+          include: { attachments: { orderBy: { createdAt: 'asc' } } },
+        },
         billingItems: { orderBy: { dueDate: 'desc' }, take: 100, include: { subscription: true } },
         tasks: { orderBy: [{ done: 'asc' }, { dueDate: 'asc' }] },
       },

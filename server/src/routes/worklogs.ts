@@ -1,10 +1,12 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { z } from 'zod';
 import { getSettings, prisma } from '../prisma.js';
 import { asyncHandler } from '../middleware/errors.js';
 import { isoDate, WORK_CATEGORIES, WORK_STATUSES } from '../lib/validation.js';
 import { hhMmToMinutes } from '../lib/dates.js';
 import { splitWorkInterval, type RateConfig } from '../lib/rates.js';
+import { ALLOWED_DOC_TYPES, deleteAttachment, resolveUploadPath, saveAttachment } from '../lib/uploads.js';
+import { HttpError } from '../middleware/errors.js';
 
 export const workLogsRouter = Router();
 
@@ -70,9 +72,27 @@ workLogsRouter.get(
         ...(from || to ? { date: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),
       },
       orderBy: [{ date: 'desc' }, { startMinutes: 'desc' }],
-      include: { client: { select: { id: true, name: true, company: true, color: true } } },
+      include: {
+        client: { select: { id: true, name: true, company: true, color: true } },
+        attachments: { orderBy: { createdAt: 'asc' } },
+      },
     });
     res.json(logs);
+  }),
+);
+
+workLogsRouter.get(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    res.json(
+      await prisma.workLog.findUniqueOrThrow({
+        where: { id: req.params.id },
+        include: {
+          client: { select: { id: true, name: true, company: true, color: true } },
+          attachments: { orderBy: { createdAt: 'asc' } },
+        },
+      }),
+    );
   }),
 );
 
@@ -150,7 +170,83 @@ workLogsRouter.post(
 workLogsRouter.delete(
   '/:id',
   asyncHandler(async (req, res) => {
+    // stergem intai fisierele de pe disc; randurile pleaca odata cu interventia
+    const attachments = await prisma.attachment.findMany({ where: { workLogId: req.params.id } });
     await prisma.workLog.delete({ where: { id: req.params.id } });
+    for (const attachment of attachments) deleteAttachment(attachment.path);
+    res.json({ ok: true });
+  }),
+);
+
+/* ───────────────────────────────────────────────────────── atasamente ────── */
+
+/**
+ * Incarcarea unui atasament. Fisierul vine ca binar brut (nu base64, care ar
+ * umfla transferul cu o treime), cu numele in antetul X-File-Name.
+ */
+workLogsRouter.post(
+  '/:id/attachments',
+  express.raw({ type: () => true, limit: '12mb' }),
+  asyncHandler(async (req, res) => {
+    const mimeType = (req.headers['content-type'] ?? '').split(';')[0].trim();
+    const numeBrut = req.headers['x-file-name'];
+    const fileName = decodeURIComponent(Array.isArray(numeBrut) ? numeBrut[0] : (numeBrut ?? 'fisier')).slice(0, 255);
+
+    if (!(mimeType in ALLOWED_DOC_TYPES)) {
+      throw new HttpError(400, 'Acceptam PDF, Word, Excel, text sau imagini');
+    }
+    if (!Buffer.isBuffer(req.body)) throw new HttpError(400, 'Fisierul lipseste din cerere');
+
+    const log = await prisma.workLog.findUniqueOrThrow({ where: { id: req.params.id } });
+    const cate = await prisma.attachment.count({ where: { workLogId: log.id } });
+
+    let salvat: { path: string; size: number };
+    try {
+      salvat = saveAttachment(req.body, mimeType, Date.now(), cate);
+    } catch (err) {
+      throw new HttpError(400, err instanceof Error ? err.message : 'Nu am putut salva fisierul');
+    }
+
+    res.status(201).json(
+      await prisma.attachment.create({
+        data: { workLogId: log.id, fileName, mimeType, size: salvat.size, path: salvat.path },
+      }),
+    );
+  }),
+);
+
+/** Descarcarea unui atasament; ruta e in spatele autentificarii, ca si restul API-ului */
+workLogsRouter.get(
+  '/:id/attachments/:attachmentId',
+  asyncHandler(async (req, res) => {
+    const attachment = await prisma.attachment.findUniqueOrThrow({
+      where: { id: req.params.attachmentId },
+    });
+    if (attachment.workLogId !== req.params.id) throw new HttpError(404, 'Fisierul nu apartine acestei interventii');
+
+    // filename simplu pentru browsere vechi, filename* pentru diacritice
+    const numeAscii = attachment.fileName.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '_');
+    res.setHeader('Content-Type', attachment.mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${numeAscii}"; filename*=UTF-8''${encodeURIComponent(attachment.fileName)}`,
+    );
+    res.sendFile(resolveUploadPath(attachment.path), (error) => {
+      if (error && !res.headersSent) res.status(404).json({ error: 'Fisierul nu mai exista pe server' });
+    });
+  }),
+);
+
+workLogsRouter.delete(
+  '/:id/attachments/:attachmentId',
+  asyncHandler(async (req, res) => {
+    const attachment = await prisma.attachment.findUniqueOrThrow({
+      where: { id: req.params.attachmentId },
+    });
+    if (attachment.workLogId !== req.params.id) throw new HttpError(404, 'Fisierul nu apartine acestei interventii');
+
+    await prisma.attachment.delete({ where: { id: attachment.id } });
+    deleteAttachment(attachment.path);
     res.json({ ok: true });
   }),
 );

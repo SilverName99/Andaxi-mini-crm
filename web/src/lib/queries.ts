@@ -54,6 +54,10 @@ export function useWorkLogs(filters: Record<string, string | undefined> = {}) {
   });
 }
 
+export function useWorkLog(id: string) {
+  return useQuery({ queryKey: ['worklog', id], queryFn: () => api.get<WorkLog>(`/worklogs/${id}`) });
+}
+
 export function useTasks(filters: { done?: string; clientId?: string } = {}) {
   return useQuery({ queryKey: keys.tasks(filters), queryFn: () => api.get<Task[]>(`/tasks${qs(filters)}`) });
 }

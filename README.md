@@ -16,7 +16,7 @@ aici ții evidența a *ce* trebuie facturat, *când*, și marchezi ce ai emis de
 | **Abonamente** | Găzduire / mentenanță pentru landing page, site prezentare, magazin online, CRM, ERP — facturate lunar, la 6 luni sau anual |
 | **Scadențar** | Pozițiile de facturat, generate automat din abonamente; marchezi „facturat" / „încasat" și treci numărul facturii din ERP |
 | **Calendar** | Lună întreagă cu scadențe, intervenții și task-uri la un loc; click pe o zi pentru detalii |
-| **Ore & intervenții** | Suport tehnic la oră, cu tarif calculat automat pe interval |
+| **Ore & intervenții** | Suport tehnic la oră, cu tarif calculat automat pe interval; click pe o intervenție deschide detaliile, cu fișiere atașate (PDF, Word) |
 | **Task-uri** | Lucruri de făcut, cu sau fără client asociat |
 | **Rapoarte** | Totaluri pe client și pe lună, cu TVA calculat și export CSV |
 | **Setări** | Sigla firmei, tarife orare, prețuri pe utilizator (ERP/CRM), program de lucru, curs EUR/RON, cotă TVA, date firmă, schimbare parolă |
