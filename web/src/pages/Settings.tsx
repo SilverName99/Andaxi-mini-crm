@@ -447,6 +447,9 @@ function TierEditor({
   const max2 = `${prefix}Tier2Max` as const;
   const price2 = `${prefix}Tier2Price` as const;
   const price3 = `${prefix}Tier3Price` as const;
+  const storage1 = `${prefix}Tier1StorageGb` as const;
+  const storage2 = `${prefix}Tier2StorageGb` as const;
+  const storage3 = `${prefix}Tier3StorageGb` as const;
 
   const numar = (key: keyof Settings) => Number(form[key]);
 
@@ -454,25 +457,36 @@ function TierEditor({
     <div className="rounded-2xl border border-slate-200 p-4">
       <p className="mb-3 text-sm font-bold text-slate-800">{titlu}</p>
       <div className="flex flex-col gap-3">
-        <div className="grid grid-cols-[1fr,auto] items-end gap-3">
+        <div className="grid grid-cols-[1fr,auto,auto] items-end gap-3">
           <Field label={`1 – ${numar(max1)} utilizatori`}>
             <Input type="number" min={0} step="0.5" value={numar(price1)} onChange={(e) => set(price1, Number(e.target.value))} />
           </Field>
           <Field label="până la">
-            <Input type="number" min={1} step="1" className="w-24" value={numar(max1)} onChange={(e) => set(max1, Number(e.target.value))} />
+            <Input type="number" min={1} step="1" className="w-20" value={numar(max1)} onChange={(e) => set(max1, Number(e.target.value))} />
+          </Field>
+          <Field label="GB">
+            <Input type="number" min={0} step="0.5" className="w-20" value={numar(storage1)} onChange={(e) => set(storage1, Number(e.target.value))} />
           </Field>
         </div>
-        <div className="grid grid-cols-[1fr,auto] items-end gap-3">
+        <div className="grid grid-cols-[1fr,auto,auto] items-end gap-3">
           <Field label={`${numar(max1) + 1} – ${numar(max2)} utilizatori`}>
             <Input type="number" min={0} step="0.5" value={numar(price2)} onChange={(e) => set(price2, Number(e.target.value))} />
           </Field>
           <Field label="până la">
-            <Input type="number" min={1} step="1" className="w-24" value={numar(max2)} onChange={(e) => set(max2, Number(e.target.value))} />
+            <Input type="number" min={1} step="1" className="w-20" value={numar(max2)} onChange={(e) => set(max2, Number(e.target.value))} />
+          </Field>
+          <Field label="GB">
+            <Input type="number" min={0} step="0.5" className="w-20" value={numar(storage2)} onChange={(e) => set(storage2, Number(e.target.value))} />
           </Field>
         </div>
-        <Field label={`${numar(max2) + 1}+ utilizatori`} hint="EUR / utilizator / lună">
-          <Input type="number" min={0} step="0.5" value={numar(price3)} onChange={(e) => set(price3, Number(e.target.value))} />
-        </Field>
+        <div className="grid grid-cols-[1fr,auto] items-end gap-3">
+          <Field label={`${numar(max2) + 1}+ utilizatori`} hint="EUR / utilizator / lună">
+            <Input type="number" min={0} step="0.5" value={numar(price3)} onChange={(e) => set(price3, Number(e.target.value))} />
+          </Field>
+          <Field label="GB">
+            <Input type="number" min={0} step="0.5" className="w-20" value={numar(storage3)} onChange={(e) => set(storage3, Number(e.target.value))} />
+          </Field>
+        </div>
       </div>
     </div>
   );

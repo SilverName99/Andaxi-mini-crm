@@ -11,6 +11,12 @@ export function isPerUserProduct(product: string): product is PerUserProduct {
 
 /** Ce ne trebuie din setari ca sa calculam pretul (subsetul relevant) */
 export interface PricingSettings {
+  erpTier1StorageGb: number;
+  erpTier2StorageGb: number;
+  erpTier3StorageGb: number;
+  crmTier1StorageGb: number;
+  crmTier2StorageGb: number;
+  crmTier3StorageGb: number;
   erpTier1Max: number;
   erpTier1Price: number;
   erpTier2Max: number;
@@ -83,4 +89,41 @@ export function computeSubscriptionPrice(
     amountEur,
     monthlyEur: round2(amountEur / months),
   };
+}
+
+/** Spatiul inclus la pragul in care intra numarul de utilizatori, in GB */
+export function includedStorageGb(
+  settings: PricingSettings,
+  product: PerUserProduct,
+  users: number,
+): number {
+  const t = product === 'ERP'
+    ? { max1: settings.erpTier1Max, s1: settings.erpTier1StorageGb, max2: settings.erpTier2Max, s2: settings.erpTier2StorageGb, s3: settings.erpTier3StorageGb }
+    : { max1: settings.crmTier1Max, s1: settings.crmTier1StorageGb, max2: settings.crmTier2Max, s2: settings.crmTier2StorageGb, s3: settings.crmTier3StorageGb };
+
+  if (users <= t.max1) return t.s1;
+  if (users <= t.max2) return t.s2;
+  return t.s3;
+}
+
+/**
+ * Diferenta de facturat cand numarul de utilizatori se schimba in mijlocul unei
+ * perioade deja facturate: se proportioneaza cu zilele ramase.
+ */
+export function prorate(
+  previousAmountEur: number,
+  newAmountEur: number,
+  periodStart: string,
+  periodEnd: string,
+  effectiveDate: string,
+): number {
+  const zi = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
+  const total = Math.round((zi(periodEnd) - zi(periodStart)) / 86_400_000) + 1;
+  if (total <= 0) return 0;
+
+  const dataAplicarii = effectiveDate < periodStart ? periodStart : effectiveDate;
+  if (dataAplicarii > periodEnd) return 0;
+
+  const ramase = Math.round((zi(periodEnd) - zi(dataAplicarii)) / 86_400_000) + 1;
+  return round2(((newAmountEur - previousAmountEur) * ramase) / total);
 }

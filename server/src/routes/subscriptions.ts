@@ -4,7 +4,8 @@ import { getSettings, prisma } from '../prisma.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { isoDate, CYCLES, PRODUCTS, SUBSCRIPTION_KINDS, SUBSCRIPTION_STATUSES } from '../lib/validation.js';
 import { syncBillingItems } from '../lib/billing-sync.js';
-import { computeSubscriptionPrice, isPerUserProduct } from '../lib/pricing.js';
+import { computeSubscriptionPrice, includedStorageGb, isPerUserProduct, prorate } from '../lib/pricing.js';
+import { today } from '../lib/dates.js';
 import { CYCLE_MONTHS, isCycle } from '../lib/cycles.js';
 import { round2 } from '../lib/rates.js';
 
@@ -20,6 +21,10 @@ const subscriptionSchema = z.object({
   users: z.coerce.number().int().positive('Numarul de utilizatori trebuie sa fie cel putin 1').nullable().optional(),
   /// Pentru pachetele de ore: care pachet a fost cumparat
   hourPackageId: z.string().nullable().optional(),
+  /// Spatiul ocupat efectiv de client (GB), completat manual
+  storageUsedGb: z.coerce.number().nonnegative().nullable().optional(),
+  /// De cand se aplica noul numar de utilizatori (pentru proratare)
+  usersEffectiveDate: isoDate.optional(),
   cycle: z.enum(CYCLES).default('MONTHLY'),
   /// Ore de interventie incluse in fiecare luna
   includedHoursPerMonth: z.coerce.number().min(0).max(200).default(0),
@@ -97,14 +102,25 @@ subscriptionsRouter.get(
         hourPackage: true,
       },
     });
-    res.json(subscriptions);
+
+    const settings = await getSettings();
+    res.json(
+      subscriptions.map((sub) => ({
+        ...sub,
+        // spatiul inclus urmeaza pragul de utilizatori, ca si pretul
+        storageIncludedGb:
+          isPerUserProduct(sub.product) && sub.users
+            ? includedStorageGb(settings, sub.product, sub.users)
+            : null,
+      })),
+    );
   }),
 );
 
 subscriptionsRouter.post(
   '/',
   asyncHandler(async (req, res) => {
-    const data = subscriptionSchema.parse(req.body);
+    const { usersEffectiveDate: _ignorat, ...data } = subscriptionSchema.parse(req.body);
     if (data.endDate && data.endDate < data.startDate) {
       throw new HttpError(400, 'Data de final nu poate fi inaintea datei de start');
     }
@@ -112,6 +128,7 @@ subscriptionsRouter.post(
     const created = await prisma.subscription.create({
       data: {
         ...data,
+        ...(data.storageUsedGb !== undefined && data.storageUsedGb !== null ? { storageUpdatedAt: today() } : {}),
         amountEur,
         users,
         hourPackageId: data.hourPackageId || null,
@@ -127,7 +144,7 @@ subscriptionsRouter.post(
 subscriptionsRouter.put(
   '/:id',
   asyncHandler(async (req, res) => {
-    const data = subscriptionSchema.partial().parse(req.body);
+    const { usersEffectiveDate, ...data } = subscriptionSchema.partial().parse(req.body);
     const current = await prisma.subscription.findUniqueOrThrow({ where: { id: req.params.id } });
     const startDate = data.startDate ?? current.startDate;
     const endDate = data.endDate === undefined ? current.endDate : data.endDate;
@@ -144,6 +161,15 @@ subscriptionsRouter.put(
       amountEur: data.amountEur ?? current.amountEur,
       hourPackageId: data.hourPackageId === undefined ? current.hourPackageId : data.hourPackageId,
     });
+    /*
+     * Daca se schimba numarul de utilizatori, tinem minte de cand si cat ar
+     * trebui prorat pentru perioada deja facturata — altfel diferenta se pierde.
+     */
+    let schimbare: { previousUsers: number; newUsers: number } | null = null;
+    if (data.users !== undefined && data.users !== null && current.users && data.users !== current.users) {
+      schimbare = { previousUsers: current.users, newUsers: data.users };
+    }
+
     const updated = await prisma.subscription.update({
       where: { id: req.params.id },
       data: {
@@ -151,10 +177,41 @@ subscriptionsRouter.put(
         amountEur,
         users,
         ...(data.hourPackageId !== undefined ? { hourPackageId: data.hourPackageId || null } : {}),
+        // marcam cand a fost actualizat spatiul, ca sa se vada cat de proaspata e cifra
+        ...(data.storageUsedGb !== undefined && data.storageUsedGb !== current.storageUsedGb
+          ? { storageUpdatedAt: today() }
+          : {}),
         endDate,
         ...(resetSeries ? { nextDueDate: data.startDate } : {}),
       },
     });
+    if (schimbare) {
+      const effectiveDate = usersEffectiveDate ?? today();
+      // pozitia care acopera data modificarii, daca exista deja una generata
+      const pozitie = await prisma.billingItem.findFirst({
+        where: {
+          subscriptionId: updated.id,
+          periodStart: { lte: effectiveDate },
+          periodEnd: { gte: effectiveDate },
+        },
+      });
+
+      await prisma.subscriptionUserChange.create({
+        data: {
+          subscriptionId: updated.id,
+          effectiveDate,
+          previousUsers: schimbare.previousUsers,
+          newUsers: schimbare.newUsers,
+          previousAmountEur: current.amountEur,
+          newAmountEur: amountEur,
+          proratedEur: pozitie
+            ? prorate(current.amountEur, amountEur, pozitie.periodStart, pozitie.periodEnd, effectiveDate)
+            : 0,
+          billingItemId: pozitie?.id ?? null,
+        },
+      });
+    }
+
     if (resetSeries) {
       await prisma.billingItem.deleteMany({
         where: { subscriptionId: updated.id, status: 'PENDING' },
@@ -170,5 +227,53 @@ subscriptionsRouter.delete(
   asyncHandler(async (req, res) => {
     await prisma.subscription.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
+  }),
+);
+
+/* ─────────────────────────────────── istoricul de utilizatori ──────────── */
+
+subscriptionsRouter.get(
+  '/:id/user-changes',
+  asyncHandler(async (req, res) => {
+    res.json(
+      await prisma.subscriptionUserChange.findMany({
+        where: { subscriptionId: req.params.id },
+        orderBy: { effectiveDate: 'desc' },
+      }),
+    );
+  }),
+);
+
+/** Adauga diferenta prorata la pozitia din scadentar care acopera modificarea */
+subscriptionsRouter.post(
+  '/:id/user-changes/:changeId/apply',
+  asyncHandler(async (req, res) => {
+    const schimbare = await prisma.subscriptionUserChange.findUniqueOrThrow({
+      where: { id: req.params.changeId },
+    });
+    if (schimbare.subscriptionId !== req.params.id) {
+      throw new HttpError(404, 'Modificarea nu apartine acestui abonament');
+    }
+    if (schimbare.applied) throw new HttpError(400, 'Diferenta a fost deja aplicata');
+    if (!schimbare.billingItemId || !schimbare.proratedEur) {
+      throw new HttpError(400, 'Nu exista o pozitie de facturat peste care sa se aplice diferenta');
+    }
+
+    const pozitie = await prisma.billingItem.findUniqueOrThrow({ where: { id: schimbare.billingItemId } });
+    if (pozitie.status !== 'PENDING') {
+      throw new HttpError(400, 'Pozitia a fost deja facturata; treci diferenta pe factura urmatoare');
+    }
+
+    const nota = `Ajustare ${schimbare.previousUsers} → ${schimbare.newUsers} utilizatori de la ${schimbare.effectiveDate}`;
+    await prisma.billingItem.update({
+      where: { id: pozitie.id },
+      data: {
+        amountEur: round2(pozitie.amountEur + schimbare.proratedEur),
+        notes: pozitie.notes ? `${pozitie.notes} · ${nota}` : nota,
+      },
+    });
+    res.json(
+      await prisma.subscriptionUserChange.update({ where: { id: schimbare.id }, data: { applied: true } }),
+    );
   }),
 );

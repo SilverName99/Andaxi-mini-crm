@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarClock, Pencil, Plus, Repeat, Trash2, Users } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Database, History, Pencil, Plus, Repeat, Trash2, Users } from 'lucide-react';
 import { api } from '../lib/api';
-import { useClients, useCrudMutation, useHourPackages, useSubscriptions } from '../lib/queries';
+import {
+  useClients, useCrudMutation, useHourPackages, useSettings, useSubscriptions, useUserChanges,
+} from '../lib/queries';
 import { PageHeader } from '../components/Layout';
 import { DateField } from '../components/DateField';
 import {
@@ -10,8 +12,11 @@ import {
   Segmented, Select, Textarea, Toggle, useToast,
 } from '../components/ui';
 import { formatDate, formatEur, todayIso } from '../lib/format';
+import { cn } from '../lib/cn';
 import { CYCLE, PRODUCT, SUBSCRIPTION_KIND, SUBSCRIPTION_STATUS, options } from '../lib/labels';
-import type { AccentColor, PriceBreakdown, Subscription, SubscriptionStatus } from '../lib/types';
+import type {
+  AccentColor, PriceBreakdown, Subscription, SubscriptionStatus, SubscriptionUserChange,
+} from '../lib/types';
 
 /** Produsele la care pretul se calculeaza din numarul de utilizatori */
 const PER_USER: Subscription['product'][] = ['ERP', 'CRM'];
@@ -33,6 +38,8 @@ export function SubscriptionForm({
   const toast = useToast();
   const { data: clients = [] } = useClients();
   const { data: packages = [] } = useHourPackages();
+  const { data: settings } = useSettings();
+  const { data: userChanges = [] } = useUserChanges(subscription?.id);
   const [form, setForm] = useState<Partial<Subscription>>(
     subscription ?? { ...EMPTY, clientId: defaultClientId ?? '' },
   );
@@ -43,6 +50,11 @@ export function SubscriptionForm({
   );
   const [price, setPrice] = useState<PriceBreakdown | null>(null);
   const [error, setError] = useState('');
+  // cand se schimba numarul de utilizatori la un abonament existent, retinem de cand
+  const [usersEffectiveDate, setUsersEffectiveDate] = useState(todayIso());
+  const utilizatoriModificati = Boolean(
+    subscription?.users && form.users && form.users !== subscription.users,
+  );
 
   const mutation = useCrudMutation(async (data: Partial<Subscription>) =>
     subscription ? api.put(`/subscriptions/${subscription.id}`, data) : api.post('/subscriptions', data),
@@ -92,6 +104,7 @@ export function SubscriptionForm({
       await mutation.mutateAsync({
         ...form,
         endDate: form.endDate || null,
+        ...(utilizatoriModificati ? { usersEffectiveDate } : {}),
         // trimitem doar ce e relevant; suma pentru ERP/CRM o recalculeaza serverul
         users: !estePachet && perUser ? form.users : null,
         hourPackageId: estePachet ? form.hourPackageId : null,
@@ -197,6 +210,48 @@ export function SubscriptionForm({
         <Field label="Status">
           <Select value={form.status ?? 'ACTIVE'} onChange={(e) => set('status', e.target.value)} options={options(SUBSCRIPTION_STATUS)} />
         </Field>
+        {PER_USER.includes(product) && !estePachet && (
+          <Field
+            label="Spațiu ocupat (GB)"
+            hint={
+              settings && form.users
+                ? `Inclus la acest prag: ${
+                    product === 'ERP'
+                      ? form.users <= settings.erpTier1Max
+                        ? settings.erpTier1StorageGb
+                        : form.users <= settings.erpTier2Max
+                          ? settings.erpTier2StorageGb
+                          : settings.erpTier3StorageGb
+                      : form.users <= settings.crmTier1Max
+                        ? settings.crmTier1StorageGb
+                        : form.users <= settings.crmTier2Max
+                          ? settings.crmTier2StorageGb
+                          : settings.crmTier3StorageGb
+                  } GB`
+                : 'Completează manual, când verifici serverul'
+            }
+          >
+            <div className="relative">
+              <Database className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-indigo-500" />
+              <Input
+                type="number"
+                min={0}
+                step="0.1"
+                className="pl-10"
+                value={form.storageUsedGb ?? ''}
+                onChange={(e) => set('storageUsedGb', e.target.value ? Number(e.target.value) : null)}
+              />
+            </div>
+          </Field>
+        )}
+        {utilizatoriModificati && (
+          <Field
+            label="Modificarea se aplică de la"
+            hint="Diferența pentru perioada în curs se calculează proporțional cu zilele rămase"
+          >
+            <DateField value={usersEffectiveDate} onChange={setUsersEffectiveDate} allowEmpty={false} />
+          </Field>
+        )}
         <Field label="Notițe" className="sm:col-span-2">
           <Textarea value={form.notes ?? ''} onChange={(e) => set('notes', e.target.value)} />
         </Field>
@@ -254,6 +309,19 @@ export function SubscriptionForm({
         </div>
       )}
 
+      {userChanges.length > 0 && (
+        <div className="mt-5">
+          <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <History className="h-3.5 w-3.5" /> Istoric utilizatori
+          </p>
+          <ul className="flex flex-col gap-1.5">
+            {userChanges.map((schimbare) => (
+              <UserChangeRow key={schimbare.id} schimbare={schimbare} subscriptionId={subscription!.id} />
+            ))}
+          </ul>
+        </div>
+      )}
+
       {error && <div className="mt-4"><ErrorBlock message={error} /></div>}
 
       <div className="mt-6 flex justify-end gap-2">
@@ -261,6 +329,53 @@ export function SubscriptionForm({
         <Button onClick={submit} loading={mutation.isPending}>{subscription ? 'Salvează' : 'Adaugă abonament'}</Button>
       </div>
     </Modal>
+  );
+}
+
+/** Un rand din istoricul de utilizatori, cu diferenta prorata si butonul de aplicare */
+function UserChangeRow({
+  schimbare,
+  subscriptionId,
+}: {
+  schimbare: SubscriptionUserChange;
+  subscriptionId: string;
+}) {
+  const toast = useToast();
+  const aplica = useCrudMutation(() =>
+    api.post(`/subscriptions/${subscriptionId}/user-changes/${schimbare.id}/apply`),
+  );
+
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm">
+      <span className="text-slate-700">
+        <span className="font-semibold">{formatDate(schimbare.effectiveDate)}</span> ·{' '}
+        {schimbare.previousUsers} → {schimbare.newUsers} utilizatori ({formatEur(schimbare.previousAmountEur)} →{' '}
+        {formatEur(schimbare.newAmountEur)})
+      </span>
+      {schimbare.proratedEur !== 0 && (
+        <span className="flex items-center gap-2">
+          <Badge className={schimbare.proratedEur > 0 ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700'}>
+            {schimbare.proratedEur > 0 ? '+' : ''}
+            {formatEur(schimbare.proratedEur)} prorat
+          </Badge>
+          {schimbare.applied ? (
+            <span className="text-xs font-semibold text-slate-400">aplicat</span>
+          ) : (
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={aplica.isPending}
+              onClick={async () => {
+                await aplica.mutateAsync(undefined);
+                toast('Diferența a fost adăugată în scadențar');
+              }}
+            >
+              Adaugă în scadențar
+            </Button>
+          )}
+        </span>
+      )}
+    </li>
   );
 }
 
@@ -391,6 +506,24 @@ export function Subscriptions() {
                     <p className="text-sm font-bold text-slate-700">{formatDate(sub.nextDueDate)}</p>
                   </div>
                 </div>
+                {sub.storageIncludedGb != null && sub.storageUsedGb != null && (
+                  <div
+                    className={cn(
+                      'mt-3 flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-semibold',
+                      sub.storageUsedGb > sub.storageIncludedGb
+                        ? 'bg-red-50 text-red-700'
+                        : 'bg-slate-50 text-slate-600',
+                    )}
+                  >
+                    {sub.storageUsedGb > sub.storageIncludedGb ? (
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                    ) : (
+                      <Database className="h-3.5 w-3.5" />
+                    )}
+                    {sub.storageUsedGb} din {sub.storageIncludedGb} GB
+                    {sub.storageUsedGb > sub.storageIncludedGb && ' — spațiu depășit'}
+                  </div>
+                )}
                 {sub.notes && <p className="mt-3 line-clamp-2 text-xs text-slate-500">{sub.notes}</p>}
               </div>
 

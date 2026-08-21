@@ -61,12 +61,19 @@ model Settings {
   erpTier2Max   Int   @default(10)
   erpTier2Price Float @default(45)
   erpTier3Price Float @default(40)
+  /// Spatiul inclus pe fiecare prag, in GB
+  erpTier1StorageGb Float @default(2)
+  erpTier2StorageGb Float @default(10)
+  erpTier3StorageGb Float @default(15)
 
   crmTier1Max   Int   @default(5)
   crmTier1Price Float @default(50)
   crmTier2Max   Int   @default(10)
   crmTier2Price Float @default(45)
   crmTier3Price Float @default(40)
+  crmTier1StorageGb Float @default(2)
+  crmTier2StorageGb Float @default(10)
+  crmTier3StorageGb Float @default(15)
 
   /// Reduceri (procente) pentru plata pe 6 luni, respectiv anual
   discountSemiannual Float @default(5)
@@ -159,6 +166,12 @@ model Subscription {
   /// Numar de utilizatori — doar pentru ERP/CRM, cand pretul se calculeaza automat.
   /// Daca lipseste, suma a fost stabilita manual.
   users Int?
+
+  /// Cat spatiu ocupa efectiv clientul, completat manual (GB)
+  storageUsedGb     Float?
+  storageUpdatedAt  String?
+
+  userChanges SubscriptionUserChange[]
 
   /// ACTIVE | PAUSED | CANCELLED
   status String @default("ACTIVE")
@@ -287,4 +300,32 @@ model Attachment {
   createdAt DateTime @default(now())
 
   @@index([workLogId])
+}
+
+/// Istoricul modificarilor de utilizatori la un abonament ERP/CRM.
+/// Tine minte de cand se aplica pretul nou si cat ar trebui prorat pentru
+/// perioada in curs, ca sa nu se piarda diferenta.
+model SubscriptionUserChange {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  /// Data de la care se aplica noul numar de utilizatori (YYYY-MM-DD)
+  effectiveDate String
+  previousUsers Int
+  newUsers      Int
+  previousAmountEur Float
+  newAmountEur      Float
+
+  /// Diferenta calculata pentru restul perioadei in curs
+  proratedEur Float @default(0)
+  /// Pozitia din scadentar peste care s-ar aplica diferenta
+  billingItemId String?
+  /// Daca diferenta a fost deja adaugata la acea pozitie
+  applied     Boolean @default(false)
+
+  note      String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([subscriptionId])
 }

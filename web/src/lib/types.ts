@@ -43,6 +43,12 @@ export interface Settings {
   crmTier2Max: number;
   crmTier2Price: number;
   crmTier3Price: number;
+  erpTier1StorageGb: number;
+  erpTier2StorageGb: number;
+  erpTier3StorageGb: number;
+  crmTier1StorageGb: number;
+  crmTier2StorageGb: number;
+  crmTier3StorageGb: number;
   discountSemiannual: number;
   discountAnnual: number;
 }
@@ -115,6 +121,11 @@ export interface Subscription {
   /** Pentru abonamentele de tip pachet de ore */
   hourPackageId: string | null;
   hourPackage?: HourPackage | null;
+  /** Spațiu ocupat de client (GB), completat manual */
+  storageUsedGb: number | null;
+  storageUpdatedAt: string | null;
+  /** Spațiul inclus la pragul curent de utilizatori (calculat de server) */
+  storageIncludedGb?: number | null;
   startDate: string;
   nextDueDate: string;
   endDate: string | null;
@@ -349,4 +360,20 @@ export interface MonthlySheet {
     tva: number;
     totalCuTva: number;
   };
+}
+
+/** O modificare a numărului de utilizatori la un abonament ERP/CRM */
+export interface SubscriptionUserChange {
+  id: string;
+  subscriptionId: string;
+  effectiveDate: string;
+  previousUsers: number;
+  newUsers: number;
+  previousAmountEur: number;
+  newAmountEur: number;
+  /** Diferența calculată pentru restul perioadei în curs */
+  proratedEur: number;
+  billingItemId: string | null;
+  applied: boolean;
+  note: string;
 }

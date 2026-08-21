@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { splitWorkInterval, toRon, type RateConfig } from './rates.js';
 import { addMonths, diffDays, endOfMonth, hhMmToMinutes, minutesToHhMm, monthRange } from './dates.js';
 import { monthlyEquivalent, nextDue, periodEnd } from './cycles.js';
-import { computeSubscriptionPrice, isPerUserProduct, pricePerUser } from './pricing.js';
+import {
+  computeSubscriptionPrice, includedStorageGb, isPerUserProduct, pricePerUser, prorate,
+} from './pricing.js';
 
 const config: RateConfig = {
   standardRate: 45,
@@ -99,6 +101,8 @@ test('cicluri de facturare', () => {
 const pricing = {
   erpTier1Max: 5, erpTier1Price: 50, erpTier2Max: 10, erpTier2Price: 45, erpTier3Price: 40,
   crmTier1Max: 5, crmTier1Price: 50, crmTier2Max: 10, crmTier2Price: 45, crmTier3Price: 40,
+  erpTier1StorageGb: 2, erpTier2StorageGb: 10, erpTier3StorageGb: 15,
+  crmTier1StorageGb: 2, crmTier2StorageGb: 10, crmTier3StorageGb: 15,
   discountSemiannual: 5, discountAnnual: 10,
 };
 
@@ -135,4 +139,27 @@ test('produsele cu pret pe utilizator sunt recunoscute', () => {
   assert.equal(isPerUserProduct('ERP'), true);
   assert.equal(isPerUserProduct('CRM'), true);
   assert.equal(isPerUserProduct('ECOMMERCE'), false);
+});
+
+test('spatiul inclus urmeaza pragul de utilizatori', () => {
+  assert.equal(includedStorageGb(pricing, 'ERP', 3), 2);
+  assert.equal(includedStorageGb(pricing, 'ERP', 8), 10);
+  assert.equal(includedStorageGb(pricing, 'CRM', 30), 15);
+});
+
+test('proratarea diferentei de utilizatori pe zilele ramase', () => {
+  // luna cu 31 de zile; modificarea intra pe 16, deci raman 16 zile din 31
+  assert.equal(prorate(250, 400, '2026-03-01', '2026-03-31', '2026-03-16'), 77.42);
+
+  // modificarea de la inceputul perioadei aduce diferenta intreaga
+  assert.equal(prorate(250, 400, '2026-03-01', '2026-03-31', '2026-03-01'), 150);
+
+  // o scadere de utilizatori da o diferenta negativa (de scazut)
+  assert.equal(prorate(400, 250, '2026-03-01', '2026-03-31', '2026-03-16'), -77.42);
+
+  // dupa finalul perioadei nu se mai prorata nimic
+  assert.equal(prorate(250, 400, '2026-03-01', '2026-03-31', '2026-04-02'), 0);
+
+  // o data dinaintea perioadei se trateaza ca inceputul ei
+  assert.equal(prorate(250, 400, '2026-03-01', '2026-03-31', '2026-02-10'), 150);
 });
