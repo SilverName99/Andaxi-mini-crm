@@ -129,6 +129,10 @@ model Subscription {
   /// Optional, data de final a contractului (YYYY-MM-DD)
   endDate   String?
 
+  /// Cate ore de interventie sunt incluse in abonament in fiecare luna.
+  /// Orele in afara programului consuma dublu din acest pachet.
+  includedHoursPerMonth Float @default(0)
+
   /// Numar de utilizatori — doar pentru ERP/CRM, cand pretul se calculeaza automat.
   /// Daca lipseste, suma a fost stabilita manual.
   users Int?
@@ -192,6 +196,8 @@ model WorkLog {
   description String @default("")
   /// SUPORT | INTERVENTIE | DEZVOLTARE | CONSULTANTA | ALTUL
   category    String @default("SUPORT")
+  /// Eticheta libera pentru gruparea orelor pe lucrari ("Dezvoltare CRM", "Implementare ERP")
+  projectTag  String @default("")
 
   /// Minutele facturate la tarif standard, respectiv majorat (calculate la salvare)
   standardMinutes Int

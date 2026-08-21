@@ -18,7 +18,8 @@ const PER_USER: Subscription['product'][] = ['ERP', 'CRM'];
 
 const EMPTY: Partial<Subscription> = {
   clientId: '', label: '', kind: 'HOSTING_MENTENANTA', product: 'PREZENTARE', amountEur: 45,
-  users: null, cycle: 'MONTHLY', startDate: todayIso(), endDate: null, status: 'ACTIVE', notes: '',
+  users: null, cycle: 'MONTHLY', includedHoursPerMonth: 0, startDate: todayIso(), endDate: null,
+  status: 'ACTIVE', notes: '',
 };
 
 export function SubscriptionForm({
@@ -147,6 +148,18 @@ export function SubscriptionForm({
         )}
         <Field label="Periodicitate" hint={amount ? `Echivalent ${formatEur(monthly)} / lună` : undefined}>
           <Select value={form.cycle ?? 'MONTHLY'} onChange={(e) => set('cycle', e.target.value)} options={options(CYCLE)} />
+        </Field>
+        <Field
+          label="Ore incluse pe lună"
+          hint="Se scad automat din intervențiile lunii; o oră în afara programului consumă dublu"
+        >
+          <Input
+            type="number"
+            min={0}
+            step="0.5"
+            value={form.includedHoursPerMonth ?? 0}
+            onChange={(e) => set('includedHoursPerMonth', Number(e.target.value))}
+          />
         </Field>
         <Field label="Prima scadență *" hint="De la această dată se generează pozițiile de facturat">
           <DateField value={form.startDate ?? ''} onChange={(iso) => set('startDate', iso)} allowEmpty={false} />
@@ -304,6 +317,11 @@ export function Subscriptions() {
                   {sub.users ? (
                     <Badge className="bg-indigo-100 text-indigo-700" >
                       {sub.users} utilizatori
+                    </Badge>
+                  ) : null}
+                  {sub.includedHoursPerMonth > 0 ? (
+                    <Badge className="bg-indigo-50 text-indigo-600">
+                      {sub.includedHoursPerMonth} h incluse/lună
                     </Badge>
                   ) : null}
                 </div>

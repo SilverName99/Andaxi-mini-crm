@@ -11,6 +11,7 @@ import { Billing } from './pages/Billing';
 import { Calendar } from './pages/Calendar';
 import { WorkLogs } from './pages/WorkLogs';
 import { Tasks } from './pages/Tasks';
+import { MonthlySheet } from './pages/MonthlySheet';
 import { Reports } from './pages/Reports';
 import { SettingsPage } from './pages/Settings';
 
@@ -38,6 +39,7 @@ export function App() {
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/interventii" element={<WorkLogs />} />
         <Route path="/taskuri" element={<Tasks />} />
+        <Route path="/fisa-lunara" element={<MonthlySheet />} />
         <Route path="/rapoarte" element={<Reports />} />
         <Route path="/setari" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

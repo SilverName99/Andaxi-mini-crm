@@ -18,6 +18,7 @@ import { workLogsRouter } from './routes/worklogs.js';
 import { tasksRouter } from './routes/tasks.js';
 import { settingsRouter } from './routes/settings.js';
 import { dashboardRouter } from './routes/dashboard.js';
+import { monthlySheetRouter } from './routes/monthly-sheet.js';
 
 const app = express();
 
@@ -73,6 +74,7 @@ app.use('/api/worklogs', requireAuth, workLogsRouter);
 app.use('/api/tasks', requireAuth, tasksRouter);
 app.use('/api/settings', requireAuth, settingsRouter);
 app.use('/api/dashboard', requireAuth, dashboardRouter);
+app.use('/api/monthly-sheet', requireAuth, monthlySheetRouter);
 
 // In productie servim si build-ul de frontend din acelasi proces (un singur port de expus)
 const webDist = path.resolve(fileURLToPath(new URL('../../web/dist', import.meta.url)));

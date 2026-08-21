@@ -27,6 +27,7 @@ interface FormState {
   end: string;
   description: string;
   category: WorkLog['category'];
+  projectTag: string;
   billable: boolean;
   manual: boolean;
   amountEur: number;
@@ -41,6 +42,7 @@ function toForm(log?: WorkLog | null, defaultClientId?: string): FormState {
     end: log ? minutesToHhMm(log.endMinutes) : '11:00',
     description: log?.description ?? '',
     category: log?.category ?? 'SUPORT',
+    projectTag: log?.projectTag ?? '',
     billable: log?.billable ?? true,
     manual: log?.manualAmount ?? false,
     amountEur: log?.amountEur ?? 0,
@@ -62,6 +64,12 @@ export function WorkLogForm({
   const [form, setForm] = useState<FormState>(toForm(log, defaultClientId));
   const [preview, setPreview] = useState<RateSplit | null>(null);
   const [error, setError] = useState('');
+  // etichetele deja folosite, ca sa nu fie rescrise de fiecare data
+  const { data: toateLogurile = [] } = useWorkLogs();
+  const etichete = useMemo(
+    () => [...new Set(toateLogurile.map((l) => l.projectTag).filter(Boolean))].sort(),
+    [toateLogurile],
+  );
 
   const mutation = useCrudMutation((data: unknown) =>
     log ? api.put(`/worklogs/${log.id}`, data) : api.post('/worklogs', data),
@@ -94,6 +102,7 @@ export function WorkLogForm({
         end: form.end,
         description: form.description,
         category: form.category,
+        projectTag: form.projectTag,
         billable: form.billable,
         amountEur: form.manual ? form.amountEur : null,
         invoiceRef: form.invoiceRef,
@@ -135,6 +144,23 @@ export function WorkLogForm({
             <TimeField value={form.end} onChange={(v) => set('end', v)} />
           </Field>
         </div>
+        <Field
+          label="Lucrare / proiect"
+          hint="Etichetă liberă, pentru gruparea orelor (ex. Dezvoltare CRM)"
+          className="sm:col-span-2"
+        >
+          <Input
+            list="etichete-proiect"
+            value={form.projectTag}
+            onChange={(e) => set('projectTag', e.target.value)}
+            placeholder="fără etichetă"
+          />
+          <datalist id="etichete-proiect">
+            {etichete.map((eticheta) => (
+              <option key={eticheta} value={eticheta} />
+            ))}
+          </datalist>
+        </Field>
         <Field label="Descriere" className="sm:col-span-2">
           <Textarea value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Ce ai făcut concret…" />
         </Field>
@@ -221,8 +247,10 @@ export function WorkLogs() {
       minutes: filtered.reduce((s, l) => s + l.standardMinutes + l.offHoursMinutes, 0),
       standard: filtered.reduce((s, l) => s + l.standardMinutes, 0),
       offHours: filtered.reduce((s, l) => s + l.offHoursMinutes, 0),
-      amount: billable.reduce((s, l) => s + l.amountEur, 0),
-      pending: billable.filter((l) => l.status === 'PENDING').reduce((s, l) => s + l.amountEur, 0),
+      amount: billable.reduce((s, l) => s + (l.billableEur ?? l.amountEur), 0),
+      pending: billable
+        .filter((l) => l.status === 'PENDING')
+        .reduce((s, l) => s + (l.billableEur ?? l.amountEur), 0),
     };
   }, [filtered]);
 
@@ -343,7 +371,9 @@ export function WorkLogs() {
                 <span className="h-px flex-1 bg-slate-200" />
                 <span className="text-xs font-semibold text-slate-400">
                   {formatMinutes(dayLogs.reduce((s, l) => s + l.standardMinutes + l.offHoursMinutes, 0))} ·{' '}
-                  {formatEur(dayLogs.filter((l) => l.billable).reduce((s, l) => s + l.amountEur, 0))}
+                  {formatEur(
+                    dayLogs.filter((l) => l.billable).reduce((s, l) => s + (l.billableEur ?? l.amountEur), 0),
+                  )}
                 </span>
               </div>
               <div className="flex flex-col gap-2">
@@ -382,6 +412,9 @@ export function WorkLogs() {
                           </Link>
                           <Badge className={WORK_CATEGORY[log.category].chip}>{WORK_CATEGORY[log.category].text}</Badge>
                           <Badge className={WORK_STATUS[log.status].chip}>{WORK_STATUS[log.status].text}</Badge>
+                          {log.projectTag && (
+                            <Badge className="bg-indigo-50 text-indigo-600">{log.projectTag}</Badge>
+                          )}
                         </div>
                         <p className="mt-1 text-sm text-slate-600">{log.description || '—'}</p>
                         <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
@@ -403,10 +436,20 @@ export function WorkLogs() {
                     <div className="flex items-center justify-between gap-3 sm:justify-end">
                       <div className="text-right">
                         <p className={cn('text-lg font-extrabold', log.billable ? 'text-slate-900' : 'text-slate-400 line-through')}>
-                          {formatEur(log.amountEur)}
+                          {formatEur(log.billableEur ?? log.amountEur)}
                         </p>
-                        {settings && log.billable && (
-                          <p className="text-[11px] text-slate-400">{formatRon(log.amountEur, settings.eurRon)}</p>
+                        {/* cand o parte din ore intra in abonament, aratam si valoarea bruta */}
+                        {log.includedMinutes ? (
+                          <p className="text-[11px] font-medium text-emerald-600">
+                            {formatMinutes(log.includedMinutes)} din abonament
+                          </p>
+                        ) : (
+                          settings &&
+                          log.billable && (
+                            <p className="text-[11px] text-slate-400">
+                              {formatRon(log.billableEur ?? log.amountEur, settings.eurRon)}
+                            </p>
+                          )
                         )}
                       </div>
                       <div className="flex items-center gap-1">

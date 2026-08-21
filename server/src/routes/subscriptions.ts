@@ -18,6 +18,8 @@ const subscriptionSchema = z.object({
   /// Pentru ERP/CRM: numarul de utilizatori, din care se calculeaza suma
   users: z.coerce.number().int().positive('Numarul de utilizatori trebuie sa fie cel putin 1').nullable().optional(),
   cycle: z.enum(CYCLES).default('MONTHLY'),
+  /// Ore de interventie incluse in fiecare luna
+  includedHoursPerMonth: z.coerce.number().min(0).max(200).default(0),
   startDate: isoDate,
   endDate: isoDate.nullable().optional(),
   status: z.enum(SUBSCRIPTION_STATUSES).default('ACTIVE'),

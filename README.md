@@ -16,6 +16,7 @@ aici ții evidența a *ce* trebuie facturat, *când*, și marchezi ce ai emis de
 | **Abonamente** | Găzduire / mentenanță pentru landing page, site prezentare, magazin online, CRM, ERP — facturate lunar, la 6 luni sau anual |
 | **Scadențar** | Pozițiile de facturat, generate automat din abonamente; marchezi „facturat" / „încasat" și treci numărul facturii din ERP |
 | **Calendar** | Lună întreagă cu scadențe, intervenții și task-uri la un loc; click pe o zi pentru detalii |
+| **Fișă lunară** | Ce s-a lucrat într-o lună la un client, cu orele acoperite din abonament și totalul de facturat; se printează sau se salvează ca PDF |
 | **Ore & intervenții** | Suport tehnic la oră, cu tarif calculat automat pe interval; click pe o intervenție deschide detaliile, cu fișiere atașate (PDF, Word) |
 | **Task-uri** | Lucruri de făcut, cu sau fără client asociat |
 | **Rapoarte** | Totaluri pe client și pe lună, cu TVA calculat și export CSV |
@@ -50,6 +51,21 @@ Pentru fiecare abonament activ se generează automat câte o poziție per perioa
 de la prima scadență până la 60 de zile în viitor. Generarea e idempotentă (nu
 apar dublări), iar pozițiile deja marcate ca facturate nu se modifică.
 Sumele sunt în EUR, cu echivalentul în RON afișat la cursul din Setări.
+
+### Orele incluse în abonament
+
+Un abonament de mentenanță poate include un număr de ore pe lună. Ele se
+consumă automat din intervențiile lunii, în ordine cronologică, iar o oră
+lucrată în afara programului consumă **dublu** (costă dublu, deci consumă
+dublu). Ce depășește orele incluse se facturează la tarifele obișnuite.
+
+Consecință: valoarea de facturat a unei intervenții nu mai e o proprietate a ei,
+ci depinde de ce s-a consumat înaintea ei în lună. De aceea intervenția
+păstrează valoarea brută, iar alocarea se calculează pe lună — la fel în fișa
+lunară, în rapoarte și pe panoul de control.
+
+Orele incluse **nu se reportează** în luna următoare (fiecare lună începe cu
+pachetul întreg).
 
 ### TVA
 

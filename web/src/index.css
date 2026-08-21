@@ -42,3 +42,19 @@
     @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500;
   }
 }
+
+/* La printare rămâne doar conținutul paginii — fișa lunară trebuie să încapă
+   pe hârtie fără meniu, butoane și fundaluri colorate. */
+@media print {
+  aside,
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  .card {
+    border-color: #e2e8f0;
+    box-shadow: none;
+  }
+}

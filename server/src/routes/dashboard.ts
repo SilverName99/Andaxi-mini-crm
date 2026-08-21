@@ -5,6 +5,7 @@ import { syncBillingItems } from '../lib/billing-sync.js';
 import { addDays, addMonths, endOfMonth, monthRange, startOfMonth, today } from '../lib/dates.js';
 import { isCycle, monthlyEquivalent } from '../lib/cycles.js';
 import { round2 } from '../lib/rates.js';
+import { allocateByClientMonth } from '../lib/hours.js';
 
 export const dashboardRouter = Router();
 
@@ -40,6 +41,15 @@ dashboardRouter.get(
       }),
     ]);
 
+    /*
+     * Orele se factureaza dupa ce se scad cele incluse in abonament, iar acelea
+     * se consuma pe luna, in ordine cronologica. Deci valoarea unei interventii
+     * nu poate fi luata direct din inregistrare, ci din alocarea pe luna.
+     */
+    const alocari = allocateByClientMonth(workLogs, subscriptions);
+    const facturabil = (log: { id: string; amountEur: number }) =>
+      alocari.get(log.id)?.billableEur ?? log.amountEur;
+
     const activeSubs = subscriptions.filter((s) => s.status === 'ACTIVE');
     const mrr = round2(
       activeSubs.reduce(
@@ -66,7 +76,7 @@ dashboardRouter.get(
         .reduce((sum, i) => sum + i.amountEur, 0);
       const ore = workLogs
         .filter((l) => l.date.startsWith(month) && l.billable)
-        .reduce((sum, l) => sum + l.amountEur, 0);
+        .reduce((sum, l) => sum + facturabil(l), 0);
       return { month, recurent: round2(recurent), ore: round2(ore), total: round2(recurent + ore) };
     });
 
@@ -86,7 +96,7 @@ dashboardRouter.get(
     }
     for (const l of workLogs) {
       const entry = clientTotals.get(l.clientId);
-      if (entry && l.billable) entry.ore += l.amountEur;
+      if (entry && l.billable) entry.ore += facturabil(l);
     }
 
     res.json({
@@ -103,10 +113,10 @@ dashboardRouter.get(
         overdueCount: overdue.length,
         overdueAmount: round2(overdue.reduce((s, i) => s + i.amountEur, 0)),
         unbilledHoursMinutes: unbilledLogs.reduce((s, l) => s + l.standardMinutes + l.offHoursMinutes, 0),
-        unbilledHoursAmount: round2(unbilledLogs.reduce((s, l) => s + l.amountEur, 0)),
+        unbilledHoursAmount: round2(unbilledLogs.reduce((s, l) => s + facturabil(l), 0)),
         monthMinutes: logsThisMonth.reduce((s, l) => s + l.standardMinutes + l.offHoursMinutes, 0),
         monthHoursAmount: round2(
-          logsThisMonth.filter((l) => l.billable).reduce((s, l) => s + l.amountEur, 0),
+          logsThisMonth.filter((l) => l.billable).reduce((s, l) => s + facturabil(l), 0),
         ),
       },
       upcoming: upcoming.slice(0, 8),
@@ -134,11 +144,17 @@ dashboardRouter.get(
     const { from = startOfMonth(addMonths(now, -5)), to = endOfMonth(now) } = req.query as Record<string, string>;
     const settings = await getSettings();
 
-    const [items, logs, clients] = await Promise.all([
+    const [items, logs, clients, subscriptions] = await Promise.all([
       prisma.billingItem.findMany({ where: { dueDate: { gte: from, lte: to } } }),
       prisma.workLog.findMany({ where: { date: { gte: from, lte: to } } }),
       prisma.client.findMany({ select: { id: true, name: true, company: true, color: true } }),
+      prisma.subscription.findMany(),
     ]);
+
+    // aceeasi regula ca pe panoul de control: orele incluse se scad pe luna
+    const alocari = allocateByClientMonth(logs, subscriptions);
+    const facturabil = (log: { id: string; amountEur: number }) =>
+      alocari.get(log.id)?.billableEur ?? log.amountEur;
 
     const vat = (net: number) => round2((net * settings.vatRate) / 100);
 
@@ -148,7 +164,7 @@ dashboardRouter.get(
         const clientLogs = logs.filter((l) => l.clientId === c.id && l.billable);
         const minutes = clientLogs.reduce((s, l) => s + l.standardMinutes + l.offHoursMinutes, 0);
         const recurent = round2(clientItems.reduce((s, i) => s + i.amountEur, 0));
-        const ore = round2(clientLogs.reduce((s, l) => s + l.amountEur, 0));
+        const ore = round2(clientLogs.reduce((s, l) => s + facturabil(l), 0));
         const total = round2(recurent + ore);
         return {
           ...c,
@@ -160,11 +176,11 @@ dashboardRouter.get(
           totalCuTva: round2(total + vat(total)),
           incasat: round2(
             clientItems.filter((i) => i.status === 'PAID').reduce((s, i) => s + i.amountEur, 0) +
-              clientLogs.filter((l) => l.status === 'PAID').reduce((s, l) => s + l.amountEur, 0),
+              clientLogs.filter((l) => l.status === 'PAID').reduce((s, l) => s + facturabil(l), 0),
           ),
           deFacturat: round2(
             clientItems.filter((i) => i.status === 'PENDING').reduce((s, i) => s + i.amountEur, 0) +
-              clientLogs.filter((l) => l.status === 'PENDING').reduce((s, l) => s + l.amountEur, 0),
+              clientLogs.filter((l) => l.status === 'PENDING').reduce((s, l) => s + facturabil(l), 0),
           ),
         };
       })
@@ -177,7 +193,7 @@ dashboardRouter.get(
         .reduce((s, i) => s + i.amountEur, 0);
       const ore = logs
         .filter((l) => l.date.startsWith(month) && l.billable)
-        .reduce((s, l) => s + l.amountEur, 0);
+        .reduce((s, l) => s + facturabil(l), 0);
       return { month, recurent: round2(recurent), ore: round2(ore), total: round2(recurent + ore) };
     });
 

@@ -5,6 +5,7 @@ import { asyncHandler } from '../middleware/errors.js';
 import { isoDate, WORK_CATEGORIES, WORK_STATUSES } from '../lib/validation.js';
 import { hhMmToMinutes } from '../lib/dates.js';
 import { splitWorkInterval, type RateConfig } from '../lib/rates.js';
+import { allocateByClientMonth } from '../lib/hours.js';
 import { ALLOWED_DOC_TYPES, deleteAttachment, resolveUploadPath, saveAttachment } from '../lib/uploads.js';
 import { HttpError } from '../middleware/errors.js';
 
@@ -19,6 +20,8 @@ const workLogSchema = z.object({
   end: timeString,
   description: z.string().default(''),
   category: z.enum(WORK_CATEGORIES).default('SUPORT'),
+  /** Eticheta libera pentru gruparea orelor pe lucrari */
+  projectTag: z.string().max(60).default(''),
   billable: z.boolean().default(true),
   /** Suma impusa manual (EUR); daca lipseste, se calculeaza din tarife */
   amountEur: z.coerce.number().nonnegative().nullable().optional(),
@@ -48,6 +51,7 @@ function buildData(input: z.infer<typeof workLogSchema>, config: RateConfig) {
     endMinutes,
     description: input.description,
     category: input.category,
+    projectTag: input.projectTag.trim(),
     standardMinutes: split.standardMinutes,
     offHoursMinutes: split.offHoursMinutes,
     standardRate: config.standardRate,
@@ -63,12 +67,13 @@ function buildData(input: z.infer<typeof workLogSchema>, config: RateConfig) {
 workLogsRouter.get(
   '/',
   asyncHandler(async (req, res) => {
-    const { clientId, status, from, to, category } = req.query as Record<string, string | undefined>;
+    const { clientId, status, from, to, category, projectTag } = req.query as Record<string, string | undefined>;
     const logs = await prisma.workLog.findMany({
       where: {
         ...(clientId ? { clientId } : {}),
         ...(status && status !== 'ALL' ? { status } : {}),
         ...(category && category !== 'ALL' ? { category } : {}),
+        ...(projectTag ? { projectTag } : {}),
         ...(from || to ? { date: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),
       },
       orderBy: [{ date: 'desc' }, { startMinutes: 'desc' }],
@@ -77,7 +82,34 @@ workLogsRouter.get(
         attachments: { orderBy: { createdAt: 'asc' } },
       },
     });
-    res.json(logs);
+
+    /*
+     * Cat se factureaza efectiv depinde de orele incluse in abonament, care se
+     * consuma pe luna. Alocarea are nevoie de toate interventiile lunilor
+     * atinse, nu doar de cele din filtru, altfel un filtru pe status ar arata
+     * alte sume decat fisa lunara.
+     */
+    const luni = [...new Set(logs.map((l) => l.date.slice(0, 7)))];
+    const [toateLunii, subscriptions] = await Promise.all([
+      luni.length
+        ? prisma.workLog.findMany({
+            where: { OR: luni.map((luna) => ({ date: { gte: `${luna}-01`, lte: `${luna}-31` } })) },
+          })
+        : Promise.resolve([]),
+      prisma.subscription.findMany(),
+    ]);
+    const alocari = allocateByClientMonth(toateLunii, subscriptions);
+
+    res.json(
+      logs.map((log) => {
+        const a = alocari.get(log.id);
+        return {
+          ...log,
+          billableEur: a?.billableEur ?? log.amountEur,
+          includedMinutes: a ? a.includedStandardMinutes + a.includedOffHoursMinutes : 0,
+        };
+      }),
+    );
   }),
 );
 

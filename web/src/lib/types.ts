@@ -100,6 +100,8 @@ export interface Subscription {
   /** Numar de utilizatori — doar la ERP/CRM, cand pretul e calculat automat */
   users: number | null;
   cycle: Cycle;
+  /** Ore de intervenție incluse în fiecare lună */
+  includedHoursPerMonth: number;
   startDate: string;
   nextDueDate: string;
   endDate: string | null;
@@ -153,6 +155,12 @@ export interface WorkLog {
   status: WorkStatus;
   invoiceRef: string;
   attachments?: Attachment[];
+  /** Etichetă liberă pentru gruparea orelor pe lucrări */
+  projectTag: string;
+  /** Cât rămâne de facturat după scăderea orelor incluse (calculat pe lună) */
+  billableEur?: number;
+  /** Minute acoperite din orele incluse în abonament */
+  includedMinutes?: number;
 }
 
 export interface Task {
@@ -267,4 +275,47 @@ export interface CalendarData {
   from: string;
   to: string;
   events: CalendarEvent[];
+}
+
+/* ────────────────────────────────────────────────────────── fișa lunară ── */
+
+export interface MonthlySheetRow {
+  id: string;
+  date: string;
+  timeLabel: string;
+  description: string;
+  category: WorkCategory;
+  projectTag: string;
+  status: WorkStatus;
+  billable: boolean;
+  manualAmount: boolean;
+  minutes: number;
+  standardMinutes: number;
+  offHoursMinutes: number;
+  standardRate: number;
+  offHoursRate: number;
+  includedMinutes: number;
+  billableMinutes: number;
+  grossEur: number;
+  billableEur: number;
+}
+
+export interface MonthlySheet {
+  month: string;
+  client: ClientRef & { cui: string };
+  settings: Settings;
+  includedFrom: { id: string; label: string; hours: number }[];
+  rows: MonthlySheetRow[];
+  totals: {
+    minutes: number;
+    includedMinutes: number;
+    usedIncludedMinutes: number;
+    remainingIncludedMinutes: number;
+    billableMinutes: number;
+    grossEur: number;
+    coveredEur: number;
+    billableEur: number;
+    tva: number;
+    totalCuTva: number;
+  };
 }
