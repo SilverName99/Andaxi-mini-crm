@@ -1,6 +1,6 @@
 export type ClientStatus = 'ACTIVE' | 'PROSPECT' | 'INACTIVE';
-export type SubscriptionKind = 'HOSTING' | 'MENTENANTA' | 'HOSTING_MENTENANTA';
-export type Product = 'LANDING_PAGE' | 'PREZENTARE' | 'ECOMMERCE' | 'CRM' | 'ERP' | 'ALTUL';
+export type SubscriptionKind = 'HOSTING' | 'MENTENANTA' | 'HOSTING_MENTENANTA' | 'PACHET_ORE';
+export type Product = 'LANDING_PAGE' | 'PREZENTARE' | 'ECOMMERCE' | 'CRM' | 'ERP' | 'PACHET_ORE' | 'ALTUL';
 export type Cycle = 'MONTHLY' | 'SEMIANNUAL' | 'ANNUAL';
 export type SubscriptionStatus = 'ACTIVE' | 'PAUSED' | 'CANCELLED';
 export type BillingStatus = 'PENDING' | 'INVOICED' | 'PAID' | 'SKIPPED';
@@ -58,6 +58,16 @@ export interface PriceBreakdown {
   monthlyEur: number;
 }
 
+export interface HourPackage {
+  id: string;
+  name: string;
+  hoursPerMonth: number;
+  standardRate: number;
+  offHoursRate: number;
+  active: boolean;
+  sortOrder: number;
+}
+
 export interface ClientRef {
   id: string;
   name: string;
@@ -102,6 +112,9 @@ export interface Subscription {
   cycle: Cycle;
   /** Ore de intervenție incluse în fiecare lună */
   includedHoursPerMonth: number;
+  /** Pentru abonamentele de tip pachet de ore */
+  hourPackageId: string | null;
+  hourPackage?: HourPackage | null;
   startDate: string;
   nextDueDate: string;
   endDate: string | null;
@@ -161,6 +174,8 @@ export interface WorkLog {
   billableEur?: number;
   /** Minute acoperite din orele incluse în abonament */
   includedMinutes?: number;
+  /** Minute acoperite din pachetul preplătit */
+  packageMinutes?: number;
 }
 
 export interface Task {
@@ -295,6 +310,7 @@ export interface MonthlySheetRow {
   standardRate: number;
   offHoursRate: number;
   includedMinutes: number;
+  packageMinutes: number;
   billableMinutes: number;
   grossEur: number;
   billableEur: number;
@@ -305,12 +321,27 @@ export interface MonthlySheet {
   client: ClientRef & { cui: string };
   settings: Settings;
   includedFrom: { id: string; label: string; hours: number }[];
+  packages: {
+    id: string;
+    label: string;
+    packageName: string;
+    hours: number;
+    standardRate: number;
+    offHoursRate: number;
+  }[];
+  packageStatement: {
+    openingMinutes: number;
+    creditedMinutes: number;
+    usedMinutes: number;
+    closingMinutes: number;
+  };
   rows: MonthlySheetRow[];
   totals: {
     minutes: number;
     includedMinutes: number;
     usedIncludedMinutes: number;
     remainingIncludedMinutes: number;
+    packageMinutes: number;
     billableMinutes: number;
     grossEur: number;
     coveredEur: number;

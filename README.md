@@ -20,7 +20,7 @@ aici ții evidența a *ce* trebuie facturat, *când*, și marchezi ce ai emis de
 | **Ore & intervenții** | Suport tehnic la oră, cu tarif calculat automat pe interval; click pe o intervenție deschide detaliile, cu fișiere atașate (PDF, Word) |
 | **Task-uri** | Lucruri de făcut, cu sau fără client asociat |
 | **Rapoarte** | Totaluri pe client și pe lună, cu TVA calculat și export CSV |
-| **Setări** | Sigla firmei, tarife orare, prețuri pe utilizator (ERP/CRM), program de lucru, curs EUR/RON, cotă TVA, date firmă, schimbare parolă |
+| **Setări** | Sigla firmei, tarife orare, pachete de ore preplătite, prețuri pe utilizator (ERP/CRM), program de lucru, curs EUR/RON, cotă TVA, date firmă, schimbare parolă |
 
 ### Tarifele orare
 
@@ -66,6 +66,18 @@ lunară, în rapoarte și pe panoul de control.
 
 Orele incluse **nu se reportează** în luna următoare (fiecare lună începe cu
 pachetul întreg).
+
+### Pachetele de ore preplătite
+
+Un client poate cumpăra lunar un pachet de ore, la tarif redus (se definesc în
+Setări). Pachetul se atribuie ca abonament, deci se facturează automat lunar,
+indiferent de consum, iar tarifele lui le înlocuiesc pe cele globale pentru
+intervențiile clientului.
+
+Orele lucrate se scad întâi din cele incluse în mentenanță, apoi din soldul
+pachetului; ce depășește se facturează la tarifele pachetului. Spre deosebire de
+orele incluse, **soldul pachetului se reportează** în lunile următoare, iar fișa
+lunară arată extrasul: sold la început, primite, consumate, sold rămas.
 
 ### TVA
 

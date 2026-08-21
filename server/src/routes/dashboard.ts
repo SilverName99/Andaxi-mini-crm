@@ -21,7 +21,7 @@ dashboardRouter.get(
     const [clients, subscriptions, billingItems, workLogs, tasks] = await Promise.all([
       prisma.client.findMany({ select: { id: true, name: true, company: true, color: true, status: true } }),
       prisma.subscription.findMany({
-        include: { client: { select: { id: true, name: true, company: true, color: true } } },
+        include: { client: { select: { id: true, name: true, company: true, color: true } }, hourPackage: true },
       }),
       prisma.billingItem.findMany({
         include: {
@@ -148,7 +148,7 @@ dashboardRouter.get(
       prisma.billingItem.findMany({ where: { dueDate: { gte: from, lte: to } } }),
       prisma.workLog.findMany({ where: { date: { gte: from, lte: to } } }),
       prisma.client.findMany({ select: { id: true, name: true, company: true, color: true } }),
-      prisma.subscription.findMany(),
+      prisma.subscription.findMany({ include: { hourPackage: true } }),
     ]);
 
     // aceeasi regula ca pe panoul de control: orele incluse se scad pe luna

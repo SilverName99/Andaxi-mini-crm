@@ -5,7 +5,8 @@ import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { isoDate, CYCLES, PRODUCTS, SUBSCRIPTION_KINDS, SUBSCRIPTION_STATUSES } from '../lib/validation.js';
 import { syncBillingItems } from '../lib/billing-sync.js';
 import { computeSubscriptionPrice, isPerUserProduct } from '../lib/pricing.js';
-import { isCycle } from '../lib/cycles.js';
+import { CYCLE_MONTHS, isCycle } from '../lib/cycles.js';
+import { round2 } from '../lib/rates.js';
 
 export const subscriptionsRouter = Router();
 
@@ -17,6 +18,8 @@ const subscriptionSchema = z.object({
   amountEur: z.coerce.number().positive('Suma trebuie sa fie mai mare ca 0').optional(),
   /// Pentru ERP/CRM: numarul de utilizatori, din care se calculeaza suma
   users: z.coerce.number().int().positive('Numarul de utilizatori trebuie sa fie cel putin 1').nullable().optional(),
+  /// Pentru pachetele de ore: care pachet a fost cumparat
+  hourPackageId: z.string().nullable().optional(),
   cycle: z.enum(CYCLES).default('MONTHLY'),
   /// Ore de interventie incluse in fiecare luna
   includedHoursPerMonth: z.coerce.number().min(0).max(200).default(0),
@@ -36,7 +39,18 @@ async function rezolvaSuma(input: {
   cycle: string;
   users?: number | null;
   amountEur?: number;
+  hourPackageId?: string | null;
 }): Promise<{ amountEur: number; users: number | null }> {
+  // pachetele de ore sunt preplatite: suma e numarul de ore × tariful pachetului
+  if (input.hourPackageId && isCycle(input.cycle)) {
+    const pachet = await prisma.hourPackage.findUnique({ where: { id: input.hourPackageId } });
+    if (!pachet) throw new HttpError(400, 'Pachetul de ore nu exista');
+    return {
+      amountEur: round2(pachet.hoursPerMonth * pachet.standardRate * CYCLE_MONTHS[input.cycle]),
+      users: null,
+    };
+  }
+
   if (isPerUserProduct(input.product) && input.users && isCycle(input.cycle)) {
     const settings = await getSettings();
     const pret = computeSubscriptionPrice(settings, input.product, input.cycle, input.users);
@@ -78,7 +92,10 @@ subscriptionsRouter.get(
         ...(status && status !== 'ALL' ? { status } : {}),
       },
       orderBy: [{ status: 'asc' }, { nextDueDate: 'asc' }],
-      include: { client: { select: { id: true, name: true, company: true, color: true } } },
+      include: {
+        client: { select: { id: true, name: true, company: true, color: true } },
+        hourPackage: true,
+      },
     });
     res.json(subscriptions);
   }),
@@ -93,7 +110,14 @@ subscriptionsRouter.post(
     }
     const { amountEur, users } = await rezolvaSuma(data);
     const created = await prisma.subscription.create({
-      data: { ...data, amountEur, users, endDate: data.endDate ?? null, nextDueDate: data.startDate },
+      data: {
+        ...data,
+        amountEur,
+        users,
+        hourPackageId: data.hourPackageId || null,
+        endDate: data.endDate ?? null,
+        nextDueDate: data.startDate,
+      },
     });
     await syncBillingItems();
     res.status(201).json(created);
@@ -118,6 +142,7 @@ subscriptionsRouter.put(
       cycle: data.cycle ?? current.cycle,
       users: data.users === undefined ? current.users : data.users,
       amountEur: data.amountEur ?? current.amountEur,
+      hourPackageId: data.hourPackageId === undefined ? current.hourPackageId : data.hourPackageId,
     });
     const updated = await prisma.subscription.update({
       where: { id: req.params.id },
@@ -125,6 +150,7 @@ subscriptionsRouter.put(
         ...data,
         amountEur,
         users,
+        ...(data.hourPackageId !== undefined ? { hourPackageId: data.hourPackageId || null } : {}),
         endDate,
         ...(resetSeries ? { nextDueDate: data.startDate } : {}),
       },

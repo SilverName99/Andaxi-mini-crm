@@ -105,6 +105,25 @@ model Client {
   @@index([status])
 }
 
+/// Pachet de ore preplatit: clientul cumpara lunar un numar de ore, la un tarif
+/// mai mic decat cel standard. Orele neconsumate se reporteaza in luna urmatoare.
+model HourPackage {
+  id            String  @id @default(cuid())
+  name          String
+  /// Cate ore primeste clientul in fiecare luna
+  hoursPerMonth Float
+  /// Tarifele pachetului, care le inlocuiesc pe cele globale pentru clientii lui
+  standardRate  Float
+  offHoursRate  Float
+  active        Boolean @default(true)
+  sortOrder     Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
 /// Abonament recurent: gazduire si/sau mentenanta pentru un produs al clientului
 model Subscription {
   id       String @id @default(cuid())
@@ -128,6 +147,10 @@ model Subscription {
   nextDueDate String
   /// Optional, data de final a contractului (YYYY-MM-DD)
   endDate   String?
+
+  /// Pentru abonamentele de tip pachet de ore: care pachet a fost cumparat
+  hourPackageId String?
+  hourPackage   HourPackage? @relation(fields: [hourPackageId], references: [id])
 
   /// Cate ore de interventie sunt incluse in abonament in fiecare luna.
   /// Orele in afara programului consuma dublu din acest pachet.

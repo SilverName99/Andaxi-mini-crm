@@ -439,9 +439,14 @@ export function WorkLogs() {
                           {formatEur(log.billableEur ?? log.amountEur)}
                         </p>
                         {/* cand o parte din ore intra in abonament, aratam si valoarea bruta */}
-                        {log.includedMinutes ? (
+                        {log.includedMinutes || log.packageMinutes ? (
                           <p className="text-[11px] font-medium text-emerald-600">
-                            {formatMinutes(log.includedMinutes)} din abonament
+                            {[
+                              log.includedMinutes ? `${formatMinutes(log.includedMinutes)} din abonament` : '',
+                              log.packageMinutes ? `${formatMinutes(log.packageMinutes)} din pachet` : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
                           </p>
                         ) : (
                           settings &&

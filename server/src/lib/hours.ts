@@ -25,6 +25,9 @@ export interface Allocation {
   /** Minute acoperite din orele incluse in abonament */
   includedStandardMinutes: number;
   includedOffHoursMinutes: number;
+  /** Minute acoperite din pachetul de ore preplatit */
+  packageStandardMinutes: number;
+  packageOffHoursMinutes: number;
   /** Minute care raman de facturat */
   billableStandardMinutes: number;
   billableOffHoursMinutes: number;
@@ -35,11 +38,17 @@ export interface Allocation {
 }
 
 export interface MonthAllocation {
-  /** Creditul lunii, in minute */
+  /** Creditul lunii din abonament, in minute */
   includedMinutes: number;
   /** Cat s-a consumat din el (in minute de credit, orele de noapte contand dublu) */
   usedMinutes: number;
   remainingMinutes: number;
+  /** Soldul pachetului preplatit la inceputul lunii, in minute */
+  packageOpeningMinutes: number;
+  /** Ore creditate in luna asta din pachet */
+  packageCreditedMinutes: number;
+  packageUsedMinutes: number;
+  packageClosingMinutes: number;
   grossEur: number;
   billableEur: number;
   coveredEur: number;
@@ -57,15 +66,27 @@ export interface MonthAllocation {
  * - interventiile nefacturabile sau cu suma impusa manual nu ating creditul:
  *   primele sunt oricum gratuite, la celelalte suma a fost deja negociata.
  */
-export function allocateMonth(logs: AllocatableLog[], includedMinutes: number): MonthAllocation {
+export function allocateMonth(
+  logs: AllocatableLog[],
+  includedMinutes: number,
+  packageOpeningMinutes = 0,
+  packageCreditedMinutes = 0,
+): MonthAllocation {
   const ordonate = [...logs].sort(
     (a, b) => a.date.localeCompare(b.date) || a.startMinutes - b.startMinutes,
   );
 
   let credit = Math.max(0, includedMinutes);
+  let pachet = Math.max(0, packageOpeningMinutes + packageCreditedMinutes);
   const allocations = new Map<string, Allocation>();
   let grossEur = 0;
   let billableEur = 0;
+
+  /** Acopera minute dintr-un sold, tinand cont ca orele de noapte consuma dublu */
+  const acopera = (minute: number, sold: number, factor: number) => {
+    const acoperite = Math.min(minute, Math.floor(sold / factor));
+    return { acoperite, ramas: sold - acoperite * factor };
+  };
 
   for (const log of ordonate) {
     const gross = log.billable ? log.amountEur : 0;
@@ -76,6 +97,8 @@ export function allocateMonth(logs: AllocatableLog[], includedMinutes: number): 
         logId: log.id,
         includedStandardMinutes: 0,
         includedOffHoursMinutes: 0,
+        packageStandardMinutes: 0,
+        packageOffHoursMinutes: 0,
         billableStandardMinutes: log.standardMinutes,
         billableOffHoursMinutes: log.offHoursMinutes,
         grossEur: gross,
@@ -85,23 +108,31 @@ export function allocateMonth(logs: AllocatableLog[], includedMinutes: number): 
       continue;
     }
 
-    const includedStandard = Math.min(log.standardMinutes, credit);
-    credit -= includedStandard;
+    // 1. orele incluse in abonament
+    const incStandard = acopera(log.standardMinutes, credit, 1);
+    credit = incStandard.ramas;
+    const incOffHours = acopera(log.offHoursMinutes, credit, OFF_HOURS_FACTOR);
+    credit = incOffHours.ramas;
 
-    // orele de noapte consuma dublu, deci creditul acopera jumatate din ele
-    const includedOffHours = Math.min(log.offHoursMinutes, Math.floor(credit / OFF_HOURS_FACTOR));
-    credit -= includedOffHours * OFF_HOURS_FACTOR;
+    // 2. soldul pachetului preplatit
+    const pacStandard = acopera(log.standardMinutes - incStandard.acoperite, pachet, 1);
+    pachet = pacStandard.ramas;
+    const pacOffHours = acopera(log.offHoursMinutes - incOffHours.acoperite, pachet, OFF_HOURS_FACTOR);
+    pachet = pacOffHours.ramas;
 
-    const billableStandard = log.standardMinutes - includedStandard;
-    const billableOffHours = log.offHoursMinutes - includedOffHours;
+    // 3. ce ramane se factureaza la tarifele inregistrate pe interventie
+    const billableStandard = log.standardMinutes - incStandard.acoperite - pacStandard.acoperite;
+    const billableOffHours = log.offHoursMinutes - incOffHours.acoperite - pacOffHours.acoperite;
     const billable = round2(
       (billableStandard / 60) * log.standardRate + (billableOffHours / 60) * log.offHoursRate,
     );
 
     allocations.set(log.id, {
       logId: log.id,
-      includedStandardMinutes: includedStandard,
-      includedOffHoursMinutes: includedOffHours,
+      includedStandardMinutes: incStandard.acoperite,
+      includedOffHoursMinutes: incOffHours.acoperite,
+      packageStandardMinutes: pacStandard.acoperite,
+      packageOffHoursMinutes: pacOffHours.acoperite,
       billableStandardMinutes: billableStandard,
       billableOffHoursMinutes: billableOffHours,
       grossEur: gross,
@@ -110,11 +141,15 @@ export function allocateMonth(logs: AllocatableLog[], includedMinutes: number): 
     billableEur += billable;
   }
 
-  const remaining = credit;
+  const disponibilPachet = Math.max(0, packageOpeningMinutes + packageCreditedMinutes);
   return {
     includedMinutes,
-    usedMinutes: Math.max(0, includedMinutes - remaining),
-    remainingMinutes: remaining,
+    usedMinutes: Math.max(0, includedMinutes - credit),
+    remainingMinutes: credit,
+    packageOpeningMinutes,
+    packageCreditedMinutes,
+    packageUsedMinutes: disponibilPachet - pachet,
+    packageClosingMinutes: pachet,
     grossEur: round2(grossEur),
     billableEur: round2(billableEur),
     coveredEur: round2(grossEur - billableEur),
@@ -144,37 +179,112 @@ export function includedMinutesForMonth(
     .reduce((total, sub) => total + sub.includedHoursPerMonth * 60, 0);
 }
 
-/**
- * Aloca un set de interventii care pot fi de la mai multi clienti si din mai
- * multe luni: orele incluse se numara separat pentru fiecare pereche
- * client + luna, pentru ca asa se consuma si in realitate.
- */
-export function allocateByClientMonth<T extends AllocatableLog & { clientId: string }>(
-  logs: T[],
+/** Cate minute crediteaza pachetele preplatite intr-o luna data */
+export function packageMinutesForMonth(
   subscriptions: {
-    clientId: string;
-    includedHoursPerMonth: number;
     status: string;
     startDate: string;
     endDate: string | null;
+    hourPackage?: { hoursPerMonth: number } | null;
   }[],
-): Map<string, Allocation> {
-  const grupuri = new Map<string, T[]>();
-  for (const log of logs) {
-    const cheie = `${log.clientId}|${monthOf(log.date)}`;
-    grupuri.set(cheie, [...(grupuri.get(cheie) ?? []), log]);
-  }
+  month: string,
+): number {
+  const primaZi = `${month}-01`;
+  const ultimaZi = `${month}-31`;
 
-  const rezultat = new Map<string, Allocation>();
-  for (const [cheie, aleGrupului] of grupuri) {
-    const [clientId, month] = cheie.split('|');
-    const minute = includedMinutesForMonth(
-      subscriptions.filter((sub) => sub.clientId === clientId),
-      month,
-    );
-    for (const [logId, alocare] of allocateMonth(aleGrupului, minute).allocations) {
-      rezultat.set(logId, alocare);
+  return subscriptions
+    .filter((sub) => sub.status === 'ACTIVE' && sub.hourPackage)
+    .filter((sub) => sub.startDate <= ultimaZi && (!sub.endDate || sub.endDate >= primaZi))
+    .reduce((total, sub) => total + (sub.hourPackage?.hoursPerMonth ?? 0) * 60, 0);
+}
+
+/** Lista lunilor "YYYY-MM" dintre doua capete, inclusiv */
+export function monthsBetween(from: string, to: string): string[] {
+  const out: string[] = [];
+  let [y, m] = from.split('-').map(Number);
+  let cursor = from;
+  let pasi = 0;
+
+  while (cursor <= to && pasi < 240) {
+    out.push(cursor);
+    pasi += 1;
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+    cursor = `${y}-${String(m).padStart(2, '0')}`;
+  }
+  return out;
+}
+
+export interface TimelineSubscription {
+  clientId: string;
+  status: string;
+  startDate: string;
+  endDate: string | null;
+  includedHoursPerMonth: number;
+  hourPackage?: { hoursPerMonth: number } | null;
+}
+
+export interface TimelineResult {
+  /** Alocarea fiecarei interventii */
+  byLog: Map<string, Allocation>;
+  /** Situatia fiecarei luni, pe client: cheia e "clientId|YYYY-MM" */
+  byClientMonth: Map<string, MonthAllocation>;
+}
+
+/**
+ * Aloca interventiile mai multor clienti, luna cu luna.
+ *
+ * Orele incluse in abonament se reseteaza in fiecare luna, dar soldul pachetului
+ * preplatit se reporteaza — deci lunile trebuie parcurse in ordine, de la
+ * inceputul pachetului, chiar daca in unele nu s-a lucrat nimic.
+ */
+export function allocateTimeline<T extends AllocatableLog & { clientId: string }>(
+  logs: T[],
+  subscriptions: TimelineSubscription[],
+): TimelineResult {
+  const byLog = new Map<string, Allocation>();
+  const byClientMonth = new Map<string, MonthAllocation>();
+
+  const clientIds = new Set([...logs.map((l) => l.clientId), ...subscriptions.map((s) => s.clientId)]);
+
+  for (const clientId of clientIds) {
+    const aleClientului = logs.filter((l) => l.clientId === clientId);
+    const abonamente = subscriptions.filter((s) => s.clientId === clientId);
+    const pachete = abonamente.filter((s) => s.hourPackage && s.status === 'ACTIVE');
+
+    const luniCuOre = aleClientului.map((l) => monthOf(l.date));
+    const luniPachet = pachete.map((s) => monthOf(s.startDate));
+    const toateLunile = [...luniCuOre, ...luniPachet];
+    if (toateLunile.length === 0) continue;
+
+    const prima = toateLunile.reduce((a, b) => (a < b ? a : b));
+    const ultima = luniCuOre.length ? luniCuOre.reduce((a, b) => (a > b ? a : b)) : prima;
+
+    let soldPachet = 0;
+    for (const month of monthsBetween(prima, ultima)) {
+      const alocare = allocateMonth(
+        aleClientului.filter((l) => monthOf(l.date) === month),
+        includedMinutesForMonth(abonamente, month),
+        soldPachet,
+        packageMinutesForMonth(abonamente, month),
+      );
+      soldPachet = alocare.packageClosingMinutes;
+
+      byClientMonth.set(`${clientId}|${month}`, alocare);
+      for (const [logId, a] of alocare.allocations) byLog.set(logId, a);
     }
   }
-  return rezultat;
+
+  return { byLog, byClientMonth };
+}
+
+/** Varianta scurta, cand intereseaza doar alocarea pe interventii */
+export function allocateByClientMonth<T extends AllocatableLog & { clientId: string }>(
+  logs: T[],
+  subscriptions: TimelineSubscription[],
+): Map<string, Allocation> {
+  return allocateTimeline(logs, subscriptions).byLog;
 }

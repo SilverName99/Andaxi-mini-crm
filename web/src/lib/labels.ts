@@ -18,6 +18,7 @@ export const SUBSCRIPTION_KIND: Record<SubscriptionKind, Label> = {
   HOSTING: { text: 'Găzduire', chip: 'bg-slate-100 text-slate-600' },
   MENTENANTA: { text: 'Mentenanță', chip: 'bg-slate-100 text-slate-600' },
   HOSTING_MENTENANTA: { text: 'Găzduire + mentenanță', chip: 'bg-slate-100 text-slate-600' },
+  PACHET_ORE: { text: 'Pachet de ore', chip: 'bg-indigo-50 text-indigo-700' },
 };
 
 export const PRODUCT: Record<Product, Label> = {
@@ -26,6 +27,7 @@ export const PRODUCT: Record<Product, Label> = {
   ECOMMERCE: { text: 'Magazin online', chip: 'bg-slate-100 text-slate-600' },
   CRM: { text: 'CRM', chip: 'bg-slate-100 text-slate-600' },
   ERP: { text: 'ERP', chip: 'bg-slate-100 text-slate-600' },
+  PACHET_ORE: { text: 'Ore preplătite', chip: 'bg-indigo-50 text-indigo-700' },
   ALTUL: { text: 'Altul', chip: 'bg-slate-100 text-slate-500' },
 };
 

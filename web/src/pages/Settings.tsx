@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
-import { Building2, Coins, Image, KeyRound, Moon, Save, Sun, Trash2, Upload, Users } from 'lucide-react';
+import {
+  Building2, Clock4, Coins, Image, KeyRound, Moon, Plus, Save, Sun, Trash2, Upload, Users,
+} from 'lucide-react';
 import { api } from '../lib/api';
-import { useCrudMutation, useSettings } from '../lib/queries';
+import { useCrudMutation, useHourPackages, useSettings } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import { PageHeader } from '../components/Layout';
 import { TimeField } from '../components/TimeField';
 import { Button, Card, CardTitle, ErrorBlock, Field, Input, LoadingBlock, Toggle, useToast } from '../components/ui';
 import { minutesToHhMm } from '../lib/format';
-import type { Settings } from '../lib/types';
+import type { HourPackage, Settings } from '../lib/types';
 
 function hhMmToMinutes(value: string): number {
   const [h, m] = value.split(':').map(Number);
@@ -152,6 +154,8 @@ export function SettingsPage() {
           </div>
         </Card>
 
+        <HourPackagesCard />
+
         <LogoCard logoUrl={form.logoUrl} companyName={form.companyName} />
 
         <Card>
@@ -174,6 +178,159 @@ export function SettingsPage() {
 
         <PasswordCard email={user?.email ?? ''} />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Pachetele de ore preplatite: clientul cumpara lunar un numar de ore, la un
+ * tarif mai mic. Orele neconsumate se reporteaza in luna urmatoare.
+ */
+function HourPackagesCard() {
+  const toast = useToast();
+  const { data: packages = [], isLoading } = useHourPackages();
+  const [nou, setNou] = useState<Partial<HourPackage> | null>(null);
+  const [error, setError] = useState('');
+
+  const salveaza = useCrudMutation((p: Partial<HourPackage>) =>
+    p.id ? api.put(`/hour-packages/${p.id}`, p) : api.post('/hour-packages', p),
+  );
+  const sterge = useCrudMutation((id: string) => api.del(`/hour-packages/${id}`));
+
+  async function trimite(p: Partial<HourPackage>) {
+    setError('');
+    if (!p.name?.trim()) return setError('Denumirea pachetului este obligatorie');
+    if (!p.hoursPerMonth || p.hoursPerMonth <= 0) return setError('Numărul de ore trebuie să fie mai mare ca 0');
+    try {
+      await salveaza.mutateAsync(p);
+      toast(p.id ? 'Pachet actualizat' : 'Pachet adăugat');
+      setNou(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Eroare la salvare');
+    }
+  }
+
+  return (
+    <Card className="xl:col-span-2">
+      <CardTitle
+        title="Pachete de ore preplătite"
+        subtitle="Clientul cumpără ore lunar, la tarif redus; orele neconsumate se reportează"
+        icon={<Clock4 className="h-5 w-5" />}
+        action={
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<Plus className="h-3.5 w-3.5" />}
+            onClick={() => setNou({ name: '', hoursPerMonth: 10, standardRate: 35, offHoursRate: 70, active: true })}
+          >
+            Pachet nou
+          </Button>
+        }
+      />
+
+      {isLoading ? (
+        <LoadingBlock />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {packages.length === 0 && !nou && (
+            <p className="rounded-2xl border border-dashed border-slate-200 py-6 text-center text-sm text-slate-400">
+              Niciun pachet definit. Fără pachet, clienții plătesc la tarifele standard de mai sus.
+            </p>
+          )}
+
+          {[...packages, ...(nou ? [nou as HourPackage] : [])].map((pachet, index) => (
+            <PackageRow
+              key={pachet.id ?? `nou-${index}`}
+              pachet={pachet}
+              onSave={trimite}
+              onDelete={
+                pachet.id
+                  ? async () => {
+                      await sterge.mutateAsync(pachet.id);
+                      toast('Pachet șters');
+                    }
+                  : () => setNou(null)
+              }
+              saving={salveaza.isPending}
+            />
+          ))}
+        </div>
+      )}
+
+      {error && <div className="mt-4"><ErrorBlock message={error} /></div>}
+    </Card>
+  );
+}
+
+/** Un rând editabil din lista de pachete */
+function PackageRow({
+  pachet,
+  onSave,
+  onDelete,
+  saving,
+}: {
+  pachet: HourPackage;
+  onSave: (p: Partial<HourPackage>) => void;
+  onDelete: () => void;
+  saving: boolean;
+}) {
+  const [form, setForm] = useState<HourPackage>(pachet);
+  const modificat = JSON.stringify(form) !== JSON.stringify(pachet);
+  const set = <K extends keyof HourPackage>(key: K, value: HourPackage[K]) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
+
+  return (
+    <div className="grid grid-cols-2 items-end gap-3 rounded-2xl border border-slate-200 p-4 lg:grid-cols-[2fr,1fr,1fr,1fr,auto]">
+      <Field label="Denumire">
+        <Input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Pachet 10 ore" />
+      </Field>
+      <Field label="Ore / lună">
+        <Input
+          type="number"
+          min={1}
+          step="0.5"
+          value={form.hoursPerMonth}
+          onChange={(e) => set('hoursPerMonth', Number(e.target.value))}
+        />
+      </Field>
+      <Field label="Tarif normal">
+        <Input
+          type="number"
+          min={0}
+          step="0.5"
+          value={form.standardRate}
+          onChange={(e) => set('standardRate', Number(e.target.value))}
+        />
+      </Field>
+      <Field label="Tarif majorat">
+        <Input
+          type="number"
+          min={0}
+          step="0.5"
+          value={form.offHoursRate}
+          onChange={(e) => set('offHoursRate', Number(e.target.value))}
+        />
+      </Field>
+      <div className="flex items-center gap-1 pb-1">
+        {modificat && (
+          <Button size="sm" loading={saving} onClick={() => onSave(form)}>
+            Salvează
+          </Button>
+        )}
+        <button
+          onClick={onDelete}
+          className="rounded-xl p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+          aria-label="Șterge pachetul"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+      <p className="col-span-2 text-xs text-slate-400 lg:col-span-5">
+        Cost lunar pentru client: <span className="font-semibold text-slate-600">
+          {(form.hoursPerMonth * form.standardRate).toFixed(0)} €
+        </span>{' '}
+        · orele lucrate în afara programului consumă dublu din pachet
+      </p>
     </div>
   );
 }

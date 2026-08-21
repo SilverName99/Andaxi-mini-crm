@@ -28,11 +28,23 @@ const workLogSchema = z.object({
   invoiceRef: z.string().default(''),
 });
 
-async function rateConfig(): Promise<RateConfig> {
+/**
+ * Tarifele aplicabile unui client: cele ale pachetului de ore, daca are unul
+ * activ, altfel cele globale. Programul normal ramane cel din setari.
+ */
+async function rateConfig(clientId?: string): Promise<RateConfig> {
   const s = await getSettings();
+  const abonamentPachet = clientId
+    ? await prisma.subscription.findFirst({
+        where: { clientId, status: 'ACTIVE', hourPackageId: { not: null } },
+        include: { hourPackage: true },
+        orderBy: { createdAt: 'desc' },
+      })
+    : null;
+
   return {
-    standardRate: s.standardRate,
-    offHoursRate: s.offHoursRate,
+    standardRate: abonamentPachet?.hourPackage?.standardRate ?? s.standardRate,
+    offHoursRate: abonamentPachet?.hourPackage?.offHoursRate ?? s.offHoursRate,
     standardStart: s.standardStart,
     standardEnd: s.standardEnd,
     weekendOffHours: s.weekendOffHours,
@@ -96,7 +108,7 @@ workLogsRouter.get(
             where: { OR: luni.map((luna) => ({ date: { gte: `${luna}-01`, lte: `${luna}-31` } })) },
           })
         : Promise.resolve([]),
-      prisma.subscription.findMany(),
+      prisma.subscription.findMany({ include: { hourPackage: true } }),
     ]);
     const alocari = allocateByClientMonth(toateLunii, subscriptions);
 
@@ -107,6 +119,7 @@ workLogsRouter.get(
           ...log,
           billableEur: a?.billableEur ?? log.amountEur,
           includedMinutes: a ? a.includedStandardMinutes + a.includedOffHoursMinutes : 0,
+          packageMinutes: a ? a.packageStandardMinutes + a.packageOffHoursMinutes : 0,
         };
       }),
     );
@@ -132,10 +145,10 @@ workLogsRouter.get(
 workLogsRouter.post(
   '/preview',
   asyncHandler(async (req, res) => {
-    const { date, start, end } = z
-      .object({ date: isoDate, start: timeString, end: timeString })
+    const { date, start, end, clientId } = z
+      .object({ date: isoDate, start: timeString, end: timeString, clientId: z.string().optional() })
       .parse(req.body);
-    const config = await rateConfig();
+    const config = await rateConfig(clientId);
     res.json(splitWorkInterval(date, hhMmToMinutes(start), hhMmToMinutes(end), config));
   }),
 );
@@ -144,7 +157,7 @@ workLogsRouter.post(
   '/',
   asyncHandler(async (req, res) => {
     const input = workLogSchema.parse(req.body);
-    const data = buildData(input, await rateConfig());
+    const data = buildData(input, await rateConfig(input.clientId));
     res.status(201).json(await prisma.workLog.create({ data }));
   }),
 );
@@ -154,7 +167,7 @@ workLogsRouter.put(
   asyncHandler(async (req, res) => {
     const input = workLogSchema.parse(req.body);
     const current = await prisma.workLog.findUniqueOrThrow({ where: { id: req.params.id } });
-    const data = buildData(input, await rateConfig());
+    const data = buildData(input, await rateConfig(input.clientId));
     // Statusul de facturare setat manual (INVOICED/PAID) nu se pierde la editare
     const keepStatus = current.status === 'INVOICED' || current.status === 'PAID';
     res.json(

@@ -13,11 +13,14 @@ function sursa(row: MonthlySheetRow): { text: string; chip: string } {
   if (!row.billable) return { text: 'nefacturabil', chip: 'bg-slate-100 text-slate-500' };
   if (row.manualAmount) return { text: 'sumă negociată', chip: 'bg-violet-50 text-violet-700' };
   if (row.includedMinutes >= row.minutes) return { text: 'inclus în abonament', chip: 'bg-emerald-50 text-emerald-700' };
-  if (row.includedMinutes > 0) {
-    return {
-      text: `${formatMinutes(row.includedMinutes)} incluse + ${formatMinutes(row.billableMinutes)} facturate`,
-      chip: 'bg-indigo-50 text-indigo-700',
-    };
+  if (row.packageMinutes >= row.minutes) return { text: 'din pachetul preplătit', chip: 'bg-indigo-50 text-indigo-700' };
+  if (row.includedMinutes > 0 || row.packageMinutes > 0) {
+    const parti = [
+      row.includedMinutes > 0 ? `${formatMinutes(row.includedMinutes)} din abonament` : '',
+      row.packageMinutes > 0 ? `${formatMinutes(row.packageMinutes)} din pachet` : '',
+      row.billableMinutes > 0 ? `${formatMinutes(row.billableMinutes)} facturate` : '',
+    ].filter(Boolean);
+    return { text: parti.join(' + '), chip: 'bg-indigo-50 text-indigo-700' };
   }
   const tarife = [
     row.standardMinutes > 0 ? `${formatMinutes(row.standardMinutes)} × ${row.standardRate}€` : '',
@@ -103,6 +106,29 @@ export function MonthlySheet() {
             </div>
           </div>
 
+          {data.packages.length > 0 && (
+            <div className="mb-5 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">
+                Extras pachet — {data.packages.map((p) => p.packageName).join(', ')}
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                {[
+                  { eticheta: 'Sold la început', valoare: data.packageStatement.openingMinutes },
+                  { eticheta: 'Primite în lună', valoare: data.packageStatement.creditedMinutes },
+                  { eticheta: 'Consumate', valoare: data.packageStatement.usedMinutes },
+                  { eticheta: 'Sold rămas', valoare: data.packageStatement.closingMinutes },
+                ].map((item, index) => (
+                  <div key={item.eticheta}>
+                    <p className="text-xs text-slate-500">{item.eticheta}</p>
+                    <p className={index === 3 ? 'font-extrabold text-indigo-700' : 'font-semibold text-slate-800'}>
+                      {formatMinutes(item.valoare)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {data.rows.length === 0 ? (
             <EmptyState
               icon={<FileSpreadsheet className="h-6 w-6" />}
@@ -164,6 +190,14 @@ export function MonthlySheet() {
                     <span className="font-semibold text-slate-800">{formatMinutes(data.totals.minutes)}</span> lucrate în
                     total
                   </p>
+                  {data.totals.packageMinutes > 0 && (
+                    <p className="mt-1">
+                      <span className="font-semibold text-indigo-700">
+                        {formatMinutes(data.totals.packageMinutes)}
+                      </span>{' '}
+                      acoperite din pachetul preplătit
+                    </p>
+                  )}
                   {data.totals.includedMinutes > 0 && (
                     <p className="mt-1">
                       din care{' '}
@@ -190,7 +224,14 @@ export function MonthlySheet() {
                   </div>
                   {data.totals.coveredEur > 0 && (
                     <div className="flex justify-between gap-4 py-1 text-emerald-700">
-                      <span>Acoperit din abonament</span>
+                      <span>
+                        Deja plătit
+                        {data.totals.packageMinutes > 0 && data.totals.usedIncludedMinutes > 0
+                          ? ' (abonament + pachet)'
+                          : data.totals.packageMinutes > 0
+                            ? ' (pachet)'
+                            : ' (abonament)'}
+                      </span>
                       <span className="font-semibold">−{formatEur(data.totals.coveredEur)}</span>
                     </div>
                   )}

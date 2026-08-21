@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarClock, Pencil, Plus, Repeat, Trash2, Users } from 'lucide-react';
 import { api } from '../lib/api';
-import { useClients, useCrudMutation, useSubscriptions } from '../lib/queries';
+import { useClients, useCrudMutation, useHourPackages, useSubscriptions } from '../lib/queries';
 import { PageHeader } from '../components/Layout';
 import { DateField } from '../components/DateField';
 import {
@@ -32,6 +32,7 @@ export function SubscriptionForm({
 }) {
   const toast = useToast();
   const { data: clients = [] } = useClients();
+  const { data: packages = [] } = useHourPackages();
   const [form, setForm] = useState<Partial<Subscription>>(
     subscription ?? { ...EMPTY, clientId: defaultClientId ?? '' },
   );
@@ -52,6 +53,12 @@ export function SubscriptionForm({
   const product = form.product ?? 'PREZENTARE';
   const cycle = form.cycle ?? 'MONTHLY';
   const perUser = PER_USER.includes(product) && !manualPrice;
+  // pachetele de ore sunt preplatite: suma vine din pachet, nu se introduce
+  const estePachet = product === 'PACHET_ORE';
+  const pachetAles = packages.find((p) => p.id === form.hourPackageId);
+  const costPachet = pachetAles
+    ? pachetAles.hoursPerMonth * pachetAles.standardRate * CYCLE[cycle].months
+    : 0;
 
   // pretul pe utilizatori il calculeaza serverul, ca sa fie acelasi la afisare si la salvare
   useEffect(() => {
@@ -69,22 +76,26 @@ export function SubscriptionForm({
     };
   }, [perUser, product, cycle, form.users]);
 
-  const amount = perUser ? (price?.amountEur ?? 0) : (form.amountEur ?? 0);
+  const amount = estePachet ? costPachet : perUser ? (price?.amountEur ?? 0) : (form.amountEur ?? 0);
   const monthly = amount / CYCLE[cycle].months;
 
   async function submit() {
     setError('');
     if (!form.clientId) return setError('Selectează clientul');
     if (!form.label?.trim()) return setError('Denumirea abonamentului este obligatorie');
-    if (perUser && (!form.users || form.users < 1)) return setError('Completează numărul de utilizatori');
-    if (!perUser && (!form.amountEur || form.amountEur <= 0)) return setError('Suma trebuie să fie mai mare ca 0');
+    if (estePachet && !form.hourPackageId) return setError('Alege pachetul de ore');
+    if (!estePachet && perUser && (!form.users || form.users < 1)) return setError('Completează numărul de utilizatori');
+    if (!estePachet && !perUser && (!form.amountEur || form.amountEur <= 0)) {
+      return setError('Suma trebuie să fie mai mare ca 0');
+    }
     try {
       await mutation.mutateAsync({
         ...form,
         endDate: form.endDate || null,
         // trimitem doar ce e relevant; suma pentru ERP/CRM o recalculeaza serverul
-        users: perUser ? form.users : null,
-        amountEur: perUser ? undefined : form.amountEur,
+        users: !estePachet && perUser ? form.users : null,
+        hourPackageId: estePachet ? form.hourPackageId : null,
+        amountEur: estePachet || perUser ? undefined : form.amountEur,
       });
       toast(subscription ? 'Abonament actualizat' : 'Abonament adăugat');
       onClose();
@@ -121,7 +132,23 @@ export function SubscriptionForm({
         <Field label="Produs">
           <Select value={form.product ?? 'PREZENTARE'} onChange={(e) => set('product', e.target.value)} options={options(PRODUCT)} />
         </Field>
-        {perUser ? (
+        {estePachet ? (
+          <Field label="Pachet de ore *" hint="Se definesc în Setări → Pachete de ore preplătite">
+            <Select
+              value={form.hourPackageId ?? ''}
+              onChange={(e) => set('hourPackageId', e.target.value)}
+              options={[
+                { value: '', label: '— alege pachetul —' },
+                ...packages
+                  .filter((p) => p.active || p.id === form.hourPackageId)
+                  .map((p) => ({
+                    value: p.id,
+                    label: `${p.name} — ${p.hoursPerMonth} h × ${p.standardRate} € (${p.offHoursRate} € noaptea)`,
+                  })),
+              ]}
+            />
+          </Field>
+        ) : perUser ? (
           <Field label="Număr utilizatori *" hint="Prețul se calculează automat din tarifele din Setări">
             <div className="relative">
               <Users className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-indigo-500" />
@@ -175,6 +202,26 @@ export function SubscriptionForm({
         </Field>
       </div>
 
+      {estePachet && pachetAles && (
+        <div className="mt-4 rounded-3xl border border-indigo-200 bg-indigo-50 p-5">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-400">Cost pe ciclu</p>
+              <p className="text-2xl font-extrabold text-indigo-700">{formatEur(costPachet)}</p>
+              <p className="text-xs text-slate-500">preplătit, indiferent de consum</p>
+            </div>
+            <div className="flex flex-col gap-1.5 text-xs font-medium text-slate-600">
+              <span className="rounded-xl bg-white px-3 py-1.5">
+                {pachetAles.hoursPerMonth} h/lună × {formatEur(pachetAles.standardRate)}
+              </span>
+              <span className="rounded-xl bg-white px-3 py-1.5">
+                orele lucrate noaptea consumă dublu din pachet
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {perUser && price && (
         <div className="mt-4 rounded-3xl border border-indigo-200 bg-indigo-50 p-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
@@ -196,7 +243,7 @@ export function SubscriptionForm({
         </div>
       )}
 
-      {PER_USER.includes(product) && (
+      {PER_USER.includes(product) && !estePachet && (
         <div className="mt-4">
           <Toggle
             checked={manualPrice}
@@ -317,6 +364,11 @@ export function Subscriptions() {
                   {sub.users ? (
                     <Badge className="bg-indigo-100 text-indigo-700" >
                       {sub.users} utilizatori
+                    </Badge>
+                  ) : null}
+                  {sub.hourPackage ? (
+                    <Badge className="bg-indigo-100 text-indigo-700">
+                      {sub.hourPackage.hoursPerMonth} h/lună preplătite
                     </Badge>
                   ) : null}
                   {sub.includedHoursPerMonth > 0 ? (

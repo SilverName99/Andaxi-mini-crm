@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { allocateMonth, includedMinutesForMonth, type AllocatableLog } from './hours.js';
+import {
+  allocateMonth, allocateTimeline, includedMinutesForMonth, monthsBetween, packageMinutesForMonth,
+  type AllocatableLog,
+} from './hours.js';
 
 function log(partial: Partial<AllocatableLog> & { id: string }): AllocatableLog {
   return {
@@ -114,4 +117,99 @@ test('orele incluse se aduna doar din abonamentele active in luna', () => {
 
   assert.equal(includedMinutesForMonth(abonamente, '2026-07'), 120);
   assert.equal(includedMinutesForMonth(abonamente, '2026-09'), 420);
+});
+
+/* ─────────────────────────────────── pachete de ore preplatite ──────────── */
+
+const pachet = { hoursPerMonth: 10 };
+
+test('pachetul preplatit acopera orele ramase dupa cele incluse', () => {
+  // 2 ore incluse + pachet de 10 ore; se lucreaza 5 ore
+  const rezultat = allocateMonth(
+    [log({ id: 'a', standardMinutes: 300, amountEur: 175, standardRate: 35 })],
+    120,
+    0,
+    600,
+  );
+
+  const a = rezultat.allocations.get('a')!;
+  assert.equal(a.includedStandardMinutes, 120);
+  assert.equal(a.packageStandardMinutes, 180);
+  assert.equal(a.billableEur, 0); // totul e deja platit
+  assert.equal(rezultat.packageClosingMinutes, 420); // 10 h − 3 h consumate
+});
+
+test('ce depaseste pachetul se factureaza la tariful pachetului', () => {
+  // fara ore incluse, pachet de 1 ora, se lucreaza 3 ore la 35 €/h
+  const rezultat = allocateMonth(
+    [log({ id: 'a', standardMinutes: 180, amountEur: 105, standardRate: 35 })],
+    0,
+    0,
+    60,
+  );
+
+  assert.equal(rezultat.allocations.get('a')!.billableEur, 70); // 2 h × 35 €
+  assert.equal(rezultat.packageClosingMinutes, 0);
+});
+
+test('o ora de noapte consuma dublu si din pachet', () => {
+  const rezultat = allocateMonth(
+    [log({ id: 'noapte', standardMinutes: 0, offHoursMinutes: 120, amountEur: 140, offHoursRate: 70 })],
+    0,
+    0,
+    120,
+  );
+
+  const a = rezultat.allocations.get('noapte')!;
+  assert.equal(a.packageOffHoursMinutes, 60);
+  assert.equal(a.billableEur, 70);
+});
+
+test('soldul neconsumat se reporteaza in luna urmatoare', () => {
+  const abonamente = [
+    {
+      clientId: 'c1',
+      status: 'ACTIVE',
+      startDate: '2026-01-01',
+      endDate: null,
+      includedHoursPerMonth: 0,
+      hourPackage: pachet,
+    },
+  ];
+
+  // ianuarie: nimic lucrat → 10 h raman; februarie: 12 h lucrate
+  const rezultat = allocateTimeline(
+    [
+      {
+        ...log({ id: 'feb', standardMinutes: 720, amountEur: 252, standardRate: 21 }),
+        date: '2026-02-10',
+        clientId: 'c1',
+      },
+    ],
+    abonamente,
+  );
+
+  const ianuarie = rezultat.byClientMonth.get('c1|2026-01')!;
+  assert.equal(ianuarie.packageClosingMinutes, 600);
+
+  const februarie = rezultat.byClientMonth.get('c1|2026-02')!;
+  assert.equal(februarie.packageOpeningMinutes, 600);
+  assert.equal(februarie.packageCreditedMinutes, 600);
+  assert.equal(februarie.packageUsedMinutes, 720);
+  assert.equal(februarie.packageClosingMinutes, 480); // 20 h primite − 12 h consumate
+  assert.equal(rezultat.byLog.get('feb')!.billableEur, 0);
+});
+
+test('creditul lunar vine doar din pachetele active in luna', () => {
+  const abonamente = [
+    { status: 'ACTIVE', startDate: '2026-03-01', endDate: null, hourPackage: pachet },
+    { status: 'CANCELLED', startDate: '2026-01-01', endDate: null, hourPackage: pachet },
+  ];
+  assert.equal(packageMinutesForMonth(abonamente, '2026-02'), 0);
+  assert.equal(packageMinutesForMonth(abonamente, '2026-03'), 600);
+});
+
+test('lunile dintre doua capete', () => {
+  assert.deepEqual(monthsBetween('2026-11', '2027-02'), ['2026-11', '2026-12', '2027-01', '2027-02']);
+  assert.deepEqual(monthsBetween('2026-05', '2026-05'), ['2026-05']);
 });

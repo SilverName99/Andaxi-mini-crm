@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, qs } from './api';
 import type {
-  BillingItem, CalendarData, Client, Dashboard, MonthlySheet, ReportData, Settings, Subscription, Task,
-  WorkLog,
+  BillingItem, CalendarData, Client, Dashboard, HourPackage, MonthlySheet, ReportData, Settings, Subscription,
+  Task, WorkLog,
 } from './types';
 
 /* Cheile de cache; invalidam larg dupa mutatii, aplicatia are volum mic de date */
@@ -15,6 +15,7 @@ export const keys = {
   worklogs: (filters?: unknown) => ['worklogs', filters ?? {}] as const,
   tasks: (filters?: unknown) => ['tasks', filters ?? {}] as const,
   settings: ['settings'] as const,
+  hourPackages: ['hour-packages'] as const,
   calendar: (filters?: unknown) => ['calendar', filters ?? {}] as const,
   reports: (filters?: unknown) => ['reports', filters ?? {}] as const,
   monthlySheet: (filters?: unknown) => ['monthly-sheet', filters ?? {}] as const,
@@ -77,6 +78,10 @@ export function useMonthlySheet(clientId: string, month: string) {
     queryFn: () => api.get<MonthlySheet>(`/monthly-sheet${qs({ clientId, month })}`),
     enabled: Boolean(clientId && month),
   });
+}
+
+export function useHourPackages() {
+  return useQuery({ queryKey: keys.hourPackages, queryFn: () => api.get<HourPackage[]>('/hour-packages') });
 }
 
 export function useSettings() {
