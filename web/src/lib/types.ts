@@ -150,6 +150,18 @@ export interface BillingItem {
   notes: string;
 }
 
+/** Document atașat unei luni de lucru la un client */
+export interface MonthlyDocument {
+  id: string;
+  clientId: string;
+  month: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  note: string;
+  createdAt: string;
+}
+
 export interface Attachment {
   id: string;
   workLogId: string;
@@ -165,6 +177,8 @@ export interface WorkLog {
   clientId: string;
   client?: ClientRef;
   date: string;
+  /** INTERVAL = de la ora X la Y · DURATION = doar numărul de ore */
+  entryMode: 'INTERVAL' | 'DURATION';
   startMinutes: number;
   endMinutes: number;
   description: string;
@@ -308,6 +322,7 @@ export interface CalendarData {
 export interface MonthlySheetRow {
   id: string;
   date: string;
+  entryMode: 'INTERVAL' | 'DURATION';
   timeLabel: string;
   description: string;
   category: WorkCategory;
@@ -332,6 +347,7 @@ export interface MonthlySheet {
   client: ClientRef & { cui: string };
   settings: Settings;
   includedFrom: { id: string; label: string; hours: number }[];
+  documents: MonthlyDocument[];
   packages: {
     id: string;
     label: string;

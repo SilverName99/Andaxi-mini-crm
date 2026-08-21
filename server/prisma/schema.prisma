@@ -108,6 +108,7 @@ model Client {
   workLogs      WorkLog[]
   billingItems  BillingItem[]
   tasks         Task[]
+  monthlyDocuments MonthlyDocument[]
 
   @@index([status])
 }
@@ -225,7 +226,11 @@ model WorkLog {
 
   /// YYYY-MM-DD
   date         String
-  /// Minute de la miezul noptii
+  /// Cum a fost introdusa munca: INTERVAL (de la ora X la ora Y) sau
+  /// DURATION (doar numarul de ore, cum se noteaza la lucrarile de dezvoltare)
+  entryMode String @default("INTERVAL")
+
+  /// Minute de la miezul noptii; la intrarile de tip DURATION raman 0
   startMinutes Int
   endMinutes   Int
 
@@ -328,4 +333,24 @@ model SubscriptionUserChange {
   createdAt DateTime @default(now())
 
   @@index([subscriptionId])
+}
+
+/// Document atasat unei luni de lucru la un client: raportul cu toate
+/// modificarile, trimis odata cu factura.
+model MonthlyDocument {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  /// Luna la care se refera, "YYYY-MM"
+  month    String
+  fileName String
+  mimeType String
+  size     Int
+  path     String
+  note     String @default("")
+
+  createdAt DateTime @default(now())
+
+  @@index([clientId, month])
 }

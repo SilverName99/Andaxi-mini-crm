@@ -6,6 +6,7 @@ import { Badge, Card, EmptyState, ErrorBlock, Field, LoadingBlock, Select } from
 import { formatDate, formatEur, formatMinutes, formatRon, todayIso } from '../lib/format';
 import { numeLuna, schimbaLuna } from '../lib/calendar';
 import { WORK_CATEGORY } from '../lib/labels';
+import { MonthlyDocuments } from '../components/MonthlyDocuments';
 import type { MonthlySheetRow } from '../lib/types';
 
 /** Ce a plătit ora: abonamentul, un tarif, o sumă negociată sau nimic */
@@ -166,7 +167,8 @@ export function MonthlySheet() {
                             <td className="py-2.5 pr-3">
                               <p className="font-medium text-slate-800">{row.description || '—'}</p>
                               <p className="text-xs text-slate-400">
-                                {WORK_CATEGORY[row.category].text} · {row.timeLabel}
+                                {WORK_CATEGORY[row.category].text}
+                                {row.timeLabel && ` · ${row.timeLabel}`}
                               </p>
                             </td>
                             <td className="py-2.5 pr-3 text-right font-semibold text-slate-700">
@@ -182,6 +184,10 @@ export function MonthlySheet() {
                     </tbody>
                   ))}
                 </table>
+              </div>
+
+              <div className="mt-6 border-t border-slate-200 pt-5">
+                <MonthlyDocuments clientId={clientCurent} month={month} documents={data.documents} />
               </div>
 
               <div className="mt-6 flex flex-col gap-4 border-t border-slate-200 pt-5 sm:flex-row sm:justify-between">

@@ -5,6 +5,7 @@ import { Spinner } from './components/ui';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Clients } from './pages/Clients';
+import { ClientCalendar } from './pages/ClientCalendar';
 import { ClientDetail } from './pages/ClientDetail';
 import { Subscriptions } from './pages/Subscriptions';
 import { Billing } from './pages/Billing';
@@ -34,6 +35,7 @@ export function App() {
         <Route index element={<Dashboard />} />
         <Route path="/clienti" element={<Clients />} />
         <Route path="/clienti/:id" element={<ClientDetail />} />
+        <Route path="/clienti/:id/calendar" element={<ClientCalendar />} />
         <Route path="/abonamente" element={<Subscriptions />} />
         <Route path="/scadentar" element={<Billing />} />
         <Route path="/calendar" element={<Calendar />} />

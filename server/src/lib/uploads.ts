@@ -68,16 +68,22 @@ export function deleteUpload(publicPath: string): void {
  * Numele de pe disc e generat de noi; numele original se pastreaza doar in baza
  * de date, ca sa nu ajunga continut controlat de utilizator in cai de fisiere.
  */
-export function saveAttachment(buffer: Buffer, mimeType: string, stamp: number, index: number): { path: string; size: number } {
+export function saveAttachment(
+  buffer: Buffer,
+  mimeType: string,
+  stamp: number,
+  index: number,
+  folder = 'interventii',
+): { path: string; size: number } {
   const extension = ALLOWED_DOC_TYPES[mimeType];
   if (!extension) throw new Error('Tip de fisier neacceptat');
   if (!buffer.byteLength) throw new Error('Fisierul este gol');
   if (buffer.byteLength > MAX_DOC_BYTES) throw new Error('Fisierul depaseste 10 MB');
 
-  const dir = path.join(ensureUploadDir(), 'interventii');
+  const dir = path.join(ensureUploadDir(), folder);
   fs.mkdirSync(dir, { recursive: true });
 
-  const relative = `interventii/${stamp}-${index}.${extension}`;
+  const relative = `${folder}/${stamp}-${index}.${extension}`;
   fs.writeFileSync(path.join(env.uploadDir, relative), buffer);
   return { path: relative, size: buffer.byteLength };
 }

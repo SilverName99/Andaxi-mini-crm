@@ -36,6 +36,10 @@ monthlySheetRouter.get(
       prisma.subscription.findMany({ where: { clientId }, include: { hourPackage: true } }),
       getSettings(),
     ]);
+    const documents = await prisma.monthlyDocument.findMany({
+      where: { clientId, month },
+      orderBy: { createdAt: 'asc' },
+    });
 
     const { byClientMonth, byLog } = allocateTimeline(logs, subscriptions);
     const alocare = byClientMonth.get(`${clientId}|${month}`);
@@ -46,7 +50,9 @@ monthlySheetRouter.get(
       return {
         id: log.id,
         date: log.date,
-        timeLabel: `${minutesToHhMm(log.startMinutes)}–${minutesToHhMm(log.endMinutes)}`,
+        entryMode: log.entryMode,
+        timeLabel:
+          log.entryMode === 'DURATION' ? '' : `${minutesToHhMm(log.startMinutes)}–${minutesToHhMm(log.endMinutes)}`,
         description: log.description,
         category: log.category,
         projectTag: log.projectTag,
@@ -96,6 +102,7 @@ monthlySheetRouter.get(
         usedMinutes: alocare?.packageUsedMinutes ?? 0,
         closingMinutes: alocare?.packageClosingMinutes ?? 0,
       },
+      documents,
       rows,
       totals: {
         minutes,

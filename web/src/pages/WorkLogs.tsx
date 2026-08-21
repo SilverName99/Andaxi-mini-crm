@@ -419,7 +419,10 @@ export function WorkLogs() {
                         <p className="mt-1 text-sm text-slate-600">{log.description || '—'}</p>
                         <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
                           <span className="flex items-center gap-1">
-                            <Clock4 className="h-3 w-3" /> {minutesToHhMm(log.startMinutes)}–{minutesToHhMm(log.endMinutes)}
+                            <Clock4 className="h-3 w-3" />
+                            {log.entryMode === 'DURATION'
+                              ? formatMinutes(log.standardMinutes + log.offHoursMinutes)
+                              : `${minutesToHhMm(log.startMinutes)}–${minutesToHhMm(log.endMinutes)}`}
                           </span>
                           {log.standardMinutes > 0 && (
                             <span className="flex items-center gap-1"><Sun className="h-3 w-3" /> {formatMinutes(log.standardMinutes)} × {log.standardRate}€</span>
@@ -562,7 +565,10 @@ export function WorkLogDetail({ logId, onClose }: { logId: string; onClose: () =
           <div className="grid grid-cols-2 gap-3 rounded-2xl bg-slate-50 p-4 text-sm sm:grid-cols-4">
             {[
               { eticheta: 'Data', valoare: formatDate(log.date) },
-              { eticheta: 'Interval', valoare: `${minutesToHhMm(log.startMinutes)}–${minutesToHhMm(log.endMinutes)}` },
+              {
+                eticheta: 'Interval',
+                valoare: log.entryMode === 'DURATION' ? 'notat pe durată' : `${minutesToHhMm(log.startMinutes)}–${minutesToHhMm(log.endMinutes)}`,
+              },
               { eticheta: 'Durată', valoare: formatMinutes(log.standardMinutes + log.offHoursMinutes) },
               { eticheta: 'Categorie', valoare: WORK_CATEGORY[log.category].text },
             ].map((item) => (

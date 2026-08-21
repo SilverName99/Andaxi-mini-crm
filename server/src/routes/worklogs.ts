@@ -4,7 +4,7 @@ import { getSettings, prisma } from '../prisma.js';
 import { asyncHandler } from '../middleware/errors.js';
 import { isoDate, WORK_CATEGORIES, WORK_STATUSES } from '../lib/validation.js';
 import { hhMmToMinutes } from '../lib/dates.js';
-import { splitWorkInterval, type RateConfig } from '../lib/rates.js';
+import { round2, splitWorkInterval, type RateConfig } from '../lib/rates.js';
 import { allocateByClientMonth } from '../lib/hours.js';
 import { ALLOWED_DOC_TYPES, deleteAttachment, resolveUploadPath, saveAttachment } from '../lib/uploads.js';
 import { HttpError } from '../middleware/errors.js';
@@ -16,8 +16,13 @@ const timeString = z.string().regex(/^\d{1,2}:\d{2}$/, 'Ora trebuie sa fie in fo
 const workLogSchema = z.object({
   clientId: z.string().min(1, 'Selecteaza clientul'),
   date: isoDate,
-  start: timeString,
-  end: timeString,
+  /** Fie interval (de la ora X la Y)… */
+  start: timeString.optional(),
+  end: timeString.optional(),
+  /** …fie doar durata, pentru munca notata in ore (dezvoltare, lucrari lungi) */
+  hours: z.coerce.number().positive('Numarul de ore trebuie sa fie mai mare ca 0').max(24).optional(),
+  /** La intrarile pe durata: daca orele sunt in program normal sau in afara lui */
+  rateType: z.enum(['STANDARD', 'OFF_HOURS']).default('STANDARD'),
   description: z.string().default(''),
   category: z.enum(WORK_CATEGORIES).default('SUPORT'),
   /** Eticheta libera pentru gruparea orelor pe lucrari */
@@ -26,6 +31,9 @@ const workLogSchema = z.object({
   /** Suma impusa manual (EUR); daca lipseste, se calculeaza din tarife */
   amountEur: z.coerce.number().nonnegative().nullable().optional(),
   invoiceRef: z.string().default(''),
+}).refine((d) => (d.start && d.end) || d.hours, {
+  message: 'Completeaza fie intervalul orar, fie numarul de ore',
+  path: ['hours'],
 });
 
 /**
@@ -52,13 +60,31 @@ async function rateConfig(clientId?: string): Promise<RateConfig> {
 }
 
 function buildData(input: z.infer<typeof workLogSchema>, config: RateConfig) {
-  const startMinutes = hhMmToMinutes(input.start);
-  const endMinutes = hhMmToMinutes(input.end);
-  const split = splitWorkInterval(input.date, startMinutes, endMinutes, config);
+  /*
+   * Doua feluri de a nota munca: interval orar (si atunci impartirea intre
+   * tariful normal si cel majorat se face automat) sau doar numarul de ore,
+   * cu tariful ales explicit — asa se noteaza lucrarile de dezvoltare.
+   */
+  const peDurata = !input.start || !input.end;
+  const minute = peDurata ? Math.round((input.hours ?? 0) * 60) : 0;
+
+  const split = peDurata
+    ? {
+        standardMinutes: input.rateType === 'STANDARD' ? minute : 0,
+        offHoursMinutes: input.rateType === 'STANDARD' ? 0 : minute,
+        amountEur: round2(
+          (minute / 60) * (input.rateType === 'STANDARD' ? config.standardRate : config.offHoursRate),
+        ),
+      }
+    : splitWorkInterval(input.date, hhMmToMinutes(input.start!), hhMmToMinutes(input.end!), config);
+
+  const startMinutes = peDurata ? 0 : hhMmToMinutes(input.start!);
+  const endMinutes = peDurata ? 0 : hhMmToMinutes(input.end!);
   const manualAmount = input.amountEur !== null && input.amountEur !== undefined;
   return {
     clientId: input.clientId,
     date: input.date,
+    entryMode: peDurata ? 'DURATION' : 'INTERVAL',
     startMinutes,
     endMinutes,
     description: input.description,
@@ -145,10 +171,32 @@ workLogsRouter.get(
 workLogsRouter.post(
   '/preview',
   asyncHandler(async (req, res) => {
-    const { date, start, end, clientId } = z
-      .object({ date: isoDate, start: timeString, end: timeString, clientId: z.string().optional() })
+    const { date, start, end, clientId, hours, rateType } = z
+      .object({
+        date: isoDate,
+        start: timeString.optional(),
+        end: timeString.optional(),
+        hours: z.coerce.number().positive().max(24).optional(),
+        rateType: z.enum(['STANDARD', 'OFF_HOURS']).default('STANDARD'),
+        clientId: z.string().optional(),
+      })
       .parse(req.body);
     const config = await rateConfig(clientId);
+
+    if (!start || !end) {
+      const minute = Math.round((hours ?? 0) * 60);
+      const standardMinutes = rateType === 'STANDARD' ? minute : 0;
+      const offHoursMinutes = minute - standardMinutes;
+      res.json({
+        standardMinutes,
+        offHoursMinutes,
+        totalMinutes: minute,
+        amountEur: round2(
+          (standardMinutes / 60) * config.standardRate + (offHoursMinutes / 60) * config.offHoursRate,
+        ),
+      });
+      return;
+    }
     res.json(splitWorkInterval(date, hhMmToMinutes(start), hhMmToMinutes(end), config));
   }),
 );

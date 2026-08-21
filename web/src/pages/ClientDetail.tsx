@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Building2, CalendarClock, Clock4, Globe, Mail, MapPin, Paperclip, Pencil, Phone, Plus, Repeat,
   StickyNote, Wallet,
@@ -8,7 +8,7 @@ import { useClient, useSettings } from '../lib/queries';
 import { Avatar, Badge, Button, Card, CardTitle, ErrorBlock, LoadingBlock, Segmented, StatCard } from '../components/ui';
 import { ClientForm } from './Clients';
 import { SubscriptionForm } from './Subscriptions';
-import { WorkLogDetail, WorkLogForm } from './WorkLogs';
+import { WorkLogDetail } from './WorkLogs';
 import { formatDate, formatEur, formatMinutes, formatRon, minutesToHhMm } from '../lib/format';
 import {
   BILLING_STATUS, CLIENT_STATUS, CYCLE, PRODUCT, SUBSCRIPTION_KIND, SUBSCRIPTION_STATUS, WORK_CATEGORY, WORK_STATUS,
@@ -19,12 +19,12 @@ type Tab = 'abonamente' | 'ore' | 'scadentar' | 'detalii';
 
 export function ClientDetail() {
   const { id = '' } = useParams();
+  const navigate = useNavigate();
   const { data: client, isLoading, error } = useClient(id);
   const { data: settings } = useSettings();
   const [tab, setTab] = useState<Tab>('abonamente');
   const [editingClient, setEditingClient] = useState(false);
   const [addingSub, setAddingSub] = useState(false);
-  const [addingLog, setAddingLog] = useState(false);
   const [detaliiLog, setDetaliiLog] = useState<string | null>(null);
 
   if (isLoading) return <LoadingBlock />;
@@ -62,7 +62,9 @@ export function ClientDetail() {
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" icon={<Pencil className="h-4 w-4" />} onClick={() => setEditingClient(true)}>Editează</Button>
           <Button variant="secondary" icon={<Repeat className="h-4 w-4" />} onClick={() => setAddingSub(true)}>Abonament</Button>
-          <Button icon={<Clock4 className="h-4 w-4" />} onClick={() => setAddingLog(true)}>Intervenție</Button>
+          <Button icon={<Clock4 className="h-4 w-4" />} onClick={() => navigate(`/clienti/${client.id}/calendar`)}>
+            Ore lucrate
+          </Button>
         </div>
       </Card>
 
@@ -149,9 +151,9 @@ export function ClientDetail() {
           {workLogs.length === 0 ? (
             <Card className="py-10 text-center text-sm text-slate-400">
               Nicio intervenție înregistrată.{' '}
-              <button onClick={() => setAddingLog(true)} className="font-semibold text-indigo-600 hover:underline">
-                Adaugă una
-              </button>
+              <Link to={`/clienti/${client.id}/calendar`} className="font-semibold text-indigo-600 hover:underline">
+                Deschide calendarul de lucru
+              </Link>
             </Card>
           ) : (
             workLogs.map((log) => (
@@ -163,7 +165,11 @@ export function ClientDetail() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-bold text-slate-800">{formatDate(log.date)}</span>
-                    <span className="text-xs text-slate-400">{minutesToHhMm(log.startMinutes)}–{minutesToHhMm(log.endMinutes)}</span>
+                    <span className="text-xs text-slate-400">
+                      {log.entryMode === 'DURATION'
+                        ? formatMinutes(log.standardMinutes + log.offHoursMinutes)
+                        : `${minutesToHhMm(log.startMinutes)}–${minutesToHhMm(log.endMinutes)}`}
+                    </span>
                     <Badge className={WORK_CATEGORY[log.category].chip}>{WORK_CATEGORY[log.category].text}</Badge>
                     <Badge className={WORK_STATUS[log.status].chip}>{WORK_STATUS[log.status].text}</Badge>
                     {log.attachments?.length ? (
@@ -270,7 +276,6 @@ export function ClientDetail() {
 
       {editingClient && <ClientForm open onClose={() => setEditingClient(false)} client={client} />}
       {addingSub && <SubscriptionForm open onClose={() => setAddingSub(false)} defaultClientId={client.id} />}
-      {addingLog && <WorkLogForm open onClose={() => setAddingLog(false)} defaultClientId={client.id} />}
       {detaliiLog && <WorkLogDetail logId={detaliiLog} onClose={() => setDetaliiLog(null)} />}
     </div>
   );

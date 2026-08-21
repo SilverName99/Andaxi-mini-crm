@@ -18,6 +18,7 @@ aici ții evidența a *ce* trebuie facturat, *când*, și marchezi ce ai emis de
 | **Calendar** | Lună întreagă cu scadențe, intervenții și task-uri la un loc; click pe o zi pentru detalii |
 | **Fișă lunară** | Ce s-a lucrat într-o lună la un client, cu orele acoperite din abonament și totalul de facturat; se printează sau se salvează ca PDF |
 | **Ore & intervenții** | Suport tehnic la oră, cu tarif calculat automat pe interval; click pe o intervenție deschide detaliile, cu fișiere atașate (PDF, Word) |
+| **Calendar de client** | O lună pe zile pentru un singur client: click pe o zi și notezi câte ore ai lucrat și ce ai făcut; tot acolo atașezi documentul lunii |
 | **Task-uri** | Lucruri de făcut, cu sau fără client asociat |
 | **Rapoarte** | Totaluri pe client și pe lună, cu TVA calculat și export CSV |
 | **Setări** | Sigla firmei, tarife orare, pachete de ore preplătite, prețuri pe utilizator (ERP/CRM), program de lucru, curs EUR/RON, cotă TVA, date firmă, schimbare parolă |
@@ -52,6 +53,16 @@ de la prima scadență până la 60 de zile în viitor. Generarea e idempotentă
 apar dublări), iar pozițiile deja marcate ca facturate nu se modifică.
 Sumele sunt în EUR, cu echivalentul în RON afișat la cursul din Setări.
 
+### Cum se notează orele
+
+Două feluri, amândouă acceptate:
+
+- **interval orar** (`14:00–17:00`) — împărțirea între tariful normal și cel
+  majorat se face automat, după programul din Setări;
+- **doar durata** (`3 h`) cu tariful ales explicit — așa se notează lucrările de
+  dezvoltare, unde ora exactă nu contează. E modul folosit în calendarul de
+  client.
+
 ### Orele incluse în abonament
 
 Un abonament de mentenanță poate include un număr de ore pe lună. Ele se
@@ -78,6 +89,12 @@ Orele lucrate se scad întâi din cele incluse în mentenanță, apoi din soldul
 pachetului; ce depășește se facturează la tarifele pachetului. Spre deosebire de
 orele incluse, **soldul pachetului se reportează** în lunile următoare, iar fișa
 lunară arată extrasul: sold la început, primite, consumate, sold rămas.
+
+### Documentele lunii
+
+Pe lângă fișierele atașate unei intervenții, fiecare lună de lucru la un client
+poate avea propriile documente (raportul cu toate modificările, trimis odată cu
+factura). Se încarcă din fișa lunară sau din calendarul clientului.
 
 ### TVA
 

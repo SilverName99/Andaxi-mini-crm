@@ -19,6 +19,7 @@ import { tasksRouter } from './routes/tasks.js';
 import { hourPackagesRouter } from './routes/hour-packages.js';
 import { settingsRouter } from './routes/settings.js';
 import { dashboardRouter } from './routes/dashboard.js';
+import { monthlyDocumentsRouter } from './routes/monthly-documents.js';
 import { monthlySheetRouter } from './routes/monthly-sheet.js';
 
 const app = express();
@@ -77,6 +78,7 @@ app.use('/api/hour-packages', requireAuth, hourPackagesRouter);
 app.use('/api/settings', requireAuth, settingsRouter);
 app.use('/api/dashboard', requireAuth, dashboardRouter);
 app.use('/api/monthly-sheet', requireAuth, monthlySheetRouter);
+app.use('/api/monthly-documents', requireAuth, monthlyDocumentsRouter);
 
 // In productie servim si build-ul de frontend din acelasi proces (un singur port de expus)
 const webDist = path.resolve(fileURLToPath(new URL('../../web/dist', import.meta.url)));
