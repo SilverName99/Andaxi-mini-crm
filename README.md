@@ -90,6 +90,18 @@ pachetului; ce depășește se facturează la tarifele pachetului. Spre deosebir
 orele incluse, **soldul pachetului se reportează** în lunile următoare, iar fișa
 lunară arată extrasul: sold la început, primite, consumate, sold rămas.
 
+### Import de ore din fișier
+
+Pentru lunile completate în urmă, orele se pot importa dintr-un CSV în loc să
+fie introduse zi cu zi. Șablonul se descarcă din calendarul clientului și are
+coloanele `Data · Ore · Descriere · Etichetă · Categorie · Tarif` (opțional `De la`
+și `Până la`, dacă vrei interval orar în locul duratei).
+
+Fișierul acceptă separator `;` sau `,`, virgulă zecimală, diacritice și date în
+format `zz.ll.aaaa` sau `aaaa-ll-zz`. Înainte de import se afișează exact ce
+urmează să fie creat, cu erorile pe fiecare linie — liniile cu probleme sunt
+sărite, restul se importă.
+
 ### Documentele lunii
 
 Pe lângă fișierele atașate unei intervenții, fiecare lună de lucru la un client

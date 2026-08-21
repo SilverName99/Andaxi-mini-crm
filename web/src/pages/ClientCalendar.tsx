@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { useClient, useCrudMutation, useSettings, useWorkLogs } from '../lib/queries';
 import { WorkLogDetail } from './WorkLogs';
 import { MonthlyDocuments } from '../components/MonthlyDocuments';
+import { ImportOre } from '../components/ImportOre';
 import {
   Avatar, Badge, Button, Card, ErrorBlock, Field, Input, LoadingBlock, Segmented, Select, Textarea, useToast,
 } from '../components/ui';
@@ -199,6 +200,10 @@ export function ClientCalendar() {
               rateOffHours={settings?.offHoursRate}
               onSaved={() => toast('Ore adăugate')}
             />
+          </Card>
+
+          <Card>
+            <ImportOre clientId={id} clientName={client.company || client.name} />
           </Card>
 
           <Card>

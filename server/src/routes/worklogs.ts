@@ -7,6 +7,7 @@ import { hhMmToMinutes } from '../lib/dates.js';
 import { round2, splitWorkInterval, type RateConfig } from '../lib/rates.js';
 import { allocateByClientMonth } from '../lib/hours.js';
 import { ALLOWED_DOC_TYPES, deleteAttachment, resolveUploadPath, saveAttachment } from '../lib/uploads.js';
+import { normalizeaza, parseCsv, parseData, parseNumar } from '../lib/csv.js';
 import { HttpError } from '../middleware/errors.js';
 
 export const workLogsRouter = Router();
@@ -149,6 +150,177 @@ workLogsRouter.get(
         };
       }),
     );
+  }),
+);
+
+/* ────────────────────────────────────────────── import din fisier ───────── */
+
+/** Anteturile acceptate, in forma normalizata (fara diacritice, cu litere mici) */
+const COLOANE = {
+  data: ['data', 'ziua', 'date'],
+  ore: ['ore', 'durata', 'nr ore', 'numar ore'],
+  descriere: ['descriere', 'lucrare', 'detalii', 'ce am lucrat'],
+  eticheta: ['eticheta', 'proiect', 'lucrare/proiect'],
+  categorie: ['categorie', 'tip'],
+  tarif: ['tarif', 'regim'],
+  start: ['de la', 'ora start', 'start'],
+  end: ['pana la', 'ora final', 'final', 'end'],
+};
+
+function iaValoare(rand: Record<string, string>, chei: string[]): string {
+  for (const cheie of chei) {
+    if (rand[cheie]) return rand[cheie];
+  }
+  return '';
+}
+
+const CATEGORII: Record<string, string> = {
+  suport: 'SUPORT',
+  'suport tehnic': 'SUPORT',
+  interventie: 'INTERVENTIE',
+  dezvoltare: 'DEZVOLTARE',
+  consultanta: 'CONSULTANTA',
+  altul: 'ALTUL',
+  alta: 'ALTUL',
+};
+
+/** Cele doua regimuri de tarifare, scrise cum le-ar scrie un om */
+function citesteTarif(valoare: string): 'STANDARD' | 'OFF_HOURS' {
+  const v = normalizeaza(valoare);
+  if (!v) return 'STANDARD';
+  return /majorat|noapte|afara|off|weekend/.test(v) ? 'OFF_HOURS' : 'STANDARD';
+}
+
+interface RandImport {
+  linie: number;
+  date: string;
+  hours: number | null;
+  start: string;
+  end: string;
+  rateType: 'STANDARD' | 'OFF_HOURS';
+  description: string;
+  projectTag: string;
+  category: string;
+  minutes: number;
+  amountEur: number;
+  error: string;
+}
+
+/** Sablonul de completat, cu doua exemple */
+workLogsRouter.get('/import/template', (_req, res) => {
+  const linii = [
+    'Data;Ore;Descriere;Eticheta;Categorie;Tarif',
+    '03.07.2026;1;"Stoc oferta (optional) - bug";Mentenanta site;Suport;normal',
+    '09.07.2026;2,5;Actualizare continut si imagini;Mentenanta site;Dezvoltare;normal',
+    '15.07.2026;2;Interventie urgenta seara;;Interventie;majorat',
+  ];
+  // BOM, ca Excel sa recunoasca diacriticele
+  const csv = `\ufeff${linii.join('\r\n')}\r\n`;
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="sablon-ore-andaxi.csv"');
+  res.send(csv);
+});
+
+/**
+ * Import de ore dintr-un CSV. Cu `dryRun` returneaza doar ce ar urma sa se
+ * creeze, cu erorile pe fiecare linie — ca sa se vada inainte de a scrie ceva.
+ */
+workLogsRouter.post(
+  '/import',
+  express.text({ type: () => true, limit: '2mb' }),
+  asyncHandler(async (req, res) => {
+    const { clientId, dryRun } = z
+      .object({ clientId: z.string().min(1), dryRun: z.string().optional() })
+      .parse(req.query);
+
+    await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
+    const config = await rateConfig(clientId);
+    const randuri = parseCsv(typeof req.body === 'string' ? req.body : '');
+
+    if (randuri.length === 0) throw new HttpError(400, 'Fișierul nu conține nicio linie de date');
+
+    const rezultate: RandImport[] = randuri.map((rand, index) => {
+      const linie = index + 2; // +1 pentru antet, +1 ca numaratoarea sa inceapa de la 1
+      const date = parseData(iaValoare(rand, COLOANE.data));
+      const start = iaValoare(rand, COLOANE.start);
+      const end = iaValoare(rand, COLOANE.end);
+      const ore = parseNumar(iaValoare(rand, COLOANE.ore));
+      const rateType = citesteTarif(iaValoare(rand, COLOANE.tarif));
+      const categorieBruta = normalizeaza(iaValoare(rand, COLOANE.categorie));
+
+      const gol: RandImport = {
+        linie,
+        date: date ?? '',
+        hours: ore,
+        start,
+        end,
+        rateType,
+        description: iaValoare(rand, COLOANE.descriere),
+        projectTag: iaValoare(rand, COLOANE.eticheta),
+        category: CATEGORII[categorieBruta] ?? 'SUPORT',
+        minutes: 0,
+        amountEur: 0,
+        error: '',
+      };
+
+      if (!date) return { ...gol, error: 'Data lipsește sau nu e validă' };
+
+      const areInterval = Boolean(start && end);
+      if (!areInterval && (!ore || ore <= 0)) {
+        return { ...gol, error: 'Completează numărul de ore sau intervalul orar' };
+      }
+
+      try {
+        if (areInterval) {
+          const split = splitWorkInterval(date, hhMmToMinutes(start), hhMmToMinutes(end), config);
+          return {
+            ...gol,
+            minutes: split.totalMinutes,
+            amountEur: split.amountEur,
+          };
+        }
+        const minute = Math.round((ore ?? 0) * 60);
+        return {
+          ...gol,
+          minutes: minute,
+          amountEur: round2(
+            (minute / 60) * (rateType === 'STANDARD' ? config.standardRate : config.offHoursRate),
+          ),
+        };
+      } catch (err) {
+        return { ...gol, error: err instanceof Error ? err.message : 'Linie invalida' };
+      }
+    });
+
+    const valide = rezultate.filter((r) => !r.error);
+
+    if (dryRun) {
+      res.json({ rows: rezultate, valid: valide.length, invalid: rezultate.length - valide.length });
+      return;
+    }
+
+    for (const rand of valide) {
+      const data = buildData(
+        {
+          clientId,
+          date: rand.date,
+          start: rand.start || undefined,
+          end: rand.end || undefined,
+          hours: rand.hours ?? undefined,
+          rateType: rand.rateType,
+          description: rand.description,
+          category: rand.category as (typeof WORK_CATEGORIES)[number],
+          projectTag: rand.projectTag,
+          billable: true,
+          invoiceRef: '',
+        },
+        config,
+      );
+      await prisma.workLog.create({ data });
+    }
+
+    res.json({ created: valide.length, skipped: rezultate.length - valide.length });
   }),
 );
 
