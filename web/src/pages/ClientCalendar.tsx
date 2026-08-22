@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, Clock4, Moon, Plus, Sun } from 'lucide-react';
 import { api } from '../lib/api';
-import { useClient, useCrudMutation, useSettings, useWorkLogs } from '../lib/queries';
+import { useClient, useCrudMutation, useMonthlyDiscount, useSettings, useWorkLogs } from '../lib/queries';
 import { WorkLogDetail } from './WorkLogs';
 import { MonthlyDocuments } from '../components/MonthlyDocuments';
 import { ImportOre } from '../components/ImportOre';
+import { ReducereLunara, calculeazaReducere } from '../components/ReducereLunara';
 import {
   Avatar, Badge, Button, Card, ErrorBlock, Field, Input, LoadingBlock, Segmented, Select, Textarea, useToast,
 } from '../components/ui';
@@ -53,6 +54,9 @@ export function ClientCalendar() {
     .filter((l) => l.billable)
     .reduce((s, l) => s + (l.billableEur ?? l.amountEur), 0);
 
+  const { data: discount } = useMonthlyDiscount(id, month);
+  const reducere = calculeazaReducere(valoareLuna, discount);
+
   const aleZilei = peZile.get(ziSelectata) ?? [];
 
   if (isLoading || !client) return <LoadingBlock />;
@@ -72,12 +76,22 @@ export function ClientCalendar() {
           <div>
             <h1 className="text-xl font-extrabold text-slate-900">{client.company || client.name}</h1>
             <p className="text-sm text-slate-500">
-              {formatMinutes(minuteLuna)} lucrate în {numeLuna(month)} · {formatEur(valoareLuna)} de facturat
+              {formatMinutes(minuteLuna)} lucrate în {numeLuna(month)} ·{' '}
+              {reducere > 0 ? (
+                <>
+                  <span className="line-through">{formatEur(valoareLuna)}</span>{' '}
+                  <span className="font-bold text-indigo-700">{formatEur(valoareLuna - reducere)}</span> de facturat
+                  <span className="text-emerald-700"> (−{formatEur(reducere)})</span>
+                </>
+              ) : (
+                <>{formatEur(valoareLuna)} de facturat</>
+              )}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <ReducereLunara clientId={id} month={month} billableEur={valoareLuna} />
           <button
             onClick={() => setMonth(schimbaLuna(month, -1))}
             className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100"

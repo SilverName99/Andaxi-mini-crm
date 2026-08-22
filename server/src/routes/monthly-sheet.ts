@@ -5,6 +5,7 @@ import { asyncHandler } from '../middleware/errors.js';
 import { allocateTimeline } from '../lib/hours.js';
 import { minutesToHhMm } from '../lib/dates.js';
 import { round2 } from '../lib/rates.js';
+import { applyDiscount, type DiscountType } from '../lib/discount.js';
 
 export const monthlySheetRouter = Router();
 
@@ -36,10 +37,10 @@ monthlySheetRouter.get(
       prisma.subscription.findMany({ where: { clientId }, include: { hourPackage: true } }),
       getSettings(),
     ]);
-    const documents = await prisma.monthlyDocument.findMany({
-      where: { clientId, month },
-      orderBy: { createdAt: 'asc' },
-    });
+    const [documents, discount] = await Promise.all([
+      prisma.monthlyDocument.findMany({ where: { clientId, month }, orderBy: { createdAt: 'asc' } }),
+      prisma.monthlyDiscount.findUnique({ where: { clientId_month: { clientId, month } } }),
+    ]);
 
     const { byClientMonth, byLog } = allocateTimeline(logs, subscriptions);
     const alocare = byClientMonth.get(`${clientId}|${month}`);
@@ -74,7 +75,13 @@ monthlySheetRouter.get(
 
     const minutes = rows.reduce((s, r) => s + r.minutes, 0);
     const billableEur = alocare?.billableEur ?? 0;
-    const tva = round2((billableEur * settings.vatRate) / 100);
+
+    // reducerea se scade inaintea TVA-ului, ca pe factura
+    const { discountEur, netEur } = applyDiscount(
+      billableEur,
+      discount ? { type: discount.type as DiscountType, value: discount.value } : null,
+    );
+    const tva = round2((netEur * settings.vatRate) / 100);
 
     res.json({
       month,
@@ -103,6 +110,7 @@ monthlySheetRouter.get(
         closingMinutes: alocare?.packageClosingMinutes ?? 0,
       },
       documents,
+      discount,
       rows,
       totals: {
         minutes,
@@ -114,8 +122,10 @@ monthlySheetRouter.get(
         grossEur: alocare?.grossEur ?? 0,
         coveredEur: alocare?.coveredEur ?? 0,
         billableEur,
+        discountEur,
+        netEur,
         tva,
-        totalCuTva: round2(billableEur + tva),
+        totalCuTva: round2(netEur + tva),
       },
     });
   }),

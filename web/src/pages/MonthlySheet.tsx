@@ -7,6 +7,7 @@ import { formatDate, formatEur, formatMinutes, formatRon, todayIso } from '../li
 import { numeLuna, schimbaLuna } from '../lib/calendar';
 import { WORK_CATEGORY } from '../lib/labels';
 import { MonthlyDocuments } from '../components/MonthlyDocuments';
+import { ReducereLunara } from '../components/ReducereLunara';
 import type { MonthlySheetRow } from '../lib/types';
 
 /** Ce a plătit ora: abonamentul, un tarif, o sumă negociată sau nimic */
@@ -78,6 +79,10 @@ export function MonthlySheet() {
               <ChevronRight className="h-5 w-5" />
             </button>
           </div>
+
+          {data && (
+            <ReducereLunara clientId={clientCurent} month={month} billableEur={data.totals.billableEur} />
+          )}
 
           <button
             onClick={() => window.print()}
@@ -241,9 +246,19 @@ export function MonthlySheet() {
                       <span className="font-semibold">−{formatEur(data.totals.coveredEur)}</span>
                     </div>
                   )}
+                  {data.totals.discountEur > 0 && (
+                    <div className="flex justify-between gap-4 py-1 text-emerald-700">
+                      <span>
+                        Reducere{' '}
+                        {data.discount?.type === 'PERCENT' ? `${data.discount.value}%` : ''}
+                        {data.discount?.note ? ` · ${data.discount.note}` : ''}
+                      </span>
+                      <span className="font-semibold">−{formatEur(data.totals.discountEur)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between gap-4 border-t border-slate-200 py-1.5 pt-2 text-slate-700">
                     <span>Total fără TVA</span>
-                    <span className="font-bold">{formatEur(data.totals.billableEur)}</span>
+                    <span className="font-bold">{formatEur(data.totals.netEur)}</span>
                   </div>
                   <div className="flex justify-between gap-4 py-1 text-slate-500">
                     <span>TVA {data.settings.vatRate}%</span>

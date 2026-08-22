@@ -109,6 +109,7 @@ model Client {
   billingItems  BillingItem[]
   tasks         Task[]
   monthlyDocuments MonthlyDocument[]
+  monthlyDiscounts MonthlyDiscount[]
 
   @@index([status])
 }
@@ -353,4 +354,24 @@ model MonthlyDocument {
   createdAt DateTime @default(now())
 
   @@index([clientId, month])
+}
+
+/// Reducere aplicata orelor unei luni la un client: fie procent, fie suma fixa.
+model MonthlyDiscount {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  /// Luna la care se aplica, "YYYY-MM"
+  month String
+  /// PERCENT | AMOUNT
+  type  String @default("PERCENT")
+  /// Procentul sau suma in EUR, dupa tip
+  value Float
+  note  String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, month])
 }

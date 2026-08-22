@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, qs } from './api';
 import type {
   BillingItem, CalendarData, Client, Dashboard, HourPackage, MonthlySheet, ReportData, Settings, Subscription,
-  MonthlyDocument, SubscriptionUserChange, Task, WorkLog,
+  MonthlyDiscount, MonthlyDocument, SubscriptionUserChange, Task, WorkLog,
 } from './types';
 
 /* Cheile de cache; invalidam larg dupa mutatii, aplicatia are volum mic de date */
@@ -96,6 +96,14 @@ export function useMonthlyDocuments(clientId: string, month: string) {
   return useQuery({
     queryKey: ['monthly-documents', clientId, month],
     queryFn: () => api.get<MonthlyDocument[]>(`/monthly-documents${qs({ clientId, month })}`),
+    enabled: Boolean(clientId && month),
+  });
+}
+
+export function useMonthlyDiscount(clientId: string, month: string) {
+  return useQuery({
+    queryKey: ['monthly-discount', clientId, month],
+    queryFn: () => api.get<MonthlyDiscount | null>(`/monthly-discount${qs({ clientId, month })}`),
     enabled: Boolean(clientId && month),
   });
 }

@@ -110,6 +110,14 @@ Tot acolo se alege ce se întâmplă cu orele care există deja în zilele din f
   **facturate sau încasate nu se șterg niciodată** — ar rupe istoricul de
   facturare.
 
+### Reducerea pe lună
+
+Fiecare lună de lucru la un client poate avea o reducere — procent sau sumă fixă
+— setată din calendarul clientului sau din fișa lunară. Se scade din orele lunii
+**înainte de TVA**, iar antetul calendarului arată direct suma rămasă de
+facturat. O reducere mai mare decât suma de facturat duce totalul la zero, nu la
+o valoare negativă.
+
 ### Documentele lunii
 
 Pe lângă fișierele atașate unei intervenții, fiecare lună de lucru la un client

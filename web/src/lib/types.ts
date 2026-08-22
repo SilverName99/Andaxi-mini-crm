@@ -150,6 +150,16 @@ export interface BillingItem {
   notes: string;
 }
 
+/** Reducere aplicată orelor unei luni la un client */
+export interface MonthlyDiscount {
+  id: string;
+  clientId: string;
+  month: string;
+  type: 'PERCENT' | 'AMOUNT';
+  value: number;
+  note: string;
+}
+
 /** Document atașat unei luni de lucru la un client */
 export interface MonthlyDocument {
   id: string;
@@ -348,6 +358,7 @@ export interface MonthlySheet {
   settings: Settings;
   includedFrom: { id: string; label: string; hours: number }[];
   documents: MonthlyDocument[];
+  discount: MonthlyDiscount | null;
   packages: {
     id: string;
     label: string;
@@ -373,6 +384,10 @@ export interface MonthlySheet {
     grossEur: number;
     coveredEur: number;
     billableEur: number;
+    /** Cât s-a scăzut din reducerea lunii */
+    discountEur: number;
+    /** Ce rămâne după reducere, înainte de TVA */
+    netEur: number;
     tva: number;
     totalCuTva: number;
   };

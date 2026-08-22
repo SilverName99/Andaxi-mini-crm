@@ -4,6 +4,7 @@ import {
   allocateMonth, allocateTimeline, includedMinutesForMonth, monthsBetween, packageMinutesForMonth,
   type AllocatableLog,
 } from './hours.js';
+import { applyDiscount } from './discount.js';
 
 function log(partial: Partial<AllocatableLog> & { id: string }): AllocatableLog {
   return {
@@ -212,4 +213,25 @@ test('creditul lunar vine doar din pachetele active in luna', () => {
 test('lunile dintre doua capete', () => {
   assert.deepEqual(monthsBetween('2026-11', '2027-02'), ['2026-11', '2026-12', '2027-01', '2027-02']);
   assert.deepEqual(monthsBetween('2026-05', '2026-05'), ['2026-05']);
+});
+
+/* ─────────────────────────────────────────── reducerea pe luna ──────────── */
+
+test('reducerea procentuala si cea in suma fixa', () => {
+  assert.deepEqual(applyDiscount(1000, { type: 'PERCENT', value: 10 }), { discountEur: 100, netEur: 900 });
+  assert.deepEqual(applyDiscount(1000, { type: 'AMOUNT', value: 150 }), { discountEur: 150, netEur: 850 });
+});
+
+test('reducerea nu poate depasi suma de facturat', () => {
+  assert.deepEqual(applyDiscount(200, { type: 'AMOUNT', value: 500 }), { discountEur: 200, netEur: 0 });
+  assert.deepEqual(applyDiscount(200, { type: 'PERCENT', value: 150 }), { discountEur: 200, netEur: 0 });
+});
+
+test('fara reducere sau cu valoare zero, suma ramane neatinsa', () => {
+  assert.deepEqual(applyDiscount(315, null), { discountEur: 0, netEur: 315 });
+  assert.deepEqual(applyDiscount(315, { type: 'PERCENT', value: 0 }), { discountEur: 0, netEur: 315 });
+});
+
+test('pe zero nu se aplica nimic', () => {
+  assert.deepEqual(applyDiscount(0, { type: 'PERCENT', value: 10 }), { discountEur: 0, netEur: 0 });
 });
