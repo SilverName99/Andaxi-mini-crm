@@ -102,6 +102,14 @@ format `zz.ll.aaaa` sau `aaaa-ll-zz`. Înainte de import se afișează exact ce
 urmează să fie creat, cu erorile pe fiecare linie — liniile cu probleme sunt
 sărite, restul se importă.
 
+Tot acolo se alege ce se întâmplă cu orele care există deja în zilele din fișier:
+
+- **Adaugă peste** — se păstrează tot ce era; la un reimport orele se dublează;
+- **Înlocuiește** — se șterg întâi intervențiile din zilele acoperite de fișier,
+  apoi se importă cele noi. Restul lunii rămâne neatins, iar orele deja
+  **facturate sau încasate nu se șterg niciodată** — ar rupe istoricul de
+  facturare.
+
 ### Documentele lunii
 
 Pe lângă fișierele atașate unei intervenții, fiecare lună de lucru la un client

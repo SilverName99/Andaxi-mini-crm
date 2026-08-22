@@ -2,7 +2,7 @@ import { useRef, useState, type ChangeEvent } from 'react';
 import { Download, FileUp, Upload } from 'lucide-react';
 import { useCrudMutation } from '../lib/queries';
 import { ApiError } from '../lib/api';
-import { Badge, Button, ErrorBlock, Modal, useToast } from './ui';
+import { Badge, Button, ErrorBlock, Modal, Segmented, useToast } from './ui';
 import { formatDate, formatEur, formatMinutes } from '../lib/format';
 
 interface RandImport {
@@ -15,20 +15,37 @@ interface RandImport {
   error: string;
 }
 
+type ModImport = 'append' | 'replace';
+
 interface Previzualizare {
   rows: RandImport[];
   valid: number;
   invalid: number;
+  /** Cate interventii exista deja in zilele din fisier */
+  existing: number;
+  /** Cate ar fi inlocuite */
+  replaceable: number;
+  /** Cate raman oricum, fiind deja facturate */
+  locked: number;
+  days: number;
 }
 
 /** Trimite fisierul ca text brut catre endpoint-ul de import */
-async function trimiteFisier(clientId: string, file: File, dryRun: boolean): Promise<Previzualizare> {
-  const response = await fetch(`/api/worklogs/import?clientId=${clientId}${dryRun ? '&dryRun=1' : ''}`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'text/csv' },
-    body: await file.text(),
-  });
+async function trimiteFisier(
+  clientId: string,
+  file: File,
+  dryRun: boolean,
+  mode: ModImport,
+): Promise<Previzualizare> {
+  const response = await fetch(
+    `/api/worklogs/import?clientId=${clientId}&mode=${mode}${dryRun ? '&dryRun=1' : ''}`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'text/csv' },
+      body: await file.text(),
+    },
+  );
 
   if (!response.ok) {
     let message = `Eroare ${response.status}`;
@@ -51,10 +68,11 @@ export function ImportOre({ clientId, clientName }: { clientId: string; clientNa
   const input = useRef<HTMLInputElement>(null);
   const [fisier, setFisier] = useState<File | null>(null);
   const [previzualizare, setPrevizualizare] = useState<Previzualizare | null>(null);
+  const [mode, setMode] = useState<ModImport>('append');
   const [error, setError] = useState('');
 
-  const verifica = useCrudMutation((file: File) => trimiteFisier(clientId, file, true));
-  const importa = useCrudMutation((file: File) => trimiteFisier(clientId, file, false));
+  const verifica = useCrudMutation((file: File) => trimiteFisier(clientId, file, true, mode));
+  const importa = useCrudMutation((file: File) => trimiteFisier(clientId, file, false, mode));
 
   async function laAlegereFisier(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -156,6 +174,42 @@ export function ImportOre({ clientId, clientName }: { clientId: string; clientNa
             </p>
           )}
 
+          <div className="mt-5 rounded-2xl bg-slate-50 p-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Ce fac cu orele care există deja în aceste zile
+            </p>
+            <Segmented
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: 'append', label: 'Adaugă peste' },
+                { value: 'replace', label: 'Înlocuiește' },
+              ]}
+            />
+            <p className="mt-2 text-sm text-slate-600">
+              {mode === 'append' ? (
+                previzualizare.existing > 0 ? (
+                  <>
+                    Cele <span className="font-semibold">{previzualizare.existing}</span> intervenții existente rămân, iar
+                    peste ele se adaugă cele din fișier. La un reimport, orele se dublează.
+                  </>
+                ) : (
+                  <>Nu există nimic în zilele din fișier, deci nu se dublează nimic.</>
+                )
+              ) : (
+                <>
+                  Se șterg <span className="font-semibold">{previzualizare.replaceable}</span> intervenții din cele{' '}
+                  {previzualizare.days} zile ale fișierului, apoi se importă cele noi. Restul lunii rămâne neatins.
+                  {previzualizare.locked > 0 && (
+                    <span className="mt-1 block font-semibold text-amber-700">
+                      {previzualizare.locked} deja facturate nu se șterg — le păstrez ca să nu-ți strice istoricul.
+                    </span>
+                  )}
+                </>
+              )}
+            </p>
+          </div>
+
           <div className="mt-6 flex justify-end gap-2">
             <Button variant="secondary" onClick={inchide}>Anulează</Button>
             <Button
@@ -164,8 +218,14 @@ export function ImportOre({ clientId, clientName }: { clientId: string; clientNa
               disabled={previzualizare.valid === 0}
               onClick={async () => {
                 if (!fisier) return;
-                await importa.mutateAsync(fisier);
-                toast(`${previzualizare.valid} intervenții importate`);
+                const rezultat = await importa.mutateAsync(fisier);
+                toast(
+                  mode === 'replace' && (rezultat as unknown as { deleted: number }).deleted > 0
+                    ? `${previzualizare.valid} intervenții importate, ${
+                        (rezultat as unknown as { deleted: number }).deleted
+                      } înlocuite`
+                    : `${previzualizare.valid} intervenții importate`,
+                );
                 inchide();
               }}
             >

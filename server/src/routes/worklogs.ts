@@ -230,8 +230,13 @@ workLogsRouter.post(
   '/import',
   express.text({ type: () => true, limit: '2mb' }),
   asyncHandler(async (req, res) => {
-    const { clientId, dryRun } = z
-      .object({ clientId: z.string().min(1), dryRun: z.string().optional() })
+    const { clientId, dryRun, mode } = z
+      .object({
+        clientId: z.string().min(1),
+        dryRun: z.string().optional(),
+        /** append = se adauga peste ce exista · replace = zilele din fisier se rescriu */
+        mode: z.enum(['append', 'replace']).default('append'),
+      })
       .parse(req.query);
 
     await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
@@ -294,10 +299,42 @@ workLogsRouter.post(
     });
 
     const valide = rezultate.filter((r) => !r.error);
+    const zile = [...new Set(valide.map((r) => r.date))];
+
+    /*
+     * La reimport, orele s-ar aduna peste cele existente. In modul "replace"
+     * stergem intai ce era in zilele din fisier — mai putin ce a fost deja
+     * facturat sau incasat, ca sa nu dispara din istoricul de facturare.
+     */
+    const existente = zile.length
+      ? await prisma.workLog.findMany({ where: { clientId, date: { in: zile } } })
+      : [];
+    const deSters = existente.filter((l) => l.status === 'PENDING' || l.status === 'NONBILLABLE');
+    const protejate = existente.filter((l) => l.status === 'INVOICED' || l.status === 'PAID');
 
     if (dryRun) {
-      res.json({ rows: rezultate, valid: valide.length, invalid: rezultate.length - valide.length });
+      res.json({
+        rows: rezultate,
+        valid: valide.length,
+        invalid: rezultate.length - valide.length,
+        mode,
+        /** Cate interventii exista deja in zilele din fisier */
+        existing: existente.length,
+        /** Cate ar fi sterse in modul "replace" */
+        replaceable: deSters.length,
+        /** Cate raman oricum, fiind deja facturate */
+        locked: protejate.length,
+        days: zile.length,
+      });
       return;
+    }
+
+    if (mode === 'replace' && deSters.length > 0) {
+      const atasamente = await prisma.attachment.findMany({
+        where: { workLogId: { in: deSters.map((l) => l.id) } },
+      });
+      await prisma.workLog.deleteMany({ where: { id: { in: deSters.map((l) => l.id) } } });
+      for (const atasament of atasamente) deleteAttachment(atasament.path);
     }
 
     for (const rand of valide) {
@@ -320,7 +357,12 @@ workLogsRouter.post(
       await prisma.workLog.create({ data });
     }
 
-    res.json({ created: valide.length, skipped: rezultate.length - valide.length });
+    res.json({
+      created: valide.length,
+      skipped: rezultate.length - valide.length,
+      deleted: mode === 'replace' ? deSters.length : 0,
+      locked: mode === 'replace' ? protejate.length : 0,
+    });
   }),
 );
 
