@@ -157,6 +157,17 @@ export function PortalClient({ clientId, clientName }: { clientId: string; clien
               label="Arată sumele"
               hint="Dezactivat, clientul vede doar orele lucrate și cele incluse, fără valori în euro"
             />
+            <Toggle
+              checked={portal.allowRequests}
+              onChange={(value) =>
+                ruleaza(
+                  () => actualizeaza.mutateAsync({ allowRequests: value }),
+                  value ? 'Clientul poate trimite cereri' : 'Cererile din portal sunt oprite',
+                )
+              }
+              label="Permite cereri de intervenție"
+              hint="Cererile trimise de client apar în Task-uri, marcate „din portal”"
+            />
             {portal.showMoney && (
               <Toggle
                 checked={portal.showVat}

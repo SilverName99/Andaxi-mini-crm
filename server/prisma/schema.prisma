@@ -112,6 +112,7 @@ model Client {
   tasks         Task[]
   monthlyDocuments MonthlyDocument[]
   monthlyDiscounts MonthlyDiscount[]
+  monthlyApprovals MonthlyApproval[]
   portal        ClientPortal?
 
   @@index([status])
@@ -135,6 +136,8 @@ model ClientPortal {
   /// Ce vede clientul
   showMoney Boolean @default(true)
   showVat   Boolean @default(false)
+  /// Daca poate trimite cereri de interventie din portal
+  allowRequests Boolean @default(true)
 
   /// Ultima intrare in portal (ISO), ca sa stii daca il foloseste
   lastSeenAt String?
@@ -313,6 +316,8 @@ model Task {
   priority String  @default("MEDIUM")
   done     Boolean @default(false)
   doneAt   String?
+  /// Cererile venite din portalul clientului, ca sa le recunosti in lista
+  fromPortal Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -406,4 +411,29 @@ model MonthlyDiscount {
   updatedAt DateTime @updatedAt
 
   @@unique([clientId, month])
+}
+
+/// Confirmarea unei luni de catre client, din portal: "am vazut orele, sunt de
+/// acord". Pastram si cifrele de la momentul confirmarii, ca sa se vada daca
+/// luna s-a mai modificat dupa aceea.
+model MonthlyApproval {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  /// YYYY-MM
+  month    String
+
+  /// Momentul confirmarii (ISO) si numele scris de client, daca l-a completat
+  confirmedAt String
+  confirmedBy String @default("")
+  note        String @default("")
+
+  /// Cat era luna cand a confirmat-o
+  minutes     Int
+  billableEur Float
+
+  createdAt DateTime @default(now())
+
+  @@unique([clientId, month])
+  @@index([month])
 }

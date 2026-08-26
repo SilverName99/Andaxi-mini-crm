@@ -30,9 +30,10 @@ export async function buildMonthlySheet(clientId: string, month: string) {
     prisma.subscription.findMany({ where: { clientId }, include: { hourPackage: true } }),
     getSettings(),
   ]);
-  const [documents, discount] = await Promise.all([
+  const [documents, discount, confirmare] = await Promise.all([
     prisma.monthlyDocument.findMany({ where: { clientId, month }, orderBy: { createdAt: 'asc' } }),
     prisma.monthlyDiscount.findUnique({ where: { clientId_month: { clientId, month } } }),
+    prisma.monthlyApproval.findUnique({ where: { clientId_month: { clientId, month } } }),
   ]);
 
   const { byClientMonth, byLog } = allocateTimeline(logs, subscriptions);
@@ -105,6 +106,18 @@ export async function buildMonthlySheet(clientId: string, month: string) {
     },
     documents,
     discount,
+    /** Confirmarea clientului din portal, daca a apasat butonul */
+    approval: confirmare
+      ? {
+          confirmedAt: confirmare.confirmedAt,
+          confirmedBy: confirmare.confirmedBy,
+          note: confirmare.note,
+          minutes: confirmare.minutes,
+          billableEur: confirmare.billableEur,
+          /** Luna s-a mai schimbat dupa ce clientul a confirmat-o */
+          changedSince: confirmare.minutes !== minutes || confirmare.billableEur !== billableEur,
+        }
+      : null,
     rows,
     totals: {
       minutes,

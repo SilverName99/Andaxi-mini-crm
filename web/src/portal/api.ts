@@ -7,7 +7,7 @@ import type { Cycle, Product, SubscriptionKind, SubscriptionStatus, WorkCategory
 export interface PortalMe {
   client: { name: string; company: string; cui: string; logoUrl: string; color: string };
   brand: { companyName: string; logoUrl: string };
-  flags: { showMoney: boolean; showVat: boolean };
+  flags: { showMoney: boolean; showVat: boolean; allowRequests: boolean };
   currency: { eurRon: number; vatRate: number | null };
   firstMonth: string;
   subscriptions: {
@@ -24,6 +24,14 @@ export interface PortalMe {
     storageUsedGb: number | null;
     storageIncludedGb: number | null;
     amountEur: number | null;
+  }[];
+  requests: {
+    id: string;
+    title: string;
+    details: string;
+    done: boolean;
+    doneAt: string | null;
+    createdAt: string;
   }[];
   billing: {
     id: string;
@@ -57,6 +65,16 @@ export interface PortalRow {
   grossEur: number | null;
 }
 
+export interface PortalApproval {
+  confirmedAt: string;
+  confirmedBy: string;
+  note: string;
+  minutes: number;
+  billableEur: number;
+  /** Luna s-a mai schimbat dupa confirmare */
+  changedSince: boolean;
+}
+
 export interface PortalMonth {
   month: string;
   /** Luna nu s-a incheiat: cifrele sunt estimari, nu factura finala */
@@ -71,6 +89,7 @@ export interface PortalMonth {
   };
   documents: { id: string; fileName: string; mimeType: string; size: number; createdAt: string }[];
   discount: { type: 'AMOUNT' | 'PERCENT'; value: number } | null;
+  approval: PortalApproval | null;
   rows: PortalRow[];
   totals: {
     minutes: number;
@@ -102,6 +121,18 @@ export function usePortalMonth(month: string, activ: boolean) {
     queryFn: () => api.get<PortalMonth>(`/portal/month${qs({ month })}`),
     enabled: activ && Boolean(month),
   });
+}
+
+export function confirmaLuna(month: string, body: { confirmedBy: string; note: string }) {
+  return api.post<PortalApproval>(`/portal/month/${month}/confirm`, body);
+}
+
+export function retrageConfirmarea(month: string) {
+  return api.del(`/portal/month/${month}/confirm`);
+}
+
+export function trimiteCerere(body: { title: string; details: string }) {
+  return api.post<PortalMe['requests'][number]>('/portal/requests', body);
 }
 
 /** Deschide sesiunea din linkul primit; raspunde daca mai e nevoie de PIN */

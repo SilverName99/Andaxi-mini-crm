@@ -149,6 +149,7 @@ function portalPublic(portal: {
   enabled: boolean;
   showMoney: boolean;
   showVat: boolean;
+  allowRequests: boolean;
   lastSeenAt: string | null;
   updatedAt: Date;
 }) {
@@ -158,6 +159,7 @@ function portalPublic(portal: {
     enabled: portal.enabled,
     showMoney: portal.showMoney,
     showVat: portal.showVat,
+    allowRequests: portal.allowRequests,
     lastSeenAt: portal.lastSeenAt,
     updatedAt: portal.updatedAt,
   };
@@ -175,6 +177,7 @@ const portalSetariSchema = z.object({
   enabled: z.boolean().optional(),
   showMoney: z.boolean().optional(),
   showVat: z.boolean().optional(),
+  allowRequests: z.boolean().optional(),
   /** true = generam si un PIN de 6 cifre, care se arata o singura data */
   withPin: z.boolean().optional(),
 });

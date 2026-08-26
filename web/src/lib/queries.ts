@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, qs } from './api';
 import type {
   BillingItem, CalendarData, Client, Dashboard, HourPackage, MonthlySheet, ReportData, Settings, Subscription,
-  MonthlyDiscount, MonthlyDocument, SubscriptionUserChange, Task, WorkLog, ClientPortal,
+  MonthlyDiscount, MonthlyDocument, SubscriptionUserChange, Task, WorkLog, ClientPortal, MonthlyApproval,
 } from './types';
 
 /* Cheile de cache; invalidam larg dupa mutatii, aplicatia are volum mic de date */
@@ -20,6 +20,7 @@ export const keys = {
   reports: (filters?: unknown) => ['reports', filters ?? {}] as const,
   monthlySheet: (filters?: unknown) => ['monthly-sheet', filters ?? {}] as const,
   clientPortal: (clientId: string) => ['client-portal', clientId] as const,
+  monthlyApproval: (clientId: string, month: string) => ['monthly-approval', clientId, month] as const,
 };
 
 export function useDashboard() {
@@ -35,6 +36,18 @@ export function useClients(filters: { status?: string; q?: string } = {}) {
 
 export function useClient(id: string) {
   return useQuery({ queryKey: keys.client(id), queryFn: () => api.get<Client>(`/clients/${id}`) });
+}
+
+/** Confirmarea lunii trimisa de client din portal; null cand nu a confirmat */
+export function useMonthlyApproval(clientId: string, month: string) {
+  return useQuery({
+    queryKey: keys.monthlyApproval(clientId, month),
+    queryFn: () =>
+      api.get<(MonthlyApproval & { minutes: number; billableEur: number }) | null>(
+        `/monthly-approval${qs({ clientId, month })}`,
+      ),
+    enabled: Boolean(clientId && month),
+  });
 }
 
 /** Accesul clientului la portalul lui; null cand nu a fost pornit */

@@ -2,11 +2,14 @@ import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, Clock4, Moon, Plus, Sun } from 'lucide-react';
 import { api } from '../lib/api';
-import { useClient, useCrudMutation, useMonthlyDiscount, useSettings, useWorkLogs } from '../lib/queries';
+import {
+  useClient, useCrudMutation, useMonthlyApproval, useMonthlyDiscount, useSettings, useWorkLogs,
+} from '../lib/queries';
 import { WorkLogDetail } from './WorkLogs';
 import { MonthlyDocuments } from '../components/MonthlyDocuments';
 import { ImportOre } from '../components/ImportOre';
 import { ReducereLunara, calculeazaReducere } from '../components/ReducereLunara';
+import { StareConfirmare } from '../components/StareConfirmare';
 import {
   Avatar, Badge, Button, Card, ErrorBlock, Field, Input, LoadingBlock, Segmented, Select, Textarea, useToast,
 } from '../components/ui';
@@ -58,6 +61,15 @@ export function ClientCalendar() {
   const { data: discount } = useMonthlyDiscount(id, month);
   const reducere = calculeazaReducere(valoareLuna, discount);
 
+  // confirmarea clientului din portal, comparata cu cifrele de acum
+  const { data: confirmare } = useMonthlyApproval(id, month);
+  const stareConfirmare = confirmare
+    ? {
+        ...confirmare,
+        changedSince: confirmare.minutes !== minuteLuna || confirmare.billableEur !== valoareLuna,
+      }
+    : null;
+
   const aleZilei = peZile.get(ziSelectata) ?? [];
 
   if (isLoading || !client) return <LoadingBlock />;
@@ -88,6 +100,9 @@ export function ClientCalendar() {
                 <>{formatEur(valoareLuna)} de facturat</>
               )}
             </p>
+            <div className="mt-1.5">
+              <StareConfirmare approval={stareConfirmare} areOre={dinLuna.length > 0} />
+            </div>
           </div>
         </div>
 

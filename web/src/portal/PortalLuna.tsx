@@ -5,6 +5,7 @@ import { formatDate, formatEur, formatFileSize, formatMinutes, formatRon } from 
 import { grilaLunii, numeZi, ZILE_SCURTE } from '../lib/calendar';
 import { WORK_CATEGORY } from '../lib/labels';
 import { cn } from '../lib/cn';
+import { ConfirmareLuna } from './ConfirmareLuna';
 import type { PortalMe, PortalMonth, PortalRow } from './api';
 
 /** Ce a acoperit orele unei lucrări: abonamentul, pachetul sau factura */
@@ -92,6 +93,13 @@ export function PortalLuna({
           lună. Factura o primești separat.
         </div>
       )}
+
+      <ConfirmareLuna
+        luna={luna}
+        confirmare={date.approval}
+        areOre={date.rows.length > 0}
+        lunaInCurs={date.inCurs}
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Cifra

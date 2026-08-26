@@ -8,6 +8,7 @@ import { numeLuna, schimbaLuna } from '../lib/calendar';
 import { WORK_CATEGORY } from '../lib/labels';
 import { MonthlyDocuments } from '../components/MonthlyDocuments';
 import { ReducereLunara } from '../components/ReducereLunara';
+import { StareConfirmare } from '../components/StareConfirmare';
 import type { MonthlySheetRow } from '../lib/types';
 
 /** Ce a plătit ora: abonamentul, un tarif, o sumă negociată sau nimic */
@@ -121,6 +122,9 @@ export function MonthlySheet() {
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Perioada</p>
               <p className="text-lg font-bold capitalize text-slate-800">{numeLuna(month)}</p>
               <p className="text-sm text-slate-500">{data.settings.companyName}</p>
+              <div className="mt-1.5 flex justify-end">
+                <StareConfirmare approval={data.approval} areOre={data.rows.length > 0} />
+              </div>
             </div>
           </div>
 

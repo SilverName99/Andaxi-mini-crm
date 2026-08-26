@@ -8,9 +8,10 @@ import { CYCLE, PRODUCT, SUBSCRIPTION_KIND, SUBSCRIPTION_STATUS, BILLING_STATUS 
 import { cn } from '../lib/cn';
 import { portalLogin, usePortalMe, usePortalMonth, type PortalMe } from './api';
 import { PortalLuna } from './PortalLuna';
+import { CereriPortal } from './CereriPortal';
 import type { AccentColor } from '../lib/types';
 
-type Sectiune = 'luna' | 'abonamente' | 'plati';
+type Sectiune = 'luna' | 'abonamente' | 'plati' | 'cereri';
 
 /** Tokenul vine dupa # ca sa nu ajunga in logurile serverului; il stergem din bara de adrese */
 function ridicaToken(): string {
@@ -245,6 +246,7 @@ function PortalContinut() {
               { value: 'luna', label: 'Luna' },
               { value: 'abonamente', label: 'Abonamente' },
               { value: 'plati', label: 'Plăți' },
+              { value: 'cereri', label: 'Cereri' },
             ]}
           />
 
@@ -276,6 +278,7 @@ function PortalContinut() {
         {sectiune === 'luna' && <PortalLuna luna={luna} date={date} me={me} seIncarca={seIncarcaLuna} />}
         {sectiune === 'abonamente' && <Abonamente me={me} />}
         {sectiune === 'plati' && <Plati me={me} />}
+        {sectiune === 'cereri' && <CereriPortal me={me} />}
 
         <p className="py-6 text-center text-xs text-slate-400">
           Datele se actualizează în timp real. Pentru orice nelămurire, scrie-ne.

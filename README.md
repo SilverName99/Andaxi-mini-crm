@@ -147,6 +147,23 @@ se construiesc câmp cu câmp — setările firmei și tarifele nu pleacă spre 
 Lunile neîncheiate și pozițiile viitoare sunt marcate „estimare", ca să nu fie
 confundate cu facturile emise din ERP.
 
+#### Confirmarea lunii
+
+Din portal, clientul poate apăsa **Confirm orele** pentru o lună: confirmarea
+ajunge în CRM cu data, ora, numele scris de el și cifrele de la acel moment.
+Fișa lunară și calendarul clientului arată apoi una din trei stări —
+*Neconfirmat de client*, *Confirmat de client pe …* sau, dacă luna s-a mai
+modificat de atunci, *Confirmat …, dar s-a modificat după*. Clientul își poate
+retrage confirmarea, iar CRM-ul nu poate confirma în locul lui: ruta de
+administrare e doar de citit.
+
+#### Cererile de intervenție
+
+Clientul poate trimite din portal o cerere („Nu se trimit emailurile de
+comandă"), care devine **task în CRM**, marcat *Cerere din portal* și legat de
+client. Când îl bifezi ca rezolvat, clientul vede în portal starea *Rezolvată*.
+Se pot opri per client, iar volumul e limitat la 10 cereri pe oră.
+
 ### TVA
 
 Toate prețurile din platformă (abonamente, tarife orare) sunt **fără TVA**.

@@ -146,6 +146,9 @@ export function Tasks() {
                     </p>
                     <Badge className={PRIORITY[task.priority].chip}>{PRIORITY[task.priority].text}</Badge>
                     {task.client && <Badge>{task.client.company || task.client.name}</Badge>}
+                    {task.fromPortal && (
+                      <Badge className="bg-indigo-50 text-indigo-700">Cerere din portal</Badge>
+                    )}
                   </div>
                   {task.details && <p className="mt-1 text-sm text-slate-500">{task.details}</p>}
                   {task.dueDate && (

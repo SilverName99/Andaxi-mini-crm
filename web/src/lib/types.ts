@@ -229,6 +229,8 @@ export interface Task {
   priority: Priority;
   done: boolean;
   doneAt: string | null;
+  /** Cerere venită din portalul clientului */
+  fromPortal?: boolean;
 }
 
 export interface RateSplit {
@@ -359,6 +361,16 @@ export interface MonthlySheetRow {
   billableEur: number;
 }
 
+export interface MonthlyApproval {
+  confirmedAt: string;
+  confirmedBy: string;
+  note: string;
+  minutes: number;
+  billableEur: number;
+  /** Luna s-a mai schimbat după ce clientul a confirmat-o */
+  changedSince: boolean;
+}
+
 export interface MonthlySheet {
   month: string;
   client: ClientRef & { cui: string };
@@ -366,6 +378,8 @@ export interface MonthlySheet {
   includedFrom: { id: string; label: string; hours: number }[];
   documents: MonthlyDocument[];
   discount: MonthlyDiscount | null;
+  /** Confirmarea clientului din portal */
+  approval: MonthlyApproval | null;
   packages: {
     id: string;
     label: string;
@@ -425,6 +439,7 @@ export interface ClientPortal {
   enabled: boolean;
   showMoney: boolean;
   showVat: boolean;
+  allowRequests: boolean;
   lastSeenAt: string | null;
   updatedAt: string;
   /** Doar la generare: PIN-ul se arata o singura data */

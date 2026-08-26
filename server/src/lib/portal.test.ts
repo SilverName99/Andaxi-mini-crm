@@ -55,3 +55,16 @@ test('PIN-ul corect sterge istoricul de greseli', () => {
   limitator.esec('portal');
   assert.equal(limitator.asteptare('portal'), 0);
 });
+
+test('limitatorul de cereri lasa zece pe ora, apoi opreste', () => {
+  const cereri = creeazaLimitator(10, 60 * 60_000);
+  const t0 = 2_000_000;
+
+  for (let i = 0; i < 10; i += 1) {
+    assert.equal(cereri.asteptare('portal', t0), 0, `cererea ${i + 1} trebuie sa treaca`);
+    cereri.esec('portal', t0);
+  }
+
+  assert.ok(cereri.asteptare('portal', t0) > 0, 'a unsprezecea cerere se opreste');
+  assert.equal(cereri.asteptare('portal', t0 + 3_600_001), 0, 'dupa o ora se poate din nou');
+});

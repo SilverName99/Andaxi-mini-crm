@@ -17,6 +17,9 @@ export const portalRouter = Router();
 /** Maxim 5 PIN-uri gresite la 15 minute, per link */
 const limitator = creeazaLimitator();
 
+/** Maxim 10 cereri de interventie pe ora, ca portalul sa nu poata fi inundat */
+const limitatorCereri = creeazaLimitator(10, 60 * 60_000);
+
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
@@ -110,7 +113,7 @@ portalRouter.get(
     const portal = await portalActiv(req.portal!.portalId);
     const clientId = portal.clientId;
 
-    const [client, settings, subscriptions, billing, prima] = await Promise.all([
+    const [client, settings, subscriptions, billing, prima, cereri] = await Promise.all([
       prisma.client.findUniqueOrThrow({
         where: { id: clientId },
         select: { name: true, company: true, cui: true, logoUrl: true, color: true },
@@ -128,6 +131,11 @@ portalRouter.get(
         take: 60,
       }),
       prisma.workLog.findFirst({ where: { clientId }, orderBy: { date: 'asc' }, select: { date: true } }),
+      prisma.task.findMany({
+        where: { clientId, fromPortal: true },
+        orderBy: [{ done: 'asc' }, { createdAt: 'desc' }],
+        take: 30,
+      }),
     ]);
 
     const bani = portal.showMoney;
@@ -136,7 +144,7 @@ portalRouter.get(
     res.json({
       client,
       brand: { companyName: settings.companyName, logoUrl: settings.logoUrl },
-      flags: { showMoney: bani, showVat: bani && portal.showVat },
+      flags: { showMoney: bani, showVat: bani && portal.showVat, allowRequests: portal.allowRequests },
       currency: { eurRon: settings.eurRon, vatRate: bani && portal.showVat ? settings.vatRate : null },
       /** Din ce luna are rost sa te uiti inapoi */
       firstMonth: (prima?.date ?? azi).slice(0, 7),
@@ -157,6 +165,14 @@ portalRouter.get(
             ? includedStorageGb(settings, sub.product, sub.users)
             : null,
         amountEur: bani ? sub.amountEur : null,
+      })),
+      requests: cereri.map((task) => ({
+        id: task.id,
+        title: task.title,
+        details: task.details,
+        done: task.done,
+        doneAt: task.doneAt,
+        createdAt: task.createdAt,
       })),
       billing: billing.map((item) => ({
         id: item.id,
@@ -211,6 +227,7 @@ portalRouter.get(
         createdAt: d.createdAt,
       })),
       discount: bani && fisa.discount ? { type: fisa.discount.type, value: fisa.discount.value } : null,
+      approval: fisa.approval,
       rows: fisa.rows.map((row) => ({
         id: row.id,
         date: row.date,
@@ -265,6 +282,91 @@ portalRouter.get(
     );
     res.sendFile(resolveUploadPath(document.path), (error) => {
       if (error && !res.headersSent) res.status(404).json({ error: 'Fisierul nu mai exista pe server' });
+    });
+  }),
+);
+
+/* ─────────────────────────────────────────── ce poate trimite clientul ── */
+
+const confirmareSchema = z.object({
+  confirmedBy: z.string().trim().max(80).default(''),
+  note: z.string().trim().max(500).default(''),
+});
+
+/**
+ * "Am vazut orele lunii si sunt de acord". Pastram si cifrele de atunci, ca sa
+ * se vada in CRM daca luna s-a mai schimbat dupa confirmare.
+ */
+portalRouter.post(
+  '/month/:month/confirm',
+  requirePortal,
+  asyncHandler(async (req, res) => {
+    const portal = await portalActiv(req.portal!.portalId);
+    const month = z.string().regex(/^\d{4}-\d{2}$/).parse(req.params.month);
+    const { confirmedBy, note } = confirmareSchema.parse(req.body);
+
+    const fisa = await buildMonthlySheet(portal.clientId, month);
+    if (fisa.rows.length === 0) throw new HttpError(400, 'Luna nu are ore de confirmat.');
+
+    const date = {
+      confirmedAt: new Date().toISOString(),
+      confirmedBy,
+      note,
+      minutes: fisa.totals.minutes,
+      billableEur: fisa.totals.billableEur,
+    };
+    const confirmare = await prisma.monthlyApproval.upsert({
+      where: { clientId_month: { clientId: portal.clientId, month } },
+      create: { clientId: portal.clientId, month, ...date },
+      update: date,
+    });
+
+    res.json({ ...confirmare, changedSince: false });
+  }),
+);
+
+portalRouter.delete(
+  '/month/:month/confirm',
+  requirePortal,
+  asyncHandler(async (req, res) => {
+    const portal = await portalActiv(req.portal!.portalId);
+    const month = z.string().regex(/^\d{4}-\d{2}$/).parse(req.params.month);
+    await prisma.monthlyApproval
+      .delete({ where: { clientId_month: { clientId: portal.clientId, month } } })
+      .catch(() => null); // daca nu exista, nu e nimic de retras
+    res.json({ ok: true });
+  }),
+);
+
+const cerereSchema = z.object({
+  title: z.string().trim().min(3, 'Scrie pe scurt ce ai nevoie').max(120),
+  details: z.string().trim().max(2000).default(''),
+});
+
+/** Cererile clientului devin task-uri in CRM, marcate ca venite din portal */
+portalRouter.post(
+  '/requests',
+  requirePortal,
+  asyncHandler(async (req, res) => {
+    const portal = await portalActiv(req.portal!.portalId);
+    if (!portal.allowRequests) throw new HttpError(403, 'Cererile din portal sunt oprite.');
+
+    const asteptare = limitatorCereri.asteptare(portal.id);
+    if (asteptare > 0) throw new HttpError(429, 'Ai trimis prea multe cereri. Incearca mai tarziu.');
+
+    const { title, details } = cerereSchema.parse(req.body);
+    const task = await prisma.task.create({
+      data: { clientId: portal.clientId, title, details, fromPortal: true, priority: 'MEDIUM' },
+    });
+    limitatorCereri.esec(portal.id);
+
+    res.status(201).json({
+      id: task.id,
+      title: task.title,
+      details: task.details,
+      done: task.done,
+      doneAt: task.doneAt,
+      createdAt: task.createdAt,
     });
   }),
 );
