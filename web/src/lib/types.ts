@@ -415,3 +415,18 @@ export interface SubscriptionUserChange {
   applied: boolean;
   note: string;
 }
+
+/* ─────────────────────────────────────────── portalul clientului (admin) ── */
+
+export interface ClientPortal {
+  /** Partea secreta din link */
+  token: string;
+  hasPin: boolean;
+  enabled: boolean;
+  showMoney: boolean;
+  showVat: boolean;
+  lastSeenAt: string | null;
+  updatedAt: string;
+  /** Doar la generare: PIN-ul se arata o singura data */
+  pin?: string | null;
+}

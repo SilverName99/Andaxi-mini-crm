@@ -1,9 +1,11 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../prisma.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { CLIENT_STATUSES, COLORS } from '../lib/validation.js';
 import { ALLOWED_IMAGE_TYPES, deleteUpload, saveImage } from '../lib/uploads.js';
+import { genereazaPin, genereazaToken } from '../lib/portal.js';
 
 export const clientsRouter = Router();
 
@@ -135,5 +137,118 @@ clientsRouter.delete(
     const client = await prisma.client.findUniqueOrThrow({ where: { id: req.params.id } });
     if (client.logoUrl) deleteUpload(client.logoUrl);
     res.json(await prisma.client.update({ where: { id: client.id }, data: { logoUrl: '' } }));
+  }),
+);
+
+/* ───────────────────────────────────────────────────── portalul clientului ── */
+
+/** Ce vede administratorul despre portal (tokenul e inclus: linkul trebuie recopiat oricand) */
+function portalPublic(portal: {
+  token: string;
+  pinHash: string;
+  enabled: boolean;
+  showMoney: boolean;
+  showVat: boolean;
+  lastSeenAt: string | null;
+  updatedAt: Date;
+}) {
+  return {
+    token: portal.token,
+    hasPin: Boolean(portal.pinHash),
+    enabled: portal.enabled,
+    showMoney: portal.showMoney,
+    showVat: portal.showVat,
+    lastSeenAt: portal.lastSeenAt,
+    updatedAt: portal.updatedAt,
+  };
+}
+
+clientsRouter.get(
+  '/:id/portal',
+  asyncHandler(async (req, res) => {
+    const portal = await prisma.clientPortal.findUnique({ where: { clientId: req.params.id } });
+    res.json(portal ? portalPublic(portal) : null);
+  }),
+);
+
+const portalSetariSchema = z.object({
+  enabled: z.boolean().optional(),
+  showMoney: z.boolean().optional(),
+  showVat: z.boolean().optional(),
+  /** true = generam si un PIN de 6 cifre, care se arata o singura data */
+  withPin: z.boolean().optional(),
+});
+
+/** Porneste portalul sau ii schimba linkul (cel vechi devine inutilizabil) */
+clientsRouter.post(
+  '/:id/portal',
+  asyncHandler(async (req, res) => {
+    const { withPin, ...setari } = portalSetariSchema.parse(req.body);
+    const client = await prisma.client.findUniqueOrThrow({ where: { id: req.params.id } });
+
+    const pin = withPin ? genereazaPin() : null;
+    const date = {
+      token: genereazaToken(),
+      enabled: true,
+      ...setari,
+      ...(pin ? { pinHash: await bcrypt.hash(pin, 10) } : {}),
+    };
+
+    const portal = await prisma.clientPortal.upsert({
+      where: { clientId: client.id },
+      create: { clientId: client.id, ...date },
+      update: date,
+    });
+    // PIN-ul pleaca o singura data, la generare; in baza ramane doar hash-ul
+    res.status(201).json({ ...portalPublic(portal), pin });
+  }),
+);
+
+clientsRouter.put(
+  '/:id/portal',
+  asyncHandler(async (req, res) => {
+    const { withPin: _ignorat, ...setari } = portalSetariSchema.parse(req.body);
+    const portal = await prisma.clientPortal.update({
+      where: { clientId: req.params.id },
+      data: setari,
+    });
+    res.json(portalPublic(portal));
+  }),
+);
+
+/** PIN nou (generat sau ales) */
+clientsRouter.post(
+  '/:id/portal/pin',
+  asyncHandler(async (req, res) => {
+    const { pin: ales } = z
+      .object({ pin: z.string().regex(/^\d{4,8}$/, 'PIN-ul trebuie sa aiba intre 4 si 8 cifre').optional() })
+      .parse(req.body);
+
+    const pin = ales ?? genereazaPin();
+    const portal = await prisma.clientPortal.update({
+      where: { clientId: req.params.id },
+      data: { pinHash: await bcrypt.hash(pin, 10) },
+    });
+    res.json({ ...portalPublic(portal), pin });
+  }),
+);
+
+clientsRouter.delete(
+  '/:id/portal/pin',
+  asyncHandler(async (req, res) => {
+    const portal = await prisma.clientPortal.update({
+      where: { clientId: req.params.id },
+      data: { pinHash: '' },
+    });
+    res.json(portalPublic(portal));
+  }),
+);
+
+/** Opreste complet accesul: linkul dispare din baza */
+clientsRouter.delete(
+  '/:id/portal',
+  asyncHandler(async (req, res) => {
+    await prisma.clientPortal.delete({ where: { clientId: req.params.id } });
+    res.json({ ok: true });
   }),
 );

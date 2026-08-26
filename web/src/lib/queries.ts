@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, qs } from './api';
 import type {
   BillingItem, CalendarData, Client, Dashboard, HourPackage, MonthlySheet, ReportData, Settings, Subscription,
-  MonthlyDiscount, MonthlyDocument, SubscriptionUserChange, Task, WorkLog,
+  MonthlyDiscount, MonthlyDocument, SubscriptionUserChange, Task, WorkLog, ClientPortal,
 } from './types';
 
 /* Cheile de cache; invalidam larg dupa mutatii, aplicatia are volum mic de date */
@@ -19,6 +19,7 @@ export const keys = {
   calendar: (filters?: unknown) => ['calendar', filters ?? {}] as const,
   reports: (filters?: unknown) => ['reports', filters ?? {}] as const,
   monthlySheet: (filters?: unknown) => ['monthly-sheet', filters ?? {}] as const,
+  clientPortal: (clientId: string) => ['client-portal', clientId] as const,
 };
 
 export function useDashboard() {
@@ -34,6 +35,15 @@ export function useClients(filters: { status?: string; q?: string } = {}) {
 
 export function useClient(id: string) {
   return useQuery({ queryKey: keys.client(id), queryFn: () => api.get<Client>(`/clients/${id}`) });
+}
+
+/** Accesul clientului la portalul lui; null cand nu a fost pornit */
+export function useClientPortal(clientId: string) {
+  return useQuery({
+    queryKey: keys.clientPortal(clientId),
+    queryFn: () => api.get<ClientPortal | null>(`/clients/${clientId}/portal`),
+    enabled: Boolean(clientId),
+  });
 }
 
 export function useSubscriptions(filters: { clientId?: string; status?: string } = {}) {

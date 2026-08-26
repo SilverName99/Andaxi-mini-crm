@@ -112,8 +112,35 @@ model Client {
   tasks         Task[]
   monthlyDocuments MonthlyDocument[]
   monthlyDiscounts MonthlyDiscount[]
+  portal        ClientPortal?
 
   @@index([status])
+}
+
+/// Accesul clientului la portalul lui: un link secret, optional protejat de un PIN.
+/// Tokenul se pastreaza in clar pentru ca linkul e o "cheie", nu o parola — el
+/// trebuie sa poata fi recopiat oricand din fisa clientului. Cine ajunge la baza
+/// de date are oricum datele pe care le-ar proteja.
+model ClientPortal {
+  id       String @id @default(cuid())
+  clientId String @unique
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  /// Partea secreta din link (crm.andaxi.ro/portal#<token>)
+  token   String  @unique
+  /// Hash-ul PIN-ului de 6 cifre; gol = intrare doar cu linkul
+  pinHash String  @default("")
+  enabled Boolean @default(true)
+
+  /// Ce vede clientul
+  showMoney Boolean @default(true)
+  showVat   Boolean @default(false)
+
+  /// Ultima intrare in portal (ISO), ca sa stii daca il foloseste
+  lastSeenAt String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 /// Pachet de ore preplatit: clientul cumpara lunar un numar de ore, la un tarif

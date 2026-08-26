@@ -22,6 +22,7 @@ import { dashboardRouter } from './routes/dashboard.js';
 import { monthlyDiscountRouter } from './routes/monthly-discount.js';
 import { monthlyDocumentsRouter } from './routes/monthly-documents.js';
 import { monthlySheetRouter } from './routes/monthly-sheet.js';
+import { portalRouter } from './routes/portal.js';
 
 const app = express();
 
@@ -69,6 +70,8 @@ app.use(
 );
 
 app.use('/api/auth', authRouter);
+// portalul clientilor: are autentificarea lui (link + PIN), separata de cea de administrare
+app.use('/api/portal', portalRouter);
 app.use('/api/clients', requireAuth, clientsRouter);
 app.use('/api/subscriptions', requireAuth, subscriptionsRouter);
 app.use('/api/billing', requireAuth, billingRouter);

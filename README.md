@@ -124,6 +124,29 @@ Pe lângă fișierele atașate unei intervenții, fiecare lună de lucru la un c
 poate avea propriile documente (raportul cu toate modificările, trimis odată cu
 factura). Se încarcă din fișa lunară sau din calendarul clientului.
 
+### Portalul clientului
+
+Fiecare client poate primi un link prin care își vede, în timp real, orele
+lucrate pe zile, ce a intrat în abonament sau în pachetul de ore, abonamentele
+active și pozițiile de plată. Totul e **doar de citit**.
+
+Se pornește din fișa clientului → tab-ul *Detalii* → *Portalul clientului*:
+
+- linkul are forma `https://crm.andaxi.ro/portal#<token>`; partea secretă stă
+  după `#`, deci nu ajunge în logurile serverului;
+- opțional un **PIN de 6 cifre**, trimis clientului separat de link (telefon,
+  SMS); după 5 PIN-uri greșite linkul se blochează 15 minute;
+- două bife per client: *Arată sumele* (dezactivată, clientul vede doar orele)
+  și *Arată și TVA-ul*;
+- *Link nou* invalidează imediat linkul vechi, *Retrage accesul* îl șterge de
+  tot; se vede și când a intrat clientul ultima dată.
+
+Rutele portalului (`/api/portal/*`) sunt separate de cele de administrare și
+citesc clientul **din sesiune**, niciodată din adresa cererii, iar răspunsurile
+se construiesc câmp cu câmp — setările firmei și tarifele nu pleacă spre client.
+Lunile neîncheiate și pozițiile viitoare sunt marcate „estimare", ca să nu fie
+confundate cu facturile emise din ERP.
+
 ### TVA
 
 Toate prețurile din platformă (abonamente, tarife orare) sunt **fără TVA**.

@@ -9,6 +9,7 @@ import { Avatar, Badge, Button, Card, CardTitle, ErrorBlock, LoadingBlock, Segme
 import { ClientForm } from './Clients';
 import { SubscriptionForm } from './Subscriptions';
 import { WorkLogDetail } from './WorkLogs';
+import { PortalClient } from '../components/PortalClient';
 import { formatDate, formatEur, formatMinutes, formatRon, minutesToHhMm } from '../lib/format';
 import {
   BILLING_STATUS, CLIENT_STATUS, CYCLE, PRODUCT, SUBSCRIPTION_KIND, SUBSCRIPTION_STATUS, WORK_CATEGORY, WORK_STATUS,
@@ -252,6 +253,8 @@ export function ClientDetail() {
                 ))}
             </dl>
           </Card>
+
+          <PortalClient clientId={client.id} clientName={client.company || client.name} />
 
           <Card>
             <CardTitle title="Notițe" icon={<StickyNote className="h-5 w-5" />} />

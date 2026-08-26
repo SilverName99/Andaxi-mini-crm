@@ -13,6 +13,15 @@ export function formatDate(iso: string | null | undefined): string {
   return `${d} ${MONTHS_RO[m - 1]} ${y}`;
 }
 
+/** "2026-03-04T18:05:00.000Z" -> "4 mar. 2026, 20:05" (ora locala, 24h) */
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const data = new Date(iso);
+  if (Number.isNaN(data.getTime())) return iso;
+  const ora = `${String(data.getHours()).padStart(2, '0')}:${String(data.getMinutes()).padStart(2, '0')}`;
+  return `${data.getDate()} ${MONTHS_RO[data.getMonth()]} ${data.getFullYear()}, ${ora}`;
+}
+
 /** "2026-03" -> "mar. 2026" */
 export function formatMonth(month: string): string {
   const [y, m] = month.split('-').map(Number);
