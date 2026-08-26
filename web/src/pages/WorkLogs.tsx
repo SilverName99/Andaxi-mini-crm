@@ -4,7 +4,9 @@ import {
   BadgeCheck, CheckCheck, Clock4, Download, FileText, Moon, Paperclip, Pencil, Plus, Sun, Trash2, Wallet,
 } from 'lucide-react';
 import { api, uploadFile } from '../lib/api';
-import { useClients, useCrudMutation, useSettings, useWorkLog, useWorkLogs } from '../lib/queries';
+import {
+  useClients, useCrudMutation, useSettings, useSubscriptions, useWorkLog, useWorkLogs,
+} from '../lib/queries';
 import { PageHeader } from '../components/Layout';
 import { DateField } from '../components/DateField';
 import { TimeField } from '../components/TimeField';
@@ -17,6 +19,7 @@ import {
   todayIso,
 } from '../lib/format';
 import { WORK_CATEGORY, WORK_STATUS, options } from '../lib/labels';
+import { optiuniLucrare } from '../lib/lucrari';
 import { cn } from '../lib/cn';
 import type { AccentColor, Attachment, RateSplit, WorkLog, WorkStatus } from '../lib/types';
 
@@ -64,11 +67,21 @@ export function WorkLogForm({
   const [form, setForm] = useState<FormState>(toForm(log, defaultClientId));
   const [preview, setPreview] = useState<RateSplit | null>(null);
   const [error, setError] = useState('');
-  // etichetele deja folosite, ca sa nu fie rescrise de fiecare data
+  // lucrarile propuse sunt abonamentele clientului ales; etichetele scrise
+  // cu mana inainte raman disponibile, ca sa nu se piarda istoricul
   const { data: toateLogurile = [] } = useWorkLogs();
+  const { data: toateAbonamentele = [] } = useSubscriptions();
+  const abonamente = useMemo(
+    () => toateAbonamentele.filter((sub) => sub.clientId === form.clientId),
+    [toateAbonamentele, form.clientId],
+  );
   const etichete = useMemo(
-    () => [...new Set(toateLogurile.map((l) => l.projectTag).filter(Boolean))].sort(),
-    [toateLogurile],
+    () => [
+      ...new Set(
+        toateLogurile.filter((l) => l.clientId === form.clientId).map((l) => l.projectTag).filter(Boolean),
+      ),
+    ].sort(),
+    [toateLogurile, form.clientId],
   );
 
   const mutation = useCrudMutation((data: unknown) =>
@@ -146,20 +159,14 @@ export function WorkLogForm({
         </div>
         <Field
           label="Lucrare / proiect"
-          hint="Etichetă liberă, pentru gruparea orelor (ex. Dezvoltare CRM)"
+          hint="Abonamentul clientului pe care se pun orele, pentru gruparea lor"
           className="sm:col-span-2"
         >
-          <Input
-            list="etichete-proiect"
+          <Select
             value={form.projectTag}
             onChange={(e) => set('projectTag', e.target.value)}
-            placeholder="fără etichetă"
+            options={optiuniLucrare(abonamente, etichete, form.projectTag)}
           />
-          <datalist id="etichete-proiect">
-            {etichete.map((eticheta) => (
-              <option key={eticheta} value={eticheta} />
-            ))}
-          </datalist>
         </Field>
         <Field label="Descriere" className="sm:col-span-2">
           <Textarea value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Ce ai făcut concret…" />

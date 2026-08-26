@@ -13,8 +13,9 @@ import {
 import { formatDate, formatEur, formatMinutes, minutesToHhMm, todayIso } from '../lib/format';
 import { grilaLunii, numeLuna, numeZi, schimbaLuna, ZILE_SCURTE } from '../lib/calendar';
 import { WORK_CATEGORY, options } from '../lib/labels';
+import { optiuniLucrare } from '../lib/lucrari';
 import { cn } from '../lib/cn';
-import type { AccentColor, WorkCategory, WorkLog } from '../lib/types';
+import type { AccentColor, Subscription, WorkCategory, WorkLog } from '../lib/types';
 
 /**
  * Calendarul de lucru al unui client: o lună pe zile, în care notezi direct
@@ -209,6 +210,7 @@ export function ClientCalendar() {
             <AdaugaOre
               clientId={id}
               date={ziSelectata}
+              abonamente={client.subscriptions ?? []}
               etichete={etichete}
               rateStandard={settings?.standardRate}
               rateOffHours={settings?.offHoursRate}
@@ -235,6 +237,7 @@ export function ClientCalendar() {
 function AdaugaOre({
   clientId,
   date,
+  abonamente,
   etichete,
   rateStandard,
   rateOffHours,
@@ -242,6 +245,7 @@ function AdaugaOre({
 }: {
   clientId: string;
   date: string;
+  abonamente: Subscription[];
   etichete: string[];
   rateStandard?: number;
   rateOffHours?: number;
@@ -311,18 +315,15 @@ function AdaugaOre({
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Lucrare / proiect">
-            <Input
-              list="etichete-client"
+          <Field
+            label="Lucrare / proiect"
+            hint={abonamente.length ? undefined : 'Clientul nu are abonamente'}
+          >
+            <Select
               value={projectTag}
               onChange={(e) => setProjectTag(e.target.value)}
-              placeholder="fără etichetă"
+              options={optiuniLucrare(abonamente, etichete, projectTag)}
             />
-            <datalist id="etichete-client">
-              {etichete.map((eticheta) => (
-                <option key={eticheta} value={eticheta} />
-              ))}
-            </datalist>
           </Field>
           <Field label="Categorie">
             <Select
