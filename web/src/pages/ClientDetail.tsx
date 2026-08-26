@@ -50,7 +50,7 @@ export function ClientDetail() {
 
       <Card className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <Avatar name={client.company || client.name} color={client.color as AccentColor} size="lg" />
+          <Avatar name={client.company || client.name} color={client.color as AccentColor} logoUrl={client.logoUrl} size="lg" />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-extrabold text-slate-900">{client.company || client.name}</h1>

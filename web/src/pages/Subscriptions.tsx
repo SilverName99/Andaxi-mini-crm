@@ -463,7 +463,7 @@ export function Subscriptions() {
               <div>
                 <div className="flex items-start justify-between gap-3">
                   <Link to={`/clienti/${sub.clientId}`} className="flex min-w-0 items-center gap-3">
-                    <Avatar name={sub.client?.company || sub.client?.name || '?'} color={(sub.client?.color ?? 'violet') as AccentColor} size="sm" />
+                    <Avatar name={sub.client?.company || sub.client?.name || '?'} color={(sub.client?.color ?? 'violet') as AccentColor} logoUrl={sub.client?.logoUrl} size="sm" />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold text-slate-900">{sub.label}</p>
                       <p className="truncate text-xs text-slate-500">{sub.client?.company || sub.client?.name}</p>

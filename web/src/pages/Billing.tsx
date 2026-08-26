@@ -168,7 +168,7 @@ export function Billing() {
                       </td>
                       <td className="px-4 py-3">
                         <Link to={`/clienti/${item.clientId}`} className="flex items-center gap-3">
-                          <Avatar name={item.client?.company || item.client?.name || '?'} color={(item.client?.color ?? 'violet') as AccentColor} size="sm" />
+                          <Avatar name={item.client?.company || item.client?.name || '?'} color={(item.client?.color ?? 'violet') as AccentColor} logoUrl={item.client?.logoUrl} size="sm" />
                           <span className="min-w-0">
                             <span className="block truncate font-semibold text-slate-800">{item.client?.company || item.client?.name}</span>
                             <span className="block truncate text-xs text-slate-500">

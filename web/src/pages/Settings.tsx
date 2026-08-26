@@ -9,6 +9,7 @@ import { PageHeader } from '../components/Layout';
 import { TimeField } from '../components/TimeField';
 import { Button, Card, CardTitle, ErrorBlock, Field, Input, LoadingBlock, Toggle, useToast } from '../components/ui';
 import { minutesToHhMm } from '../lib/format';
+import { citesteImagine, TIPURI_IMAGINE } from '../lib/files';
 import type { HourPackage, Settings } from '../lib/types';
 
 function hhMmToMinutes(value: string): number {
@@ -336,7 +337,6 @@ function PackageRow({
 }
 
 /** Marimea maxima acceptata de server pentru sigla */
-const MAX_LOGO_BYTES = 1024 * 1024;
 
 /** Incarcarea siglei: fisierul e trimis codificat base64, serverul il salveaza pe disc */
 function LogoCard({ logoUrl, companyName }: { logoUrl: string; companyName: string }) {
@@ -355,20 +355,9 @@ function LogoCard({ logoUrl, companyName }: { logoUrl: string; companyName: stri
     if (!file) return;
 
     setError('');
-    if (file.size > MAX_LOGO_BYTES) {
-      setError('Imaginea depășește 1 MB');
-      return;
-    }
-
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
-
     try {
-      await incarca.mutateAsync({ data: dataUrl.split(',')[1] ?? '', mimeType: file.type });
+      const imagine = await citesteImagine(file);
+      await incarca.mutateAsync({ data: imagine.data, mimeType: imagine.mimeType });
       toast('Siglă actualizată');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Nu am putut încărca imaginea');
@@ -395,7 +384,7 @@ function LogoCard({ logoUrl, companyName }: { logoUrl: string; companyName: stri
         </div>
 
         <div className="flex flex-col gap-2">
-          <input ref={input} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={laAlegereFisier} />
+          <input ref={input} type="file" accept={TIPURI_IMAGINE} className="hidden" onChange={laAlegereFisier} />
           <div className="flex flex-wrap gap-2">
             <Button
               variant="secondary"

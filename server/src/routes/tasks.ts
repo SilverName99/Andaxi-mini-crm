@@ -4,6 +4,7 @@ import { prisma } from '../prisma.js';
 import { asyncHandler } from '../middleware/errors.js';
 import { isoDate, PRIORITIES } from '../lib/validation.js';
 import { today } from '../lib/dates.js';
+import { CLIENT_REF } from '../lib/selects.js';
 
 export const tasksRouter = Router();
 
@@ -27,7 +28,7 @@ tasksRouter.get(
           ...(clientId ? { clientId } : {}),
         },
         orderBy: [{ done: 'asc' }, { dueDate: 'asc' }, { createdAt: 'desc' }],
-        include: { client: { select: { id: true, name: true, company: true, color: true } } },
+        include: { client: { select: CLIENT_REF } },
       }),
     );
   }),

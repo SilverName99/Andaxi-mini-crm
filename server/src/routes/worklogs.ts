@@ -9,6 +9,7 @@ import { allocateByClientMonth } from '../lib/hours.js';
 import { ALLOWED_DOC_TYPES, deleteAttachment, resolveUploadPath, saveAttachment } from '../lib/uploads.js';
 import { normalizeaza, parseCsv, parseData, parseNumar } from '../lib/csv.js';
 import { HttpError } from '../middleware/errors.js';
+import { CLIENT_REF } from '../lib/selects.js';
 
 export const workLogsRouter = Router();
 
@@ -117,7 +118,7 @@ workLogsRouter.get(
       },
       orderBy: [{ date: 'desc' }, { startMinutes: 'desc' }],
       include: {
-        client: { select: { id: true, name: true, company: true, color: true } },
+        client: { select: CLIENT_REF },
         attachments: { orderBy: { createdAt: 'asc' } },
       },
     });
@@ -373,7 +374,7 @@ workLogsRouter.get(
       await prisma.workLog.findUniqueOrThrow({
         where: { id: req.params.id },
         include: {
-          client: { select: { id: true, name: true, company: true, color: true } },
+          client: { select: CLIENT_REF },
           attachments: { orderBy: { createdAt: 'asc' } },
         },
       }),

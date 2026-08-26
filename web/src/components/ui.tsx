@@ -165,13 +165,40 @@ export function Badge({
   );
 }
 
-export function Avatar({ name, color, size = 'md' }: { name: string; color: AccentColor; size?: 'sm' | 'md' | 'lg' }) {
+export function Avatar({
+  name,
+  color,
+  logoUrl,
+  size = 'md',
+}: {
+  name: string;
+  color: AccentColor;
+  /** Daca clientul are siglă, o aratam in locul initialelor */
+  logoUrl?: string;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const dimensiune = size === 'sm' ? 'h-8 w-8 text-[11px]' : size === 'lg' ? 'h-14 w-14 rounded-3xl text-lg' : 'h-10 w-10 text-sm';
+
+  if (logoUrl) {
+    return (
+      <span
+        className={cn(
+          'grid shrink-0 place-items-center overflow-hidden rounded-2xl border border-slate-200 bg-white p-1',
+          size === 'lg' && 'rounded-3xl',
+          dimensiune,
+        )}
+      >
+        <img src={logoUrl} alt={name} className="max-h-full max-w-full object-contain" />
+      </span>
+    );
+  }
+
   return (
     <span
       className={cn(
         'grid shrink-0 place-items-center rounded-2xl bg-gradient-to-br font-bold text-white',
         ACCENT[color]?.gradient ?? ACCENT.violet.gradient,
-        size === 'sm' ? 'h-8 w-8 text-[11px]' : size === 'lg' ? 'h-14 w-14 rounded-3xl text-lg' : 'h-10 w-10 text-sm',
+        dimensiune,
       )}
     >
       {initials(name)}

@@ -6,6 +6,7 @@ import { addDays, addMonths, endOfMonth, monthRange, startOfMonth, today } from 
 import { isCycle, monthlyEquivalent } from '../lib/cycles.js';
 import { round2 } from '../lib/rates.js';
 import { allocateByClientMonth } from '../lib/hours.js';
+import { CLIENT_REF } from '../lib/selects.js';
 
 export const dashboardRouter = Router();
 
@@ -19,25 +20,25 @@ dashboardRouter.get(
     const sixMonthsAgo = startOfMonth(addMonths(now, -5));
 
     const [clients, subscriptions, billingItems, workLogs, tasks] = await Promise.all([
-      prisma.client.findMany({ select: { id: true, name: true, company: true, color: true, status: true } }),
+      prisma.client.findMany({ select: { ...CLIENT_REF, status: true } }),
       prisma.subscription.findMany({
-        include: { client: { select: { id: true, name: true, company: true, color: true } }, hourPackage: true },
+        include: { client: { select: CLIENT_REF }, hourPackage: true },
       }),
       prisma.billingItem.findMany({
         include: {
-          client: { select: { id: true, name: true, company: true, color: true } },
+          client: { select: CLIENT_REF },
           subscription: { select: { label: true, cycle: true, product: true, kind: true } },
         },
       }),
       prisma.workLog.findMany({
         where: { date: { gte: sixMonthsAgo } },
-        include: { client: { select: { id: true, name: true, company: true, color: true } } },
+        include: { client: { select: CLIENT_REF } },
       }),
       prisma.task.findMany({
         where: { done: false },
         orderBy: [{ dueDate: 'asc' }],
         take: 8,
-        include: { client: { select: { id: true, name: true, color: true } } },
+        include: { client: { select: CLIENT_REF } },
       }),
     ]);
 
@@ -147,7 +148,7 @@ dashboardRouter.get(
     const [items, logs, clients, subscriptions] = await Promise.all([
       prisma.billingItem.findMany({ where: { dueDate: { gte: from, lte: to } } }),
       prisma.workLog.findMany({ where: { date: { gte: from, lte: to } } }),
-      prisma.client.findMany({ select: { id: true, name: true, company: true, color: true } }),
+      prisma.client.findMany({ select: CLIENT_REF }),
       prisma.subscription.findMany({ include: { hourPackage: true } }),
     ]);
 

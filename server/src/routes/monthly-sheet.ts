@@ -6,6 +6,7 @@ import { allocateTimeline } from '../lib/hours.js';
 import { minutesToHhMm } from '../lib/dates.js';
 import { round2 } from '../lib/rates.js';
 import { applyDiscount, type DiscountType } from '../lib/discount.js';
+import { CLIENT_REF } from '../lib/selects.js';
 
 export const monthlySheetRouter = Router();
 
@@ -26,7 +27,7 @@ monthlySheetRouter.get(
     const [client, logs, subscriptions, settings] = await Promise.all([
       prisma.client.findUniqueOrThrow({
         where: { id: clientId },
-        select: { id: true, name: true, company: true, cui: true, color: true },
+        select: { ...CLIENT_REF, cui: true },
       }),
       // luam tot istoricul clientului: soldul pachetului se reporteaza, deci
       // luna curenta depinde de ce s-a consumat inainte

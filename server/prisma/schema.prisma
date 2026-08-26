@@ -100,6 +100,8 @@ model Client {
   status    String  @default("ACTIVE")
   /// Culoare accent pentru UI (hex sau nume de tema)
   color     String  @default("violet")
+  /// Sigla clientului, salvata in folderul de upload
+  logoUrl   String  @default("")
   notes     String  @default("")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

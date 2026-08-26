@@ -6,6 +6,7 @@ import { syncBillingItems } from '../lib/billing-sync.js';
 import { isoDate } from '../lib/validation.js';
 import { minutesToHhMm } from '../lib/dates.js';
 import { isCycle, nextDue } from '../lib/cycles.js';
+import { CLIENT_REF } from '../lib/selects.js';
 
 export const calendarRouter = Router();
 
@@ -40,21 +41,21 @@ calendarRouter.get(
       prisma.billingItem.findMany({
         where: { dueDate: { gte: from, lte: to } },
         include: {
-          client: { select: { id: true, name: true, company: true, color: true } },
+          client: { select: CLIENT_REF },
           subscription: { select: { label: true, product: true, cycle: true } },
         },
       }),
       prisma.workLog.findMany({
         where: { date: { gte: from, lte: to } },
-        include: { client: { select: { id: true, name: true, company: true, color: true } } },
+        include: { client: { select: CLIENT_REF } },
       }),
       prisma.task.findMany({
         where: { dueDate: { gte: from, lte: to } },
-        include: { client: { select: { id: true, name: true, company: true, color: true } } },
+        include: { client: { select: CLIENT_REF } },
       }),
       prisma.subscription.findMany({
         where: { status: 'ACTIVE' },
-        include: { client: { select: { id: true, name: true, company: true, color: true } } },
+        include: { client: { select: CLIENT_REF } },
       }),
     ]);
 

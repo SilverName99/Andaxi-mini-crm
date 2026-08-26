@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Globe, Mail, MapPin, Phone, Pencil, Plus, Search, Trash2, UserPlus } from 'lucide-react';
+import {
+  Building2, Globe, Mail, MapPin, Phone, Pencil, Plus, Search, Trash2, Upload, UserPlus,
+} from 'lucide-react';
 import { api } from '../lib/api';
 import { useClients, useCrudMutation } from '../lib/queries';
 import { PageHeader } from '../components/Layout';
@@ -9,6 +11,7 @@ import {
   Segmented, Select, Textarea, useToast,
 } from '../components/ui';
 import { ACCENT, ACCENT_COLORS, formatEur } from '../lib/format';
+import { citesteImagine, TIPURI_IMAGINE, type ImagineAleasa } from '../lib/files';
 import { CLIENT_STATUS, CYCLE, options } from '../lib/labels';
 import { cn } from '../lib/cn';
 import type { AccentColor, Client, ClientStatus } from '../lib/types';
@@ -28,10 +31,22 @@ export function ClientForm({
   const toast = useToast();
   const [form, setForm] = useState<Partial<Client>>(client ?? EMPTY);
   const [error, setError] = useState('');
+  // sigla se trimite dupa salvarea clientului, ca sa avem un id si pentru clientii noi
+  const [siglaNoua, setSiglaNoua] = useState<ImagineAleasa | null>(null);
+  const [stergeSigla, setStergeSigla] = useState(false);
 
-  const mutation = useCrudMutation(async (data: Partial<Client>) =>
-    client ? api.put(`/clients/${client.id}`, data) : api.post('/clients', data),
-  );
+  const mutation = useCrudMutation(async (data: Partial<Client>) => {
+    const salvat = client
+      ? await api.put<Client>(`/clients/${client.id}`, data)
+      : await api.post<Client>('/clients', data);
+
+    if (siglaNoua) {
+      await api.post(`/clients/${salvat.id}/logo`, { data: siglaNoua.data, mimeType: siglaNoua.mimeType });
+    } else if (stergeSigla && client?.logoUrl) {
+      await api.del(`/clients/${salvat.id}/logo`);
+    }
+    return salvat;
+  });
 
   const set = (key: keyof Client, value: unknown) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -59,6 +74,21 @@ export function ClientForm({
       subtitle="Datele de identificare și contact"
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <SiglaClient
+          nume={form.company || form.name || 'Client'}
+          color={(form.color ?? 'violet') as AccentColor}
+          logoUrl={siglaNoua?.dataUrl ?? (stergeSigla ? '' : client?.logoUrl ?? '')}
+          onAlege={(imagine) => {
+            setSiglaNoua(imagine);
+            setStergeSigla(false);
+            setError('');
+          }}
+          onSterge={() => {
+            setSiglaNoua(null);
+            setStergeSigla(true);
+          }}
+          onEroare={setError}
+        />
         <Field label="Nume client *" className="sm:col-span-1">
           <Input value={form.name ?? ''} onChange={(e) => set('name', e.target.value)} placeholder="Mihai Popescu" />
         </Field>
@@ -128,6 +158,59 @@ export function ClientForm({
         <Button onClick={submit} loading={mutation.isPending}>{client ? 'Salvează' : 'Adaugă client'}</Button>
       </div>
     </Modal>
+  );
+}
+
+/** Sigla clientului: aleasa acum, trimisa pe server dupa ce clientul e salvat */
+function SiglaClient({
+  nume,
+  color,
+  logoUrl,
+  onAlege,
+  onSterge,
+  onEroare,
+}: {
+  nume: string;
+  color: AccentColor;
+  logoUrl: string;
+  onAlege: (imagine: ImagineAleasa) => void;
+  onSterge: () => void;
+  onEroare: (mesaj: string) => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+
+  async function laAlegereFisier(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = ''; // ca aceeasi imagine sa poata fi realeasa dupa o eroare
+    if (!file) return;
+    try {
+      onAlege(await citesteImagine(file));
+    } catch (err) {
+      onEroare(err instanceof Error ? err.message : 'Nu am putut citi imaginea');
+    }
+  }
+
+  return (
+    <Field
+      label="Siglă"
+      className="sm:col-span-2"
+      hint="PNG, JPG, WEBP sau SVG, maximum 1 MB. Apare peste tot în locul inițialelor clientului."
+    >
+      <div className="flex flex-wrap items-center gap-4">
+        <Avatar name={nume} color={color} logoUrl={logoUrl || undefined} size="lg" />
+        <input ref={input} type="file" accept={TIPURI_IMAGINE} className="hidden" onChange={laAlegereFisier} />
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" icon={<Upload className="h-4 w-4" />} onClick={() => input.current?.click()}>
+            {logoUrl ? 'Înlocuiește sigla' : 'Încarcă sigla'}
+          </Button>
+          {logoUrl && (
+            <Button variant="ghost" icon={<Trash2 className="h-4 w-4" />} onClick={onSterge}>
+              Șterge
+            </Button>
+          )}
+        </div>
+      </div>
+    </Field>
   );
 }
 
@@ -210,7 +293,7 @@ export function Clients() {
               <div>
                 <div className="flex items-start justify-between gap-3">
                   <Link to={`/clienti/${client.id}`} className="flex min-w-0 items-center gap-3">
-                    <Avatar name={client.company || client.name} color={client.color as AccentColor} />
+                    <Avatar name={client.company || client.name} color={client.color as AccentColor} logoUrl={client.logoUrl} />
                     <div className="min-w-0">
                       <p className="truncate font-bold text-slate-900 group-hover:text-indigo-700">
                         {client.company || client.name}

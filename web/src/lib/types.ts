@@ -79,6 +79,8 @@ export interface ClientRef {
   name: string;
   company?: string;
   color: AccentColor;
+  /** Sigla clientului, daca a fost incarcata */
+  logoUrl?: string;
 }
 
 export interface Client {
@@ -97,6 +99,8 @@ export interface Client {
   country: string;
   status: ClientStatus;
   color: AccentColor;
+  /** Sigla clientului (ex. "/uploads/client-abc-123.png"); gol = fara sigla */
+  logoUrl: string;
   notes: string;
   subscriptions?: Subscription[];
   workLogs?: WorkLog[];

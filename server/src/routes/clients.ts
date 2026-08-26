@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../prisma.js';
-import { asyncHandler } from '../middleware/errors.js';
+import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { CLIENT_STATUSES, COLORS } from '../lib/validation.js';
+import { ALLOWED_IMAGE_TYPES, deleteUpload, saveImage } from '../lib/uploads.js';
 
 export const clientsRouter = Router();
 
@@ -91,7 +92,48 @@ clientsRouter.put(
 clientsRouter.delete(
   '/:id',
   asyncHandler(async (req, res) => {
-    await prisma.client.delete({ where: { id: req.params.id } });
+    const client = await prisma.client.findUniqueOrThrow({ where: { id: req.params.id } });
+    await prisma.client.delete({ where: { id: client.id } });
+    if (client.logoUrl) deleteUpload(client.logoUrl);
     res.json({ ok: true });
+  }),
+);
+
+/* ────────────────────────────────────────────────────────── sigla clientului ── */
+
+const logoSchema = z.object({
+  /** Continutul fisierului, codificat base64 (fara prefixul "data:") */
+  data: z.string().min(1, 'Fisierul este gol'),
+  mimeType: z.string().refine((t) => t in ALLOWED_IMAGE_TYPES, {
+    message: 'Acceptam doar PNG, JPG, WEBP sau SVG',
+  }),
+});
+
+clientsRouter.post(
+  '/:id/logo',
+  asyncHandler(async (req, res) => {
+    const { data, mimeType } = logoSchema.parse(req.body);
+    const client = await prisma.client.findUniqueOrThrow({ where: { id: req.params.id } });
+
+    let logoUrl: string;
+    try {
+      // id-ul e generat de noi (cuid), dar il curatam oricum inainte sa ajunga in nume de fisier
+      logoUrl = saveImage(data, mimeType, `client-${client.id.replace(/[^a-zA-Z0-9]/g, '')}`, Date.now());
+    } catch (err) {
+      throw new HttpError(400, err instanceof Error ? err.message : 'Nu am putut salva imaginea');
+    }
+
+    // sigla veche dispare abia dupa ce noua a fost scrisa cu succes
+    if (client.logoUrl) deleteUpload(client.logoUrl);
+    res.json(await prisma.client.update({ where: { id: client.id }, data: { logoUrl } }));
+  }),
+);
+
+clientsRouter.delete(
+  '/:id/logo',
+  asyncHandler(async (req, res) => {
+    const client = await prisma.client.findUniqueOrThrow({ where: { id: req.params.id } });
+    if (client.logoUrl) deleteUpload(client.logoUrl);
+    res.json(await prisma.client.update({ where: { id: client.id }, data: { logoUrl: '' } }));
   }),
 );

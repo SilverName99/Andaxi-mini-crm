@@ -8,6 +8,7 @@ import { computeSubscriptionPrice, includedStorageGb, isPerUserProduct, prorate 
 import { today } from '../lib/dates.js';
 import { CYCLE_MONTHS, isCycle } from '../lib/cycles.js';
 import { round2 } from '../lib/rates.js';
+import { CLIENT_REF } from '../lib/selects.js';
 
 export const subscriptionsRouter = Router();
 
@@ -98,7 +99,7 @@ subscriptionsRouter.get(
       },
       orderBy: [{ status: 'asc' }, { nextDueDate: 'asc' }],
       include: {
-        client: { select: { id: true, name: true, company: true, color: true } },
+        client: { select: CLIENT_REF },
         hourPackage: true,
       },
     });

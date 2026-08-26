@@ -100,10 +100,21 @@ export function MonthlySheet() {
       ) : (
         <Card className="p-6">
           <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-5">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Fișă de lucru</p>
-              <h2 className="text-xl font-extrabold text-slate-900">{data.client.company || data.client.name}</h2>
-              {data.client.cui && <p className="text-sm text-slate-500">{data.client.cui}</p>}
+            <div className="flex items-center gap-3">
+              {data.client.logoUrl && (
+                <span className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5">
+                  <img
+                    src={data.client.logoUrl}
+                    alt={data.client.company || data.client.name}
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </span>
+              )}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Fișă de lucru</p>
+                <h2 className="text-xl font-extrabold text-slate-900">{data.client.company || data.client.name}</h2>
+                {data.client.cui && <p className="text-sm text-slate-500">{data.client.cui}</p>}
+              </div>
             </div>
             <div className="text-right">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Perioada</p>

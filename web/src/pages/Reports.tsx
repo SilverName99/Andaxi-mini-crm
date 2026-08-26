@@ -186,7 +186,7 @@ export function Reports() {
                       <tr key={row.id} className="transition hover:bg-slate-50/70">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <Avatar name={row.company || row.name} color={row.color as AccentColor} size="sm" />
+                            <Avatar name={row.company || row.name} color={row.color as AccentColor} logoUrl={row.logoUrl} size="sm" />
                             <span className="font-semibold text-slate-800">{row.company || row.name}</span>
                           </div>
                         </td>

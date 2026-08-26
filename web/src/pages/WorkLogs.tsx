@@ -407,7 +407,7 @@ export function WorkLogs() {
                           })
                         }
                       />
-                      <Avatar name={log.client?.company || log.client?.name || '?'} color={(log.client?.color ?? 'violet') as AccentColor} size="sm" />
+                      <Avatar name={log.client?.company || log.client?.name || '?'} color={(log.client?.color ?? 'violet') as AccentColor} logoUrl={log.client?.logoUrl} size="sm" />
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <Link

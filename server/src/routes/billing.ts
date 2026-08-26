@@ -5,6 +5,7 @@ import { asyncHandler } from '../middleware/errors.js';
 import { syncBillingItems } from '../lib/billing-sync.js';
 import { BILLING_STATUSES, isoDate } from '../lib/validation.js';
 import { addDays, today } from '../lib/dates.js';
+import { CLIENT_REF } from '../lib/selects.js';
 
 export const billingRouter = Router();
 
@@ -36,7 +37,7 @@ billingRouter.get(
       },
       orderBy: [{ dueDate: 'asc' }],
       include: {
-        client: { select: { id: true, name: true, company: true, color: true } },
+        client: { select: CLIENT_REF },
         subscription: { select: { id: true, label: true, kind: true, product: true, cycle: true } },
       },
     });
