@@ -204,6 +204,8 @@ export interface WorkLog {
   amountEur: number;
   manualAmount: boolean;
   billable: boolean;
+  /** Ore acoperite de abonament / pachet: nu se facturează, dar consumă din credit */
+  includedInPackage: boolean;
   status: WorkStatus;
   invoiceRef: string;
   attachments?: Attachment[];
@@ -343,6 +345,7 @@ export interface MonthlySheetRow {
   projectTag: string;
   status: WorkStatus;
   billable: boolean;
+  includedInPackage: boolean;
   manualAmount: boolean;
   minutes: number;
   standardMinutes: number;

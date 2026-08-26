@@ -235,3 +235,51 @@ test('fara reducere sau cu valoare zero, suma ramane neatinsa', () => {
 test('pe zero nu se aplica nimic', () => {
   assert.deepEqual(applyDiscount(0, { type: 'PERCENT', value: 10 }), { discountEur: 0, netEur: 0 });
 });
+
+test('orele marcate "incluse in pachet" consuma credit, dar nu se factureaza', () => {
+  const rezultat = allocateMonth(
+    [
+      // 1 ora declarata inclusa: gratuita, dar mananca din cele 2 ore incluse
+      log({ id: 'inclusa', date: '2026-07-02', billable: false, includedInPackage: true }),
+      // 2 ore obisnuite: doar prima mai prinde credit, a doua se factureaza
+      log({ id: 'normala', date: '2026-07-05', standardMinutes: 120, amountEur: 90 }),
+    ],
+    120, // 2 ore incluse
+  );
+
+  assert.equal(rezultat.allocations.get('inclusa')!.billableEur, 0);
+  assert.equal(rezultat.allocations.get('inclusa')!.includedStandardMinutes, 60);
+  assert.equal(rezultat.allocations.get('inclusa')!.billableStandardMinutes, 0);
+  assert.equal(rezultat.allocations.get('normala')!.includedStandardMinutes, 60);
+  assert.equal(rezultat.billableEur, 45); // o singura ora ramane de facturat
+  assert.equal(rezultat.coveredEur, 90); // ora declarata inclusa + ora acoperita din abonament
+  assert.equal(rezultat.remainingMinutes, 0);
+});
+
+test('orele "incluse in pachet" raman gratuite si dupa epuizarea creditului', () => {
+  const rezultat = allocateMonth(
+    [log({ id: 'peste', standardMinutes: 180, amountEur: 135, billable: false, includedInPackage: true })],
+    60, // o singura ora inclusa
+  );
+
+  const a = rezultat.allocations.get('peste')!;
+  assert.equal(a.includedStandardMinutes, 60);
+  assert.equal(a.billableStandardMinutes, 0);
+  assert.equal(rezultat.billableEur, 0);
+  assert.equal(rezultat.remainingMinutes, 0);
+});
+
+test('munca din curtoazie (nefacturabila, fara bifa de pachet) nu atinge creditul', () => {
+  const rezultat = allocateMonth(
+    [
+      log({ id: 'curtoazie', date: '2026-07-02', billable: false }),
+      log({ id: 'normala', date: '2026-07-05' }),
+    ],
+    60,
+  );
+
+  assert.equal(rezultat.allocations.get('curtoazie')!.includedStandardMinutes, 0);
+  assert.equal(rezultat.allocations.get('normala')!.includedStandardMinutes, 60);
+  assert.equal(rezultat.billableEur, 0);
+  assert.equal(rezultat.remainingMinutes, 0);
+});

@@ -12,6 +12,7 @@ import type { MonthlySheetRow } from '../lib/types';
 
 /** Ce a plătit ora: abonamentul, un tarif, o sumă negociată sau nimic */
 function sursa(row: MonthlySheetRow): { text: string; chip: string } {
+  if (row.includedInPackage) return { text: 'inclus în pachet', chip: 'bg-emerald-50 text-emerald-700' };
   if (!row.billable) return { text: 'nefacturabil', chip: 'bg-slate-100 text-slate-500' };
   if (row.manualAmount) return { text: 'sumă negociată', chip: 'bg-violet-50 text-violet-700' };
   if (row.includedMinutes >= row.minutes) return { text: 'inclus în abonament', chip: 'bg-emerald-50 text-emerald-700' };

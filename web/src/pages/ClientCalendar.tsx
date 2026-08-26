@@ -193,14 +193,24 @@ export function ClientCalendar() {
                             </span>
                           )}
                         </span>
-                        <span className="text-sm font-extrabold text-slate-900">
+                        <span
+                          className={cn(
+                            'text-sm font-extrabold',
+                            log.billable ? 'text-slate-900' : 'text-slate-400',
+                          )}
+                        >
                           {formatEur(log.billableEur ?? log.amountEur)}
                         </span>
                       </div>
                       <p className="mt-1 text-sm text-slate-600">{log.description || '—'}</p>
-                      {log.projectTag && (
-                        <Badge className="mt-1.5 bg-indigo-50 text-indigo-600">{log.projectTag}</Badge>
-                      )}
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {log.projectTag && (
+                          <Badge className="bg-indigo-50 text-indigo-600">{log.projectTag}</Badge>
+                        )}
+                        {log.includedInPackage && (
+                          <Badge className="bg-emerald-50 text-emerald-700">Inclus în pachet</Badge>
+                        )}
+                      </div>
                     </button>
                   </li>
                 ))}

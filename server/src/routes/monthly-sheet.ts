@@ -60,6 +60,7 @@ monthlySheetRouter.get(
         projectTag: log.projectTag,
         status: log.status,
         billable: log.billable,
+        includedInPackage: log.includedInPackage,
         manualAmount: log.manualAmount,
         minutes: log.standardMinutes + log.offHoursMinutes,
         standardMinutes: log.standardMinutes,

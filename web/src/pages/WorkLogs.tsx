@@ -32,6 +32,7 @@ interface FormState {
   category: WorkLog['category'];
   projectTag: string;
   billable: boolean;
+  includedInPackage: boolean;
   manual: boolean;
   amountEur: number;
   invoiceRef: string;
@@ -47,6 +48,7 @@ function toForm(log?: WorkLog | null, defaultClientId?: string): FormState {
     category: log?.category ?? 'SUPORT',
     projectTag: log?.projectTag ?? '',
     billable: log?.billable ?? true,
+    includedInPackage: log?.includedInPackage ?? false,
     manual: log?.manualAmount ?? false,
     amountEur: log?.amountEur ?? 0,
     invoiceRef: log?.invoiceRef ?? '',
@@ -117,6 +119,7 @@ export function WorkLogForm({
         category: form.category,
         projectTag: form.projectTag,
         billable: form.billable,
+        includedInPackage: form.includedInPackage,
         amountEur: form.manual ? form.amountEur : null,
         invoiceRef: form.invoiceRef,
       });
@@ -195,8 +198,21 @@ export function WorkLogForm({
 
       <div className="mt-4 flex flex-col gap-3">
         <Toggle
+          checked={form.includedInPackage}
+          onChange={(value) => {
+            // orele acoperite de abonament nu se mai facturează separat
+            set('includedInPackage', value);
+            if (value) set('billable', false);
+          }}
+          label="Ore incluse în pachet"
+          hint="Orele intră în abonamentul clientului: nu se facturează, dar scad din orele lui incluse"
+        />
+        <Toggle
           checked={form.billable}
-          onChange={(value) => set('billable', value)}
+          onChange={(value) => {
+            set('billable', value);
+            if (value) set('includedInPackage', false);
+          }}
           label="Facturabil"
           hint="Dezactivează pentru munca inclusă în abonament sau făcută din curtoazie"
         />
@@ -418,7 +434,11 @@ export function WorkLogs() {
                             {log.client?.company || log.client?.name}
                           </Link>
                           <Badge className={WORK_CATEGORY[log.category].chip}>{WORK_CATEGORY[log.category].text}</Badge>
-                          <Badge className={WORK_STATUS[log.status].chip}>{WORK_STATUS[log.status].text}</Badge>
+                          {log.includedInPackage ? (
+                            <Badge className="bg-emerald-50 text-emerald-700">Inclus în pachet</Badge>
+                          ) : (
+                            <Badge className={WORK_STATUS[log.status].chip}>{WORK_STATUS[log.status].text}</Badge>
+                          )}
                           {log.projectTag && (
                             <Badge className="bg-indigo-50 text-indigo-600">{log.projectTag}</Badge>
                           )}
@@ -600,7 +620,9 @@ export function WorkLogDetail({ logId, onClose }: { logId: string; onClose: () =
                   <p className="text-xs text-slate-500">
                     {formatRon(log.amountEur, settings.eurRon)}
                     {log.manualAmount && ' · sumă impusă manual'}
-                    {!log.billable && ' · nefacturabil'}
+                    {log.includedInPackage
+                      ? ' · inclus în pachet'
+                      : !log.billable && ' · nefacturabil'}
                   </p>
                 )}
               </div>

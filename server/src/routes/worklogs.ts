@@ -30,6 +30,8 @@ const workLogSchema = z.object({
   /** Eticheta libera pentru gruparea orelor pe lucrari */
   projectTag: z.string().max(60).default(''),
   billable: z.boolean().default(true),
+  /** Ore acoperite de abonament / pachet: nu se factureaza, dar consuma credit */
+  includedInPackage: z.boolean().default(false),
   /** Suma impusa manual (EUR); daca lipseste, se calculeaza din tarife */
   amountEur: z.coerce.number().nonnegative().nullable().optional(),
   invoiceRef: z.string().default(''),
@@ -98,8 +100,10 @@ function buildData(input: z.infer<typeof workLogSchema>, config: RateConfig) {
     offHoursRate: config.offHoursRate,
     amountEur: manualAmount ? input.amountEur! : split.amountEur,
     manualAmount,
-    billable: input.billable,
-    status: input.billable ? 'PENDING' : 'NONBILLABLE',
+    // orele declarate incluse nu se factureaza niciodata, oricum ar fi trimisa bifa
+    billable: input.includedInPackage ? false : input.billable,
+    includedInPackage: input.includedInPackage,
+    status: !input.includedInPackage && input.billable ? 'PENDING' : 'NONBILLABLE',
     invoiceRef: input.invoiceRef,
   };
 }
@@ -351,6 +355,7 @@ workLogsRouter.post(
           category: rand.category as (typeof WORK_CATEGORIES)[number],
           projectTag: rand.projectTag,
           billable: true,
+          includedInPackage: false,
           invoiceRef: '',
         },
         config,

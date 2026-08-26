@@ -257,6 +257,9 @@ model WorkLog {
   attachments Attachment[]
 
   billable Boolean @default(true)
+  /// Orele acoperite explicit de abonament / pachetul de ore: nu se factureaza,
+  /// dar consuma din creditul lunii (spre deosebire de munca facuta din curtoazie)
+  includedInPackage Boolean @default(false)
   /// PENDING | INVOICED | PAID | NONBILLABLE
   status   String  @default("PENDING")
   invoiceRef String @default("")

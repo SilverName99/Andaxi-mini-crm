@@ -18,6 +18,9 @@ export interface AllocatableLog {
   amountEur: number;
   billable: boolean;
   manualAmount: boolean;
+  /** Ore marcate explicit ca acoperite de abonament / pachet: nu se factureaza,
+   *  dar consuma din creditul lunii */
+  includedInPackage?: boolean;
 }
 
 export interface Allocation {
@@ -64,7 +67,10 @@ export interface MonthAllocation {
  *   apoi cele in afara programului (credit 2:1) — asa clientul primeste cat mai
  *   multe ore acoperite pentru acelasi credit;
  * - interventiile nefacturabile sau cu suma impusa manual nu ating creditul:
- *   primele sunt oricum gratuite, la celelalte suma a fost deja negociata.
+ *   primele sunt oricum gratuite, la celelalte suma a fost deja negociata;
+ * - exceptie: orele marcate "incluse in pachet" consuma credit, dar nu se
+ *   factureaza niciodata — asa creditul lunii nu ajunge sa acopere de doua ori
+ *   aceleasi ore.
  */
 export function allocateMonth(
   logs: AllocatableLog[],
@@ -89,10 +95,12 @@ export function allocateMonth(
   };
 
   for (const log of ordonate) {
-    const gross = log.billable ? log.amountEur : 0;
+    // orele declarate incluse au si ele o valoare: intra in "cat s-a acoperit"
+    const acoperitManual = log.includedInPackage === true;
+    const gross = log.billable || acoperitManual ? log.amountEur : 0;
     grossEur += gross;
 
-    if (!log.billable || log.manualAmount) {
+    if (!acoperitManual && (!log.billable || log.manualAmount)) {
       allocations.set(log.id, {
         logId: log.id,
         includedStandardMinutes: 0,
@@ -120,9 +128,17 @@ export function allocateMonth(
     const pacOffHours = acopera(log.offHoursMinutes - incOffHours.acoperite, pachet, OFF_HOURS_FACTOR);
     pachet = pacOffHours.ramas;
 
-    // 3. ce ramane se factureaza la tarifele inregistrate pe interventie
-    const billableStandard = log.standardMinutes - incStandard.acoperite - pacStandard.acoperite;
-    const billableOffHours = log.offHoursMinutes - incOffHours.acoperite - pacOffHours.acoperite;
+    /*
+     * 3. ce ramane se factureaza la tarifele inregistrate pe interventie —
+     * mai putin orele declarate incluse, care raman gratuite chiar daca au
+     * depasit creditul lunii.
+     */
+    const billableStandard = acoperitManual
+      ? 0
+      : log.standardMinutes - incStandard.acoperite - pacStandard.acoperite;
+    const billableOffHours = acoperitManual
+      ? 0
+      : log.offHoursMinutes - incOffHours.acoperite - pacOffHours.acoperite;
     const billable = round2(
       (billableStandard / 60) * log.standardRate + (billableOffHours / 60) * log.offHoursRate,
     );
