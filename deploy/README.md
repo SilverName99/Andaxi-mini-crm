@@ -148,7 +148,37 @@ cd /var/www/andaxi-crm
 bash deploy/deploy.sh
 ```
 
-### 7. Backup
+### 7. Domeniu separat pentru portalul clienților (opțional)
+
+Portalul merge oricum pe `https://crm.andaxi.ro/portal`. Dacă vrei o adresă
+mai potrivită de trimis clienților — `https://client.andaxi.ro` — sunt trei pași.
+
+**a) DNS**, în Cloudflare → DNS → Records → Add record:
+
+| Câmp | Valoare |
+|---|---|
+| Type | `A` |
+| Name | `client` |
+| IPv4 address | `187.127.92.54` |
+| Proxy status | **DNS only** (norișor gri, până iese certificatul) |
+
+**b) Pe server**, o singură comandă (detectează singură portul aplicației,
+scrie configurarea nginx, o testează înainte de reload și pune HTTPS):
+
+```bash
+DOMAIN=client.andaxi.ro ADMIN_EMAIL=contact@andaxi.ro \
+bash /var/www/andaxi-crm/deploy/portal-domain.sh
+```
+
+**c) În CRM**: Setări → **Adresa portalului** → `https://client.andaxi.ro` →
+Salvează. De atunci, linkurile copiate din fișa fiecărui client pleacă de pe
+domeniul nou. Linkurile vechi, de pe `crm.andaxi.ro`, rămân valabile.
+
+Pe domeniul nou se vede **doar portalul**: adresa scurtă duce direct în el, iar
+rutele de administrare (`/api/clients`, `/api/settings`, pagina de login)
+returnează 404 — sunt tăiate din nginx, nu doar ascunse.
+
+### 8. Backup
 
 Toată baza de date e un singur fișier:
 

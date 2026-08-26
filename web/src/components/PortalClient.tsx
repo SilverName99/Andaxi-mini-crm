@@ -1,14 +1,19 @@
 import { useState } from 'react';
 import { Check, Copy, KeyRound, Link2, RefreshCw, ShieldOff, Share2 } from 'lucide-react';
 import { api } from '../lib/api';
-import { useClientPortal, useCrudMutation } from '../lib/queries';
+import { useClientPortal, useCrudMutation, useSettings } from '../lib/queries';
 import { Badge, Button, Card, CardTitle, ConfirmDialog, ErrorBlock, Toggle, useToast } from './ui';
 import { formatDateTime } from '../lib/format';
 import type { ClientPortal } from '../lib/types';
 
-/** Linkul complet pe care il trimiti clientului; tokenul sta dupa #, ca sa nu ajunga in logurile serverului */
-function linkPortal(token: string): string {
-  return `${window.location.origin}/portal#${token}`;
+/**
+ * Linkul complet pe care il trimiti clientului. Tokenul sta dupa #, ca sa nu
+ * ajunga in logurile serverului. Daca ai un domeniu separat pentru portal
+ * (Setari -> Adresa portalului), linkul pleaca de acolo.
+ */
+function linkPortal(token: string, baza: string): string {
+  const radacina = (baza || window.location.origin).replace(/\/+$/, '');
+  return `${radacina}/portal#${token}`;
 }
 
 /**
@@ -18,6 +23,7 @@ function linkPortal(token: string): string {
 export function PortalClient({ clientId, clientName }: { clientId: string; clientName: string }) {
   const toast = useToast();
   const { data: portal, isLoading } = useClientPortal(clientId);
+  const { data: settings } = useSettings();
   const [error, setError] = useState('');
   const [pinNou, setPinNou] = useState<string | null>(null);
   const [copiat, setCopiat] = useState<'link' | 'pin' | null>(null);
@@ -100,12 +106,12 @@ export function PortalClient({ clientId, clientName }: { clientId: string; clien
             <p className="label-base">Link pentru client</p>
             <div className="flex flex-wrap items-center gap-2">
               <code className="min-w-0 flex-1 truncate rounded-2xl bg-slate-50 px-4 py-2.5 text-xs text-slate-600">
-                {linkPortal(portal.token)}
+                {linkPortal(portal.token, settings?.portalBaseUrl ?? '')}
               </code>
               <Button
                 variant="secondary"
                 icon={copiat === 'link' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                onClick={() => copiaza(linkPortal(portal.token), 'link')}
+                onClick={() => copiaza(linkPortal(portal.token, settings?.portalBaseUrl ?? ''), 'link')}
               >
                 {copiat === 'link' ? 'Copiat' : 'Copiază'}
               </Button>

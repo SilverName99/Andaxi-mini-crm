@@ -174,6 +174,17 @@ export function SettingsPage() {
             <Field label="Email">
               <Input type="email" value={form.companyEmail} onChange={(e) => set('companyEmail', e.target.value)} />
             </Field>
+            <Field
+              label="Adresa portalului"
+              className="sm:col-span-2"
+              hint="Domeniul pe care îl primesc clienții, dacă ai unul separat. Gol = același domeniu cu CRM-ul."
+            >
+              <Input
+                value={form.portalBaseUrl}
+                onChange={(e) => set('portalBaseUrl', e.target.value)}
+                placeholder="https://client.andaxi.ro"
+              />
+            </Field>
           </div>
         </Card>
 

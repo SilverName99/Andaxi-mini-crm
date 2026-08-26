@@ -23,6 +23,8 @@ export interface Settings {
   companyEmail: string;
   /** Calea siglei încărcate, ex. "/uploads/logo-123.png" */
   logoUrl: string;
+  /** Adresa portalului clienților (ex. https://client.andaxi.ro); gol = același domeniu */
+  portalBaseUrl: string;
   standardRate: number;
   offHoursRate: number;
   standardStart: number;

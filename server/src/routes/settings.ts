@@ -11,6 +11,7 @@ const settingsSchema = z.object({
   companyCui: z.string().optional(),
   companyIban: z.string().optional(),
   companyEmail: z.string().email().or(z.literal('')).optional(),
+  portalBaseUrl: z.string().url('Trebuie sa fie o adresa completa, ex. https://client.andaxi.ro').or(z.literal('')).optional(),
   standardRate: z.coerce.number().nonnegative().optional(),
   offHoursRate: z.coerce.number().nonnegative().optional(),
   standardStart: z.coerce.number().int().min(0).max(1440).optional(),

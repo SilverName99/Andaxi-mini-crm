@@ -32,6 +32,9 @@ model Settings {
   companyEmail String @default("")
   /// Calea publica a siglei incarcate (ex. "/uploads/logo-123.png"); gol = fara sigla
   logoUrl      String @default("")
+  /// Adresa pe care o primesc clientii pentru portal (ex. https://client.andaxi.ro).
+  /// Gol = acelasi domeniu cu CRM-ul.
+  portalBaseUrl String @default("")
 
   // Tarife orare (EUR)
   standardRate  Float @default(45)
