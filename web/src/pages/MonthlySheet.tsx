@@ -123,7 +123,7 @@ export function MonthlySheet() {
               <p className="text-lg font-bold capitalize text-slate-800">{numeLuna(month)}</p>
               <p className="text-sm text-slate-500">{data.settings.companyName}</p>
               <div className="mt-1.5 flex justify-end">
-                <StareConfirmare approval={data.approval} areOre={data.rows.length > 0} />
+                <StareConfirmare approval={data.approval} />
               </div>
             </div>
           </div>

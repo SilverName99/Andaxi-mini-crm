@@ -341,14 +341,6 @@ function Abonamente({ me }: { me: PortalMe }) {
                 <dd className="font-semibold text-slate-800">{sub.users}</dd>
               </div>
             )}
-            {sub.storageIncludedGb !== null && (
-              <div className="flex justify-between gap-3">
-                <dt className="text-slate-500">Spațiu</dt>
-                <dd className="font-semibold text-slate-800">
-                  {sub.storageUsedGb ?? 0} GB din {sub.storageIncludedGb} GB
-                </dd>
-              </div>
-            )}
           </dl>
         </Card>
       ))}

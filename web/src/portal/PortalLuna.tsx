@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react';
-import { CalendarDays, Clock4, Download, FileText, Gift, Wallet } from 'lucide-react';
+import { CalendarDays, Clock4, Download, FileText, Wallet } from 'lucide-react';
 import { Badge, Card, EmptyState, LoadingBlock } from '../components/ui';
 import { formatDate, formatEur, formatFileSize, formatMinutes, formatRon } from '../lib/format';
 import { grilaLunii, numeZi, ZILE_SCURTE } from '../lib/calendar';
 import { WORK_CATEGORY } from '../lib/labels';
 import { cn } from '../lib/cn';
-import { ConfirmareLuna } from './ConfirmareLuna';
 import type { PortalMe, PortalMonth, PortalRow } from './api';
 
 /** Ce a acoperit orele unei lucrări: abonamentul, pachetul sau factura */
@@ -81,61 +80,18 @@ export function PortalLuna({
 
   const t = date.totals;
   const afisate = ziSelectata ? (peZile.get(ziSelectata) ?? []) : (date.rows ?? []);
-  const procentIncluse = t.includedMinutes
-    ? Math.min(100, Math.round((t.usedIncludedMinutes / t.includedMinutes) * 100))
-    : 0;
-
   return (
     <div className="flex flex-col gap-4">
-      {date.inCurs && (
-        <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
-          Luna e în curs — cifrele de mai jos sunt o <strong>estimare</strong> și se pot schimba până la final de
-          lună. Factura o primești separat.
-        </div>
-      )}
-
-      <ConfirmareLuna
-        luna={luna}
-        confirmare={date.approval}
-        areOre={date.rows.length > 0}
-        lunaInCurs={date.inCurs}
-      />
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Cifra
           eticheta="Ore lucrate"
           valoare={formatMinutes(t.minutes)}
           detaliu={`${date.rows.length} ${date.rows.length === 1 ? 'lucrare' : 'lucrări'}`}
           icon={<Clock4 className="h-5 w-5" />}
         />
-        <Cifra
-          eticheta={
-            t.packageMinutes > 0 && t.usedIncludedMinutes > 0
-              ? 'Acoperite (abonament + pachet)'
-              : t.packageMinutes > 0
-                ? 'Acoperite din pachet'
-                : 'Incluse în abonament'
-          }
-          valoare={formatMinutes(t.usedIncludedMinutes + t.packageMinutes)}
-          detaliu={
-            t.includedMinutes
-              ? `din ${formatMinutes(t.includedMinutes)} pe lună`
-              : t.packageMinutes
-                ? 'din pachetul de ore'
-                : 'fără ore incluse'
-          }
-          icon={<Gift className="h-5 w-5" />}
-          tenta="verde"
-        />
-        <Cifra
-          eticheta="Ore de plată"
-          valoare={formatMinutes(t.billableMinutes)}
-          detaliu={t.billableMinutes === 0 ? 'totul e acoperit' : undefined}
-          icon={<Clock4 className="h-5 w-5" />}
-        />
         {bani && (
           <Cifra
-            eticheta={date.inCurs ? 'Estimat de plată' : 'De plată'}
+            eticheta="De plată"
             valoare={formatEur(t.netEur ?? 0)}
             detaliu={`${formatRon(t.netEur ?? 0, me.currency.eurRon)}${me.flags.showVat ? ' · fără TVA' : ''}`}
             icon={<Wallet className="h-5 w-5" />}
@@ -143,51 +99,6 @@ export function PortalLuna({
           />
         )}
       </div>
-
-      {t.includedMinutes > 0 && (
-        <Card>
-          <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
-            <p className="text-sm font-bold text-slate-800">
-              Ai folosit {formatMinutes(t.usedIncludedMinutes)} din {formatMinutes(t.includedMinutes)} incluse
-            </p>
-            <p className="text-sm font-semibold text-emerald-600">
-              {formatMinutes(t.remainingIncludedMinutes)} rămase
-            </p>
-          </div>
-          <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
-              style={{ width: `${procentIncluse}%` }}
-            />
-          </div>
-          {date.includedFrom.length > 0 && (
-            <p className="mt-2 text-xs text-slate-400">
-              {date.includedFrom.map((s) => `${s.label}: ${s.hours} h/lună`).join(' · ')}
-            </p>
-          )}
-        </Card>
-      )}
-
-      {date.packages.length > 0 && (
-        <Card>
-          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">
-            Pachet de ore — {date.packages.map((p) => p.packageName).join(', ')}
-          </p>
-          <div className="mt-2 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-            {[
-              { eticheta: 'Report din luna trecută', minute: date.packageStatement.openingMinutes },
-              { eticheta: 'Adăugate luna asta', minute: date.packageStatement.creditedMinutes },
-              { eticheta: 'Consumate', minute: date.packageStatement.usedMinutes },
-              { eticheta: 'Rămase', minute: date.packageStatement.closingMinutes },
-            ].map((item) => (
-              <div key={item.eticheta}>
-                <p className="text-xs text-slate-400">{item.eticheta}</p>
-                <p className="font-bold text-slate-800">{formatMinutes(item.minute)}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.15fr,1fr]">
         <Card>
@@ -318,27 +229,14 @@ export function PortalLuna({
       {bani && (
         <Card className="ml-auto w-full max-w-sm">
           <div className="text-sm">
-            {(t.coveredEur ?? 0) > 0 && (
-              <div className="flex justify-between gap-4 py-1 text-emerald-700">
-                <span>
-                  Acoperit din{' '}
-                  {t.packageMinutes > 0 && t.usedIncludedMinutes > 0
-                    ? 'abonament și pachet'
-                    : t.packageMinutes > 0
-                      ? 'pachetul de ore'
-                      : 'abonament'}
-                </span>
-                <span className="font-semibold">−{formatEur(t.coveredEur ?? 0)}</span>
-              </div>
-            )}
             {(t.discountEur ?? 0) > 0 && (
               <div className="flex justify-between gap-4 py-1 text-emerald-700">
                 <span>Reducere</span>
                 <span className="font-semibold">−{formatEur(t.discountEur ?? 0)}</span>
               </div>
             )}
-            <div className="flex justify-between gap-4 border-t border-slate-200 py-1.5 pt-2 text-slate-700">
-              <span>{date.inCurs ? 'Estimat de plată' : 'De plată'}</span>
+            <div className="flex justify-between gap-4 py-1.5 text-slate-700">
+              <span>De plată</span>
               <span className="font-bold">{formatEur(t.netEur ?? 0)}</span>
             </div>
             {me.flags.showVat && (

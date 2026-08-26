@@ -101,7 +101,7 @@ export function ClientCalendar() {
               )}
             </p>
             <div className="mt-1.5">
-              <StareConfirmare approval={stareConfirmare} areOre={dinLuna.length > 0} />
+              <StareConfirmare approval={stareConfirmare} />
             </div>
           </div>
         </div>

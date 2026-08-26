@@ -1,29 +1,15 @@
-import { AlertTriangle, BadgeCheck, Clock3 } from 'lucide-react';
+import { AlertTriangle, BadgeCheck } from 'lucide-react';
 import { Badge } from './ui';
 import { formatDateTime, formatMinutes } from '../lib/format';
 import type { MonthlyApproval } from '../lib/types';
 
 /**
- * Ce a facut clientul cu luna asta in portalul lui: a confirmat-o, a
- * confirmat-o si intre timp s-a schimbat, sau inca nu s-a uitat peste ea.
+ * Confirmarea lunii, daca exista una. Butonul din portal e scos deocamdata, deci
+ * eticheta apare doar la lunile confirmate inainte — nu scriem "neconfirmat" la
+ * fiecare luna, cand clientul nici nu are de unde confirma.
  */
-export function StareConfirmare({
-  approval,
-  areOre,
-}: {
-  approval: MonthlyApproval | null;
-  areOre: boolean;
-}) {
-  if (!areOre) return null;
-
-  // pe hartie n-are rost sa scrie "neconfirmat" — fisa ajunge chiar la client
-  if (!approval) {
-    return (
-      <Badge className="no-print bg-slate-100 text-slate-500">
-        <Clock3 className="h-3.5 w-3.5" /> Neconfirmat de client
-      </Badge>
-    );
-  }
+export function StareConfirmare({ approval }: { approval: MonthlyApproval | null }) {
+  if (!approval) return null;
 
   const cine = approval.confirmedBy ? ` de ${approval.confirmedBy}` : '';
   const cand = formatDateTime(approval.confirmedAt);
