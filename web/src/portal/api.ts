@@ -9,6 +9,7 @@ export interface PortalMe {
   brand: { companyName: string; logoUrl: string };
   flags: { showMoney: boolean; showVat: boolean; allowRequests: boolean };
   currency: { eurRon: number; vatRate: number | null };
+  program: { standardStart: number; standardEnd: number; weekendOffHours: boolean };
   firstMonth: string;
   subscriptions: {
     id: string;
@@ -52,6 +53,8 @@ export interface PortalRow {
   date: string;
   entryMode: 'INTERVAL' | 'DURATION';
   timeLabel: string;
+  startMinutes: number;
+  endMinutes: number;
   description: string;
   category: WorkCategory;
   projectTag: string;

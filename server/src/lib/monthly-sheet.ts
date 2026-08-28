@@ -48,6 +48,8 @@ export async function buildMonthlySheet(clientId: string, month: string) {
       entryMode: log.entryMode,
       timeLabel:
         log.entryMode === 'DURATION' ? '' : `${minutesToHhMm(log.startMinutes)}–${minutesToHhMm(log.endMinutes)}`,
+      startMinutes: log.startMinutes,
+      endMinutes: log.endMinutes,
       description: log.description,
       category: log.category,
       projectTag: log.projectTag,

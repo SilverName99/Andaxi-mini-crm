@@ -194,7 +194,8 @@ clientsRouter.post(
       token: genereazaToken(),
       enabled: true,
       ...setari,
-      ...(pin ? { pinHash: await bcrypt.hash(pin, 10) } : {}),
+      // withPin spus explicit decide si stergerea: "doar link" inseamna fara PIN
+      ...(withPin === undefined ? {} : { pinHash: pin ? await bcrypt.hash(pin, 10) : '' }),
     };
 
     const portal = await prisma.clientPortal.upsert({

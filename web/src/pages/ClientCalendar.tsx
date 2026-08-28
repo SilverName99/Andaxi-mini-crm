@@ -7,6 +7,8 @@ import {
 } from '../lib/queries';
 import { WorkLogDetail } from './WorkLogs';
 import { MonthlyDocuments } from '../components/MonthlyDocuments';
+import { Ceas24, etichetaInterval, LegendaCeas } from '../components/Ceas24';
+import { TimeField } from '../components/TimeField';
 import { ImportOre } from '../components/ImportOre';
 import { ReducereLunara, calculeazaReducere } from '../components/ReducereLunara';
 import { StareConfirmare } from '../components/StareConfirmare';
@@ -15,6 +17,7 @@ import {
 } from '../components/ui';
 import { formatDate, formatEur, formatMinutes, minutesToHhMm, todayIso } from '../lib/format';
 import { grilaLunii, numeLuna, numeZi, schimbaLuna, ZILE_SCURTE } from '../lib/calendar';
+import { minuteSegmente, segmenteInterval, segmenteleZilei, type FereastraProgram } from '../lib/ceas';
 import { WORK_CATEGORY, options } from '../lib/labels';
 import { optiuniLucrare } from '../lib/lucrari';
 import { cn } from '../lib/cn';
@@ -33,6 +36,8 @@ export function ClientCalendar() {
   const [month, setMonth] = useState(todayIso().slice(0, 7));
   const [ziSelectata, setZiSelectata] = useState(todayIso());
   const [detalii, setDetalii] = useState<string | null>(null);
+  /** Intervalul desenat acum pe ceas, folosit de formularul de adaugare */
+  const [selectie, setSelectie] = useState<{ start: number; end: number } | null>(null);
 
   const zile = useMemo(() => grilaLunii(month), [month]);
   const { data: logs = [] } = useWorkLogs({
@@ -40,6 +45,13 @@ export function ClientCalendar() {
     from: zile[0].iso,
     to: zile[zile.length - 1].iso,
   });
+
+  // fereastra programului normal, cu care se coloreaza ceasurile
+  const program: FereastraProgram = {
+    standardStart: settings?.standardStart ?? 540,
+    standardEnd: settings?.standardEnd ?? 960,
+    weekendOffHours: settings?.weekendOffHours ?? false,
+  };
 
   const peZile = useMemo(() => {
     const map = new Map<string, WorkLog[]>();
@@ -71,6 +83,16 @@ export function ClientCalendar() {
     : null;
 
   const aleZilei = peZile.get(ziSelectata) ?? [];
+
+  /** Intervalele orare ale unei zile, singurele care se pot desena pe ceas */
+  const intervaleZilei = (zi: string) =>
+    (peZile.get(zi) ?? [])
+      .filter((l) => l.entryMode === 'INTERVAL' && l.endMinutes !== l.startMinutes)
+      .map((l) => ({ start: l.startMinutes, end: l.endMinutes }));
+
+  const segmenteZiSelectata = segmenteleZilei(ziSelectata, intervaleZilei(ziSelectata), program);
+  const minuteCeas = minuteSegmente(segmenteZiSelectata);
+  const faraOra = aleZilei.filter((l) => l.entryMode !== 'INTERVAL');
 
   if (isLoading || !client) return <LoadingBlock />;
 
@@ -148,7 +170,10 @@ export function ClientCalendar() {
                     <button
                       key={zi.iso}
                       type="button"
-                      onClick={() => setZiSelectata(zi.iso)}
+                      onClick={() => {
+                        setZiSelectata(zi.iso);
+                        setSelectie(null); // intervalul desenat era al zilei de dinainte
+                      }}
                       className={cn(
                         'group flex min-h-[5rem] flex-col gap-1 rounded-2xl border p-1.5 text-left transition sm:min-h-[6rem]',
                         selectata
@@ -158,13 +183,19 @@ export function ClientCalendar() {
                         zi.weekend && !selectata && 'bg-slate-50/70',
                       )}
                     >
-                      <span
-                        className={cn(
-                          'grid h-6 w-6 shrink-0 place-items-center rounded-lg text-xs font-bold',
-                          zi.iso === todayIso() ? 'bg-indigo-600 text-white' : 'text-slate-600',
-                        )}
-                      >
-                        {Number(zi.iso.slice(8))}
+                      <span className="flex items-start justify-between gap-1">
+                        <span
+                          className={cn(
+                            'grid h-6 w-6 shrink-0 place-items-center rounded-lg text-xs font-bold',
+                            zi.iso === todayIso() ? 'bg-indigo-600 text-white' : 'text-slate-600',
+                          )}
+                        >
+                          {Number(zi.iso.slice(8))}
+                        </span>
+                        {(() => {
+                          const segmente = segmenteleZilei(zi.iso, intervaleZilei(zi.iso), program);
+                          return segmente.length > 0 ? <Ceas24 segmente={segmente} marime="mic" /> : null;
+                        })()}
                       </span>
 
                       {minute > 0 ? (
@@ -189,6 +220,39 @@ export function ClientCalendar() {
             <div className="mb-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{numeZi(ziSelectata)}</p>
               <h2 className="text-lg font-extrabold text-slate-900">{formatDate(ziSelectata)}</h2>
+            </div>
+
+            <div className="mb-4 flex flex-col items-center gap-2">
+              <Ceas24
+                segmente={segmenteZiSelectata}
+                selectie={selectie}
+                onSelectie={setSelectie}
+                program={program}
+                date={ziSelectata}
+                marime="mare"
+              />
+              <p className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                {selectie
+                  ? etichetaInterval(selectie.start, selectie.end)
+                  : minuteCeas.standard + minuteCeas.offHours > 0
+                    ? formatMinutes(minuteCeas.standard + minuteCeas.offHours)
+                    : 'Nicio oră notată'}
+                {selectie && (
+                  <button
+                    onClick={() => setSelectie(null)}
+                    className="text-xs font-semibold text-slate-400 transition hover:text-indigo-600"
+                  >
+                    renunță
+                  </button>
+                )}
+              </p>
+              <LegendaCeas />
+              {faraOra.length > 0 && (
+                <p className="text-xs text-slate-400">
+                  + {formatMinutes(faraOra.reduce((s, l) => s + l.standardMinutes + l.offHoursMinutes, 0))} fără
+                  interval orar
+                </p>
+              )}
             </div>
 
             {aleZilei.length > 0 && (
@@ -239,7 +303,13 @@ export function ClientCalendar() {
               etichete={etichete}
               rateStandard={settings?.standardRate}
               rateOffHours={settings?.offHoursRate}
-              onSaved={() => toast('Ore adăugate')}
+              selectie={selectie}
+              setSelectie={setSelectie}
+              program={program}
+              onSaved={() => {
+                setSelectie(null);
+                toast('Ore adăugate');
+              }}
             />
           </Card>
 
@@ -266,6 +336,9 @@ function AdaugaOre({
   etichete,
   rateStandard,
   rateOffHours,
+  selectie,
+  setSelectie,
+  program,
   onSaved,
 }: {
   clientId: string;
@@ -274,8 +347,12 @@ function AdaugaOre({
   etichete: string[];
   rateStandard?: number;
   rateOffHours?: number;
+  selectie: { start: number; end: number } | null;
+  setSelectie: (interval: { start: number; end: number } | null) => void;
+  program: FereastraProgram;
   onSaved: () => void;
 }) {
+  const [mod, setMod] = useState<'interval' | 'durata'>('interval');
   const [hours, setHours] = useState('');
   const [rateType, setRateType] = useState<'STANDARD' | 'OFF_HOURS'>('STANDARD');
   const [description, setDescription] = useState('');
@@ -287,11 +364,47 @@ function AdaugaOre({
   const ore = Number(hours.replace(',', '.'));
   const tarif = rateType === 'STANDARD' ? rateStandard : rateOffHours;
 
+  // cat costa intervalul desenat, dupa aceeasi impartire ca pe server
+  const segmenteSelectie = selectie ? segmenteInterval(date, selectie.start, selectie.end, program) : [];
+  const minuteSelectie = minuteSegmente(segmenteSelectie);
+  const valoareSelectie =
+    ((minuteSelectie.standard / 60) * (rateStandard ?? 0)) +
+    ((minuteSelectie.offHours / 60) * (rateOffHours ?? 0));
+
+  function schimbaOra(capat: 'start' | 'end', valoare: string) {
+    const [h, m] = valoare.split(':').map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return;
+    const minut = h * 60 + m;
+    const curent = selectie ?? { start: minut, end: minut + 60 };
+    const nou = capat === 'start' ? { ...curent, start: minut } : { ...curent, end: minut };
+    setSelectie(nou.end > nou.start ? nou : { start: Math.min(nou.start, nou.end), end: Math.max(nou.start, nou.end) });
+  }
+
   async function trimite() {
     setError('');
+    const dateComune = { clientId, date, description, projectTag, category };
+
+    if (mod === 'interval') {
+      if (!selectie || selectie.end <= selectie.start) {
+        return setError('Desenează pe ceas intervalul în care ai lucrat');
+      }
+      try {
+        await salveaza.mutateAsync({
+          ...dateComune,
+          start: minutesToHhMm(selectie.start),
+          end: minutesToHhMm(selectie.end % 1440),
+        });
+        setDescription('');
+        onSaved();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Eroare la salvare');
+      }
+      return;
+    }
+
     if (!ore || ore <= 0) return setError('Scrie câte ore ai lucrat');
     try {
-      await salveaza.mutateAsync({ clientId, date, hours: ore, rateType, description, projectTag, category });
+      await salveaza.mutateAsync({ ...dateComune, hours: ore, rateType });
       setHours('');
       setDescription('');
       onSaved();
@@ -307,28 +420,57 @@ function AdaugaOre({
       </p>
 
       <div className="flex flex-col gap-3">
-        <div className="grid grid-cols-[6rem,1fr] gap-3">
-          <Field label="Ore">
-            <Input
-              type="number"
-              min={0}
-              step="0.25"
-              value={hours}
-              onChange={(e) => setHours(e.target.value)}
-              placeholder="2"
-            />
-          </Field>
-          <Field label="Tarif">
-            <Segmented
-              value={rateType}
-              onChange={setRateType}
-              options={[
-                { value: 'STANDARD', label: 'Program normal' },
-                { value: 'OFF_HOURS', label: 'În afara programului' },
-              ]}
-            />
-          </Field>
-        </div>
+        <Segmented
+          value={mod}
+          onChange={(v) => {
+            setMod(v);
+            if (v === 'durata') setSelectie(null);
+          }}
+          options={[
+            { value: 'interval', label: 'Interval orar' },
+            { value: 'durata', label: 'Doar durata' },
+          ]}
+        />
+
+        {mod === 'interval' ? (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="De la">
+              <TimeField
+                value={selectie ? minutesToHhMm(selectie.start) : ''}
+                onChange={(v) => schimbaOra('start', v)}
+              />
+            </Field>
+            <Field label="Până la">
+              <TimeField
+                value={selectie ? minutesToHhMm(selectie.end % 1440) : ''}
+                onChange={(v) => schimbaOra('end', v)}
+              />
+            </Field>
+          </div>
+        ) : (
+          <div className="grid grid-cols-[6rem,1fr] gap-3">
+            <Field label="Ore">
+              <Input
+                type="number"
+                min={0}
+                step="0.25"
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
+                placeholder="2"
+              />
+            </Field>
+            <Field label="Tarif">
+              <Segmented
+                value={rateType}
+                onChange={setRateType}
+                options={[
+                  { value: 'STANDARD', label: 'Program normal' },
+                  { value: 'OFF_HOURS', label: 'În afara programului' },
+                ]}
+              />
+            </Field>
+          </div>
+        )}
 
         <Field label="Ce ai lucrat">
           <Textarea
@@ -359,7 +501,21 @@ function AdaugaOre({
           </Field>
         </div>
 
-        {ore > 0 && tarif && (
+        {mod === 'interval' && selectie && selectie.end > selectie.start && rateStandard && rateOffHours && (
+          <p className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+            <Clock4 className="h-4 w-4 text-indigo-500" />
+            {etichetaInterval(selectie.start, selectie.end)} ·{' '}
+            {formatMinutes(minuteSelectie.standard + minuteSelectie.offHours)}
+            {minuteSelectie.offHours > 0 && (
+              <span className="text-xs text-fuchsia-600">
+                ({formatMinutes(minuteSelectie.offHours)} în afara programului)
+              </span>
+            )}
+            <span className="font-bold text-indigo-700">= {formatEur(valoareSelectie)}</span>
+          </p>
+        )}
+
+        {mod === 'durata' && ore > 0 && tarif && (
           <p className="flex items-center gap-2 text-sm text-slate-600">
             {rateType === 'STANDARD' ? (
               <Sun className="h-4 w-4 text-indigo-500" />

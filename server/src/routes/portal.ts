@@ -146,6 +146,12 @@ portalRouter.get(
       brand: { companyName: settings.companyName, logoUrl: settings.logoUrl },
       flags: { showMoney: bani, showVat: bani && portal.showVat, allowRequests: portal.allowRequests },
       currency: { eurRon: settings.eurRon, vatRate: bani && portal.showVat ? settings.vatRate : null },
+      /** Programul normal, ca sa se coloreze la fel ceasul zilei */
+      program: {
+        standardStart: settings.standardStart,
+        standardEnd: settings.standardEnd,
+        weekendOffHours: settings.weekendOffHours,
+      },
       /** Din ce luna are rost sa te uiti inapoi */
       firstMonth: (prima?.date ?? azi).slice(0, 7),
       subscriptions: subscriptions.map((sub) => ({
@@ -233,6 +239,8 @@ portalRouter.get(
         date: row.date,
         entryMode: row.entryMode,
         timeLabel: row.timeLabel,
+        startMinutes: row.startMinutes,
+        endMinutes: row.endMinutes,
         description: row.description,
         category: row.category,
         projectTag: row.projectTag,

@@ -344,6 +344,8 @@ export interface MonthlySheetRow {
   date: string;
   entryMode: 'INTERVAL' | 'DURATION';
   timeLabel: string;
+  startMinutes: number;
+  endMinutes: number;
   description: string;
   category: WorkCategory;
   projectTag: string;

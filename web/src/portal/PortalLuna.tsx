@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { CalendarDays, Clock4, Download, FileText, Wallet } from 'lucide-react';
 import { Badge, Card, EmptyState, LoadingBlock } from '../components/ui';
+import { Ceas24, LegendaCeas } from '../components/Ceas24';
 import { formatDate, formatEur, formatFileSize, formatMinutes, formatRon } from '../lib/format';
 import { grilaLunii, numeZi, ZILE_SCURTE } from '../lib/calendar';
 import { WORK_CATEGORY } from '../lib/labels';
+import { minuteSegmente, segmenteleZilei, type FereastraProgram } from '../lib/ceas';
 import { cn } from '../lib/cn';
 import type { PortalMe, PortalMonth, PortalRow } from './api';
 
@@ -75,6 +77,18 @@ export function PortalLuna({
     return map;
   }, [date]);
 
+  const program: FereastraProgram = me.program;
+
+  /** Ceasul unei zile: doar lucrările notate cu interval orar pot fi desenate */
+  const segmenteZi = (zi: string) =>
+    segmenteleZilei(
+      zi,
+      (peZile.get(zi) ?? [])
+        .filter((r) => r.entryMode === 'INTERVAL' && r.endMinutes !== r.startMinutes)
+        .map((r) => ({ start: r.startMinutes, end: r.endMinutes })),
+      program,
+    );
+
   if (seIncarca) return <LoadingBlock />;
   if (!date) return null;
 
@@ -123,13 +137,18 @@ export function PortalLuna({
                   onClick={() => setZiSelectata(selectata ? null : zi.iso)}
                   disabled={!zi.inLuna}
                   className={cn(
-                    'flex aspect-square flex-col items-center justify-center gap-0.5 rounded-2xl border text-xs transition',
+                    'relative flex aspect-square flex-col items-center justify-center gap-0.5 rounded-2xl border text-xs transition',
                     !zi.inLuna && 'cursor-default border-transparent text-slate-300',
                     zi.inLuna && !minute && 'border-slate-100 text-slate-500 hover:border-slate-300',
                     zi.inLuna && minute > 0 && 'border-indigo-200 bg-indigo-50 font-bold text-indigo-700 hover:border-indigo-400',
                     selectata && 'border-indigo-500 ring-2 ring-indigo-200',
                   )}
                 >
+                  {zi.inLuna && segmenteZi(zi.iso).length > 0 && (
+                    <span className="absolute right-1 top-1">
+                      <Ceas24 segmente={segmenteZi(zi.iso)} marime="mic" />
+                    </span>
+                  )}
                   <span>{Number(zi.iso.slice(-2))}</span>
                   {minute > 0 && <span className="text-[10px] font-semibold">{formatMinutes(minute)}</span>}
                 </button>
@@ -155,6 +174,20 @@ export function PortalLuna({
               </button>
             )}
           </div>
+
+          {ziSelectata && segmenteZi(ziSelectata).length > 0 && (
+            <div className="mb-4 flex flex-col items-center gap-2 rounded-2xl bg-slate-50 p-4">
+              <Ceas24 segmente={segmenteZi(ziSelectata)} program={program} date={ziSelectata} marime="mare" />
+              <p className="text-sm font-bold text-slate-700">
+                {formatMinutes(
+                  minuteSegmente(segmenteZi(ziSelectata)).standard +
+                    minuteSegmente(segmenteZi(ziSelectata)).offHours,
+                )}{' '}
+                lucrate
+              </p>
+              <LegendaCeas />
+            </div>
+          )}
 
           {afisate.length === 0 ? (
             <EmptyState

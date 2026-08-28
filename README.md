@@ -90,6 +90,22 @@ pachetului; ce depășește se facturează la tarifele pachetului. Spre deosebir
 orele incluse, **soldul pachetului se reportează** în lunile următoare, iar fișa
 lunară arată extrasul: sold la început, primite, consumate, sold rămas.
 
+### Ceasul zilei
+
+Fiecare zi are un **ceas de 24 de ore**: fiecare intervenție notată cu interval
+orar devine un arc colorat — indigo cât a picat în programul normal, fucsia
+pentru restul. Ceasul apare în trei locuri: mic, în colțul fiecărei zile din
+calendar, mare în panoul zilei alese și, la fel, în portalul clientului.
+
+În calendarul clientului ceasul e și de desenat: tragi cu mouse-ul sau cu
+degetul peste orele lucrate (se rotunjește la sfert de oră) și intervalul se
+completează singur în formular, cu suma calculată pe loc. Câmpurile *De la* și
+*Până la* rămân acolo pentru orele exacte, iar butonul *Doar durata* păstrează
+vechiul mod, pentru lucrările notate fără ceas.
+
+Culorile urmează exact regula de facturare de pe server, inclusiv weekendul
+integral majorat, dacă e activat în Setări.
+
 ### Import de ore din fișier
 
 Pentru lunile completate în urmă, orele se pot importa dintr-un CSV în loc să
