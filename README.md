@@ -95,9 +95,10 @@ lunară arată extrasul: sold la început, primite, consumate, sold rămas.
 Fiecare intervenție notată cu interval orar devine un arc colorat pe ceasul
 zilei — indigo cât a picat în programul normal, fucsia pentru restul.
 
-Cadranul e **de 12 ore, ca la orice ceas**, cu un comutator ☀️ / 🌙 între prima
-și a doua jumătate a zilei; un punct pe iconiță arată când mai e ceva de văzut
-și pe cealaltă față. Previzualizarea din colțul fiecărei zile din calendar
+Cadranul e **de 12 ore, ca la orice ceas**, cu un comutator între cele două
+jumătăți ale zilei: 🌙 pentru noapte și dimineață (00:00–12:00), ☀️ pentru zi
+și seară (12:00–24:00). Ceasul se deschide pe jumătatea în care s-a lucrat mai
+mult, iar un punct pe cealaltă iconiță arată că mai e ceva de văzut și acolo. Previzualizarea din colțul fiecărei zile din calendar
 rămâne pe 24 de ore, ca să încapă toată ziua într-o singură privire.
 
 În calendarul clientului ceasul e și de desenat: tragi cu mouse-ul sau cu

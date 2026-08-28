@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { minutesToHhMm } from '../lib/format';
@@ -10,8 +10,11 @@ export const CULOARE_OFF = '#c026d3'; // fucsia — în afara programului
 
 type Marime = 'mic' | 'mediu' | 'mare';
 
-/** Ce jumătate de zi se vede: ziua (00–12), noaptea (12–24) sau toată ziua pe un cadran de 24h */
-export type FataCeas = 'zi' | 'noapte' | 'toata';
+/**
+ * Ce jumătate de zi se vede: soarele ține ziua și seara (12:00–24:00), luna
+ * ține noaptea și dimineața (00:00–12:00). „toata" = un cadran de 24 de ore.
+ */
+export type FataCeas = 'soare' | 'luna' | 'toata';
 
 const MARIMI: Record<Marime, { px: number; grosime: number; fundal: number }> = {
   mic: { px: 26, grosime: 20, fundal: 7 },
@@ -22,7 +25,7 @@ const MARIMI: Record<Marime, { px: number; grosime: number; fundal: number }> = 
 /** Fereastra de minute pe care o acoperă cadranul */
 function fereastra(fata: FataCeas): { baza: number; intindere: number } {
   if (fata === 'toata') return { baza: 0, intindere: 1440 };
-  return { baza: fata === 'zi' ? 0 : 720, intindere: 720 };
+  return { baza: fata === 'soare' ? 720 : 0, intindere: 720 };
 }
 
 /** Punctul de pe cerc pentru un minut al zilei (ora 12 sus, ca la orice ceas) */
@@ -99,12 +102,30 @@ export function CeasZi({
     [selectie, program, date],
   );
 
-  // pornim pe jumătatea unde se întâmplă ceva: dacă totul e după-amiaza, arătăm luna
-  const [fataAleasa, setFataAleasa] = useState<FataCeas>(() => {
-    const toate = [...segmente, ...segmenteSelectie];
-    if (toate.length > 0 && toate.every((s) => s.from >= 720)) return 'noapte';
-    return 'zi';
-  });
+  /** Jumătatea de zi cu care pornim: cea în care s-a lucrat mai mult, altfel cea în care începe programul */
+  const fataImplicita = (): FataCeas => {
+    const minutePeFata = (tinta: FataCeas) =>
+      [...segmente, ...segmenteSelectie].reduce((total, s) => {
+        const bucata = taieLaFata(s, tinta);
+        return total + (bucata ? bucata.to - bucata.from : 0);
+      }, 0);
+
+    const cuSoare = minutePeFata('soare');
+    const cuLuna = minutePeFata('luna');
+    if (cuSoare > 0 || cuLuna > 0) return cuSoare >= cuLuna ? 'soare' : 'luna';
+    return (program?.standardStart ?? 540) >= 720 ? 'soare' : 'luna';
+  };
+
+  const [fataAleasa, setFataAleasa] = useState<FataCeas>(fataImplicita);
+
+  // la schimbarea zilei ne întoarcem pe jumătatea unde chiar s-a lucrat
+  const ziuaAfisata = useRef(date);
+  useEffect(() => {
+    if (date === ziuaAfisata.current) return;
+    ziuaAfisata.current = date;
+    setFataAleasa(fataImplicita());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, segmente]);
   const fata: FataCeas = fataFixa ?? (cuComutator ? fataAleasa : 'toata');
   const { baza, intindere } = fereastra(fata);
 
@@ -264,8 +285,8 @@ export function CeasZi({
       <div className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1">
         {(
           [
-            { valoare: 'zi' as const, Icon: Sun, titlu: 'Dimineața (12 noaptea – 12 amiaza)' },
-            { valoare: 'noapte' as const, Icon: Moon, titlu: 'După-amiaza și seara (12 – 12 noaptea)' },
+            { valoare: 'luna' as const, Icon: Moon, titlu: 'Noaptea și dimineața (00:00 – 12:00)' },
+            { valoare: 'soare' as const, Icon: Sun, titlu: 'Ziua și seara (12:00 – 24:00)' },
           ]
         ).map(({ valoare, Icon, titlu }) => (
           <button
