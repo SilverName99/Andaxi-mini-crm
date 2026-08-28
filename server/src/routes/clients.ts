@@ -6,6 +6,7 @@ import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { CLIENT_STATUSES, COLORS } from '../lib/validation.js';
 import { ALLOWED_IMAGE_TYPES, deleteUpload, saveImage } from '../lib/uploads.js';
 import { genereazaPin, genereazaToken } from '../lib/portal.js';
+import { soldurileClientului } from '../lib/paid-hours.js';
 
 export const clientsRouter = Router();
 
@@ -71,7 +72,19 @@ clientsRouter.get(
         tasks: { orderBy: [{ done: 'asc' }, { dueDate: 'asc' }] },
       },
     });
-    res.json(client);
+
+    const solduri = await soldurileClientului(client.id);
+    res.json({
+      ...client,
+      subscriptions: client.subscriptions.map((sub) => {
+        const sold = solduri.get(sub.label.trim());
+        return {
+          ...sub,
+          paidUsedMinutes: sold?.usedMinutes ?? 0,
+          paidRemainingMinutes: sold?.remainingMinutes ?? Math.round(sub.paidHours * 60),
+        };
+      }),
+    });
   }),
 );
 

@@ -200,6 +200,11 @@ model Subscription {
   /// Orele in afara programului consuma dublu din acest pachet.
   includedHoursPerMonth Float @default(0)
 
+  /// Ore platite prin abonament: un rezervor care se consuma o singura data,
+  /// pe masura ce pui ore pe abonamentul asta. Nu se reincarca lunar; orele
+  /// din afara programului scad dublu din el.
+  paidHours Float @default(0)
+
   /// Numar de utilizatori — doar pentru ERP/CRM, cand pretul se calculeaza automat.
   /// Daca lipseste, suma a fost stabilita manual.
   users Int?

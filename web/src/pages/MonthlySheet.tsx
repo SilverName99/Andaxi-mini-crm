@@ -13,13 +13,17 @@ import type { MonthlySheetRow } from '../lib/types';
 
 /** Ce a plătit ora: abonamentul, un tarif, o sumă negociată sau nimic */
 function sursa(row: MonthlySheetRow): { text: string; chip: string } {
+  if (row.paidMinutes >= row.minutes && row.minutes > 0) {
+    return { text: 'din orele abonamentului', chip: 'bg-emerald-50 text-emerald-700' };
+  }
   if (row.includedInPackage) return { text: 'inclus în pachet', chip: 'bg-emerald-50 text-emerald-700' };
   if (!row.billable) return { text: 'nefacturabil', chip: 'bg-slate-100 text-slate-500' };
   if (row.manualAmount) return { text: 'sumă negociată', chip: 'bg-violet-50 text-violet-700' };
   if (row.includedMinutes >= row.minutes) return { text: 'inclus în abonament', chip: 'bg-emerald-50 text-emerald-700' };
   if (row.packageMinutes >= row.minutes) return { text: 'din pachetul preplătit', chip: 'bg-indigo-50 text-indigo-700' };
-  if (row.includedMinutes > 0 || row.packageMinutes > 0) {
+  if (row.paidMinutes > 0 || row.includedMinutes > 0 || row.packageMinutes > 0) {
     const parti = [
+      row.paidMinutes > 0 ? `${formatMinutes(row.paidMinutes)} din orele abonamentului` : '',
       row.includedMinutes > 0 ? `${formatMinutes(row.includedMinutes)} din abonament` : '',
       row.packageMinutes > 0 ? `${formatMinutes(row.packageMinutes)} din pachet` : '',
       row.billableMinutes > 0 ? `${formatMinutes(row.billableMinutes)} facturate` : '',

@@ -78,6 +78,26 @@ lunară, în rapoarte și pe panoul de control.
 Orele incluse **nu se reportează** în luna următoare (fiecare lună începe cu
 pachetul întreg).
 
+### Orele plătite prin abonament
+
+Fiecare abonament poate avea un număr de **ore plătite** (câmpul *Ore plătite
+prin abonament*, în formularul de abonament). E un **rezervor consumat o
+singură dată**: nu se reîncarcă lunar, iar orele neconsumate rămân acolo până
+le folosești.
+
+Legătura se face prin câmpul *Lucrare / proiect*: când notezi ore și alegi din
+dropdown abonamentul respectiv, minutele scad direct din rezervorul lui — iar
+**o oră în afara programului scade dublu**, ca peste tot în platformă. Ce
+depășește rezervorul se facturează normal, la 45/90 €/h.
+
+Soldul se vede în trei locuri: pe fișa clientului, în lista de abonamente și
+**în portalul clientului**, cu bară de progres („7h folosite din 10 h · 3h
+rămase").
+
+Ordinea în care se acoperă o intervenție: întâi rezervorul abonamentului ales
+(cel mai specific), apoi orele incluse ale lunii, apoi pachetul preplătit, iar
+ce rămâne se facturează.
+
 ### Pachetele de ore preplătite
 
 Un client poate cumpăra lunar un pachet de ore, la tarif redus (se definesc în

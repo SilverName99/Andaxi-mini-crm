@@ -150,6 +150,7 @@ workLogsRouter.get(
         return {
           ...log,
           billableEur: a?.billableEur ?? log.amountEur,
+          paidMinutes: a ? a.paidStandardMinutes + a.paidOffHoursMinutes : 0,
           includedMinutes: a ? a.includedStandardMinutes + a.includedOffHoursMinutes : 0,
           packageMinutes: a ? a.packageStandardMinutes + a.packageOffHoursMinutes : 0,
         };

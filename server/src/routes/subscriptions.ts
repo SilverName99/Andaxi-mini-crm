@@ -9,6 +9,7 @@ import { today } from '../lib/dates.js';
 import { CYCLE_MONTHS, isCycle } from '../lib/cycles.js';
 import { round2 } from '../lib/rates.js';
 import { CLIENT_REF } from '../lib/selects.js';
+import { soldurilePeClienti } from '../lib/paid-hours.js';
 
 export const subscriptionsRouter = Router();
 
@@ -29,6 +30,8 @@ const subscriptionSchema = z.object({
   cycle: z.enum(CYCLES).default('MONTHLY'),
   /// Ore de interventie incluse in fiecare luna
   includedHoursPerMonth: z.coerce.number().min(0).max(200).default(0),
+  /** Ore platite prin abonament: rezervor care se consuma o singura data */
+  paidHours: z.coerce.number().min(0).max(2000).default(0),
   startDate: isoDate,
   endDate: isoDate.nullable().optional(),
   status: z.enum(SUBSCRIPTION_STATUSES).default('ACTIVE'),
@@ -105,15 +108,23 @@ subscriptionsRouter.get(
     });
 
     const settings = await getSettings();
+    const solduri = await soldurilePeClienti([...new Set(subscriptions.map((sub) => sub.clientId))]);
+
     res.json(
-      subscriptions.map((sub) => ({
-        ...sub,
-        // spatiul inclus urmeaza pragul de utilizatori, ca si pretul
-        storageIncludedGb:
-          isPerUserProduct(sub.product) && sub.users
-            ? includedStorageGb(settings, sub.product, sub.users)
-            : null,
-      })),
+      subscriptions.map((sub) => {
+        const sold = solduri.get(sub.clientId)?.get(sub.label.trim());
+        return {
+          ...sub,
+          // spatiul inclus urmeaza pragul de utilizatori, ca si pretul
+          storageIncludedGb:
+            isPerUserProduct(sub.product) && sub.users
+              ? includedStorageGb(settings, sub.product, sub.users)
+              : null,
+          /** Cat a mai ramas din orele platite prin abonament */
+          paidUsedMinutes: sold?.usedMinutes ?? 0,
+          paidRemainingMinutes: sold?.remainingMinutes ?? Math.round(sub.paidHours * 60),
+        };
+      }),
     );
   }),
 );

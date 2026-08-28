@@ -9,6 +9,7 @@ import { cn } from '../lib/cn';
 import { portalLogin, usePortalMe, usePortalMonth, type PortalMe } from './api';
 import { PortalLuna } from './PortalLuna';
 import { CereriPortal } from './CereriPortal';
+import { OreAbonament } from '../components/OreAbonament';
 import type { AccentColor } from '../lib/types';
 
 type Sectiune = 'luna' | 'abonamente' | 'plati' | 'cereri';
@@ -317,6 +318,8 @@ function Abonamente({ me }: { me: PortalMe }) {
               </p>
             </div>
           )}
+
+          <OreAbonament paidHours={sub.paidHours} remainingMinutes={sub.paidRemainingMinutes} />
 
           <dl className="flex flex-col gap-1.5 text-sm">
             <div className="flex justify-between gap-3">

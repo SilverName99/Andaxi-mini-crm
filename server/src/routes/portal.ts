@@ -6,6 +6,7 @@ import { env } from '../env.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { buildMonthlySheet } from '../lib/monthly-sheet.js';
 import { includedStorageGb, isPerUserProduct } from '../lib/pricing.js';
+import { soldurileClientului } from '../lib/paid-hours.js';
 import { today } from '../lib/dates.js';
 import { resolveUploadPath } from '../lib/uploads.js';
 import {
@@ -140,6 +141,7 @@ portalRouter.get(
 
     const bani = portal.showMoney;
     const azi = today();
+    const solduri = await soldurileClientului(clientId);
 
     res.json({
       client,
@@ -164,6 +166,10 @@ portalRouter.get(
         users: sub.users,
         includedHoursPerMonth: sub.includedHoursPerMonth,
         packageHours: sub.hourPackage?.hoursPerMonth ?? null,
+        /** Ore platite prin abonament si cat a mai ramas din ele */
+        paidHours: sub.paidHours,
+        paidRemainingMinutes:
+          solduri.get(sub.label.trim())?.remainingMinutes ?? Math.round(sub.paidHours * 60),
         nextDueDate: sub.nextDueDate,
         storageUsedGb: sub.storageUsedGb,
         storageIncludedGb:
@@ -247,6 +253,7 @@ portalRouter.get(
         includedInPackage: row.includedInPackage,
         billable: row.billable,
         minutes: row.minutes,
+        paidMinutes: row.paidMinutes,
         includedMinutes: row.includedMinutes,
         packageMinutes: row.packageMinutes,
         billableMinutes: row.billableMinutes,

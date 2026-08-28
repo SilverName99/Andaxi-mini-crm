@@ -21,6 +21,8 @@ export interface PortalMe {
     users: number | null;
     includedHoursPerMonth: number;
     packageHours: number | null;
+    paidHours: number;
+    paidRemainingMinutes: number;
     nextDueDate: string;
     storageUsedGb: number | null;
     storageIncludedGb: number | null;
@@ -61,6 +63,7 @@ export interface PortalRow {
   includedInPackage: boolean;
   billable: boolean;
   minutes: number;
+  paidMinutes: number;
   includedMinutes: number;
   packageMinutes: number;
   billableMinutes: number;

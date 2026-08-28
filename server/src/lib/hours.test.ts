@@ -283,3 +283,117 @@ test('munca din curtoazie (nefacturabila, fara bifa de pachet) nu atinge creditu
   assert.equal(rezultat.billableEur, 0);
   assert.equal(rezultat.remainingMinutes, 0);
 });
+
+test('orele puse pe un abonament cu ore platite scad din rezervorul lui', () => {
+  const abonament = {
+    clientId: 'c1',
+    label: 'biovitality.ro',
+    status: 'ACTIVE',
+    startDate: '2026-01-01',
+    endDate: null,
+    includedHoursPerMonth: 0,
+    paidHours: 10,
+  };
+
+  const rezultat = allocateTimeline(
+    [
+      { ...log({ id: 'a', date: '2026-07-03', standardMinutes: 240, amountEur: 180 }), clientId: 'c1', projectTag: 'biovitality.ro' },
+      // lucrare pe alt abonament: nu atinge rezervorul
+      { ...log({ id: 'b', date: '2026-07-05', standardMinutes: 60 }), clientId: 'c1', projectTag: 'alt-site.ro' },
+    ],
+    [abonament],
+  );
+
+  assert.equal(rezultat.byLog.get('a')!.billableEur, 0, 'cele 4 ore intra in rezervor');
+  assert.equal(rezultat.byLog.get('a')!.paidStandardMinutes, 240);
+  assert.equal(rezultat.byLog.get('b')!.billableEur, 45, 'lucrarea de pe alt abonament se factureaza');
+
+  const sold = rezultat.paidPools.get('c1')!.get('biovitality.ro')!;
+  assert.equal(sold.totalMinutes, 600);
+  assert.equal(sold.usedMinutes, 240);
+  assert.equal(sold.remainingMinutes, 360, 'au mai ramas 6 ore');
+});
+
+test('orele din afara programului consuma dublu din rezervorul abonamentului', () => {
+  const rezultat = allocateTimeline(
+    [
+      {
+        ...log({ id: 'noapte', date: '2026-07-03', standardMinutes: 0, offHoursMinutes: 120, amountEur: 180 }),
+        clientId: 'c1',
+        projectTag: 'site.ro',
+      },
+    ],
+    [
+      {
+        clientId: 'c1',
+        label: 'site.ro',
+        status: 'ACTIVE',
+        startDate: '2026-01-01',
+        endDate: null,
+        includedHoursPerMonth: 0,
+        paidHours: 10,
+      },
+    ],
+  );
+
+  const sold = rezultat.paidPools.get('c1')!.get('site.ro')!;
+  assert.equal(sold.usedMinutes, 240, 'doua ore de noapte consuma patru din rezervor');
+  assert.equal(sold.remainingMinutes, 360);
+  assert.equal(rezultat.byLog.get('noapte')!.billableEur, 0);
+});
+
+test('ce depaseste rezervorul abonamentului se factureaza normal', () => {
+  const rezultat = allocateTimeline(
+    [
+      {
+        ...log({ id: 'lunga', date: '2026-07-03', standardMinutes: 300, amountEur: 225 }),
+        clientId: 'c1',
+        projectTag: 'site.ro',
+      },
+    ],
+    [
+      {
+        clientId: 'c1',
+        label: 'site.ro',
+        status: 'ACTIVE',
+        startDate: '2026-01-01',
+        endDate: null,
+        includedHoursPerMonth: 0,
+        paidHours: 2,
+      },
+    ],
+  );
+
+  const alocare = rezultat.byLog.get('lunga')!;
+  assert.equal(alocare.paidStandardMinutes, 120, 'doua ore din rezervor');
+  assert.equal(alocare.billableStandardMinutes, 180, 'trei ore raman de facturat');
+  assert.equal(alocare.billableEur, 135); // 3 × 45
+  assert.equal(rezultat.paidPools.get('c1')!.get('site.ro')!.remainingMinutes, 0);
+});
+
+test('rezervorul nu se reincarca: se consuma peste luni, in ordine', () => {
+  const abonament = {
+    clientId: 'c1',
+    label: 'site.ro',
+    status: 'ACTIVE',
+    startDate: '2026-01-01',
+    endDate: null,
+    includedHoursPerMonth: 0,
+    paidHours: 5,
+  };
+  const orePe = (id: string, date: string, minute: number) => ({
+    ...log({ id, date, standardMinutes: minute, amountEur: (minute / 60) * 45 }),
+    clientId: 'c1',
+    projectTag: 'site.ro',
+  });
+
+  const rezultat = allocateTimeline(
+    [orePe('iulie', '2026-07-10', 180), orePe('august', '2026-08-10', 180)],
+    [abonament],
+  );
+
+  assert.equal(rezultat.byLog.get('iulie')!.billableEur, 0, 'primele 3 ore incap in rezervor');
+  assert.equal(rezultat.byLog.get('august')!.paidStandardMinutes, 120, 'in august mai erau doar 2 ore');
+  assert.equal(rezultat.byLog.get('august')!.billableEur, 45, 'ora ramasa se factureaza');
+  assert.equal(rezultat.paidPools.get('c1')!.get('site.ro')!.remainingMinutes, 0);
+});

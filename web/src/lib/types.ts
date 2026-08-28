@@ -124,6 +124,11 @@ export interface Subscription {
   cycle: Cycle;
   /** Ore de intervenție incluse în fiecare lună */
   includedHoursPerMonth: number;
+  /** Ore plătite prin abonament: un rezervor consumat o singură dată */
+  paidHours: number;
+  /** Cât s-a consumat și cât a mai rămas din rezervor (calculate de server) */
+  paidUsedMinutes?: number;
+  paidRemainingMinutes?: number;
   /** Pentru abonamentele de tip pachet de ore */
   hourPackageId: string | null;
   hourPackage?: HourPackage | null;
@@ -215,6 +220,8 @@ export interface WorkLog {
   projectTag: string;
   /** Cât rămâne de facturat după scăderea orelor incluse (calculat pe lună) */
   billableEur?: number;
+  /** Minute acoperite din orele plătite prin abonament */
+  paidMinutes?: number;
   /** Minute acoperite din orele incluse în abonament */
   includedMinutes?: number;
   /** Minute acoperite din pachetul preplătit */
@@ -358,6 +365,8 @@ export interface MonthlySheetRow {
   offHoursMinutes: number;
   standardRate: number;
   offHoursRate: number;
+  /** Minute acoperite din orele plătite prin abonamentul lucrării */
+  paidMinutes: number;
   includedMinutes: number;
   packageMinutes: number;
   billableMinutes: number;

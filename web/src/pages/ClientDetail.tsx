@@ -10,6 +10,7 @@ import { ClientForm } from './Clients';
 import { SubscriptionForm } from './Subscriptions';
 import { WorkLogDetail } from './WorkLogs';
 import { PortalClient } from '../components/PortalClient';
+import { OreAbonament } from '../components/OreAbonament';
 import { formatDate, formatEur, formatMinutes, formatRon, minutesToHhMm } from '../lib/format';
 import {
   BILLING_STATUS, CLIENT_STATUS, CYCLE, PRODUCT, SUBSCRIPTION_KIND, SUBSCRIPTION_STATUS, WORK_CATEGORY, WORK_STATUS,
@@ -123,7 +124,7 @@ export function ClientDetail() {
           ) : (
             subscriptions.map((sub) => (
               <Card key={sub.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-bold text-slate-800">{sub.label}</p>
                     <Badge className={SUBSCRIPTION_STATUS[sub.status].chip}>{SUBSCRIPTION_STATUS[sub.status].text}</Badge>
@@ -133,6 +134,11 @@ export function ClientDetail() {
                     <Badge className={PRODUCT[sub.product].chip}>{PRODUCT[sub.product].text}</Badge>
                     <Badge className={CYCLE[sub.cycle].chip}>{CYCLE[sub.cycle].text}</Badge>
                   </div>
+                  <OreAbonament
+                    paidHours={sub.paidHours}
+                    remainingMinutes={sub.paidRemainingMinutes}
+                    className="mt-3 max-w-xs"
+                  />
                   {sub.notes && <p className="mt-2 text-xs text-slate-500">{sub.notes}</p>}
                 </div>
                 <div className="text-right">

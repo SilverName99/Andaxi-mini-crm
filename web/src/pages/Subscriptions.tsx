@@ -11,7 +11,7 @@ import {
   Avatar, Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBlock, Field, Input, LoadingBlock, Modal,
   Segmented, Select, Textarea, Toggle, useToast,
 } from '../components/ui';
-import { formatDate, formatEur, todayIso } from '../lib/format';
+import { formatDate, formatEur, formatMinutes, todayIso } from '../lib/format';
 import { cn } from '../lib/cn';
 import { CYCLE, PRODUCT, SUBSCRIPTION_KIND, SUBSCRIPTION_STATUS, options } from '../lib/labels';
 import type {
@@ -23,7 +23,7 @@ const PER_USER: Subscription['product'][] = ['ERP', 'CRM'];
 
 const EMPTY: Partial<Subscription> = {
   clientId: '', label: '', kind: 'HOSTING_MENTENANTA', product: 'PREZENTARE', amountEur: 45,
-  users: null, cycle: 'MONTHLY', includedHoursPerMonth: 0, startDate: todayIso(), endDate: null,
+  users: null, cycle: 'MONTHLY', includedHoursPerMonth: 0, paidHours: 0, startDate: todayIso(), endDate: null,
   status: 'ACTIVE', notes: '',
 };
 
@@ -199,6 +199,18 @@ export function SubscriptionForm({
             step="0.5"
             value={form.includedHoursPerMonth ?? 0}
             onChange={(e) => set('includedHoursPerMonth', Number(e.target.value))}
+          />
+        </Field>
+        <Field
+          label="Ore plătite prin abonament"
+          hint="Rezervor consumat o singură dată: orele puse pe acest abonament scad din el, cele din afara programului dublu"
+        >
+          <Input
+            type="number"
+            min={0}
+            step="0.5"
+            value={form.paidHours ?? 0}
+            onChange={(e) => set('paidHours', Number(e.target.value))}
           />
         </Field>
         <Field label="Prima scadență *" hint="De la această dată se generează pozițiile de facturat">
@@ -484,6 +496,11 @@ export function Subscriptions() {
                   {sub.hourPackage ? (
                     <Badge className="bg-indigo-100 text-indigo-700">
                       {sub.hourPackage.hoursPerMonth} h/lună preplătite
+                    </Badge>
+                  ) : null}
+                  {sub.paidHours > 0 ? (
+                    <Badge className="bg-emerald-50 text-emerald-700">
+                      {formatMinutes(sub.paidRemainingMinutes ?? sub.paidHours * 60)} din {sub.paidHours}h plătite
                     </Badge>
                   ) : null}
                   {sub.includedHoursPerMonth > 0 ? (

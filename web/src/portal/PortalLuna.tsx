@@ -11,6 +11,9 @@ import type { PortalMe, PortalMonth, PortalRow } from './api';
 
 /** Ce a acoperit orele unei lucrări: abonamentul, pachetul sau factura */
 function sursa(row: PortalRow): { text: string; chip: string } | null {
+  if (row.paidMinutes >= row.minutes && row.minutes > 0) {
+    return { text: 'din orele abonamentului', chip: 'bg-emerald-50 text-emerald-700' };
+  }
   if (row.includedInPackage) return { text: 'inclus în abonament', chip: 'bg-emerald-50 text-emerald-700' };
   if (!row.billable) return { text: 'fără cost', chip: 'bg-emerald-50 text-emerald-700' };
   if (row.includedMinutes >= row.minutes) return { text: 'inclus în abonament', chip: 'bg-emerald-50 text-emerald-700' };

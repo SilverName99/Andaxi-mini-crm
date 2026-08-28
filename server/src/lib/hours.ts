@@ -21,10 +21,15 @@ export interface AllocatableLog {
   /** Ore marcate explicit ca acoperite de abonament / pachet: nu se factureaza,
    *  dar consuma din creditul lunii */
   includedInPackage?: boolean;
+  /** Abonamentul pe care s-au pus orele (eticheta din "Lucrare / proiect") */
+  projectTag?: string;
 }
 
 export interface Allocation {
   logId: string;
+  /** Minute acoperite din orele platite prin abonamentul ales la lucrare */
+  paidStandardMinutes: number;
+  paidOffHoursMinutes: number;
   /** Minute acoperite din orele incluse in abonament */
   includedStandardMinutes: number;
   includedOffHoursMinutes: number;
@@ -52,6 +57,8 @@ export interface MonthAllocation {
   packageCreditedMinutes: number;
   packageUsedMinutes: number;
   packageClosingMinutes: number;
+  /** Cat s-a consumat luna asta din rezervoarele abonamentelor, pe eticheta */
+  paidUsedByTag: Map<string, number>;
   grossEur: number;
   billableEur: number;
   coveredEur: number;
@@ -77,6 +84,8 @@ export function allocateMonth(
   includedMinutes: number,
   packageOpeningMinutes = 0,
   packageCreditedMinutes = 0,
+  /** Soldul rezervoarelor platite prin abonament, pe eticheta; se modifica pe loc */
+  paidPools: Map<string, number> = new Map(),
 ): MonthAllocation {
   const ordonate = [...logs].sort(
     (a, b) => a.date.localeCompare(b.date) || a.startMinutes - b.startMinutes,
@@ -85,6 +94,7 @@ export function allocateMonth(
   let credit = Math.max(0, includedMinutes);
   let pachet = Math.max(0, packageOpeningMinutes + packageCreditedMinutes);
   const allocations = new Map<string, Allocation>();
+  const paidUsedByTag = new Map<string, number>();
   let grossEur = 0;
   let billableEur = 0;
 
@@ -103,6 +113,8 @@ export function allocateMonth(
     if (!acoperitManual && (!log.billable || log.manualAmount)) {
       allocations.set(log.id, {
         logId: log.id,
+        paidStandardMinutes: 0,
+        paidOffHoursMinutes: 0,
         includedStandardMinutes: 0,
         includedOffHoursMinutes: 0,
         packageStandardMinutes: 0,
@@ -116,35 +128,59 @@ export function allocateMonth(
       continue;
     }
 
-    // 1. orele incluse in abonament
-    const incStandard = acopera(log.standardMinutes, credit, 1);
+    /*
+     * 1. rezervorul abonamentului ales la lucrare — e cel mai specific, deci
+     * se consuma primul (orele din afara programului scad dublu din el)
+     */
+    const eticheta = (log.projectTag ?? '').trim();
+    const rezervor = eticheta && paidPools.has(eticheta) ? paidPools.get(eticheta)! : 0;
+    const platStandard = acopera(log.standardMinutes, rezervor, 1);
+    const platOffHours = acopera(log.offHoursMinutes, platStandard.ramas, OFF_HOURS_FACTOR);
+    if (eticheta && paidPools.has(eticheta)) {
+      paidPools.set(eticheta, platOffHours.ramas);
+      const consumat = rezervor - platOffHours.ramas;
+      if (consumat > 0) paidUsedByTag.set(eticheta, (paidUsedByTag.get(eticheta) ?? 0) + consumat);
+    }
+
+    // 2. orele incluse in abonament
+    const incStandard = acopera(log.standardMinutes - platStandard.acoperite, credit, 1);
     credit = incStandard.ramas;
-    const incOffHours = acopera(log.offHoursMinutes, credit, OFF_HOURS_FACTOR);
+    const incOffHours = acopera(log.offHoursMinutes - platOffHours.acoperite, credit, OFF_HOURS_FACTOR);
     credit = incOffHours.ramas;
 
-    // 2. soldul pachetului preplatit
-    const pacStandard = acopera(log.standardMinutes - incStandard.acoperite, pachet, 1);
+    // 3. soldul pachetului preplatit
+    const pacStandard = acopera(
+      log.standardMinutes - platStandard.acoperite - incStandard.acoperite,
+      pachet,
+      1,
+    );
     pachet = pacStandard.ramas;
-    const pacOffHours = acopera(log.offHoursMinutes - incOffHours.acoperite, pachet, OFF_HOURS_FACTOR);
+    const pacOffHours = acopera(
+      log.offHoursMinutes - platOffHours.acoperite - incOffHours.acoperite,
+      pachet,
+      OFF_HOURS_FACTOR,
+    );
     pachet = pacOffHours.ramas;
 
     /*
-     * 3. ce ramane se factureaza la tarifele inregistrate pe interventie —
+     * 4. ce ramane se factureaza la tarifele inregistrate pe interventie —
      * mai putin orele declarate incluse, care raman gratuite chiar daca au
      * depasit creditul lunii.
      */
     const billableStandard = acoperitManual
       ? 0
-      : log.standardMinutes - incStandard.acoperite - pacStandard.acoperite;
+      : log.standardMinutes - platStandard.acoperite - incStandard.acoperite - pacStandard.acoperite;
     const billableOffHours = acoperitManual
       ? 0
-      : log.offHoursMinutes - incOffHours.acoperite - pacOffHours.acoperite;
+      : log.offHoursMinutes - platOffHours.acoperite - incOffHours.acoperite - pacOffHours.acoperite;
     const billable = round2(
       (billableStandard / 60) * log.standardRate + (billableOffHours / 60) * log.offHoursRate,
     );
 
     allocations.set(log.id, {
       logId: log.id,
+      paidStandardMinutes: platStandard.acoperite,
+      paidOffHoursMinutes: platOffHours.acoperite,
       includedStandardMinutes: incStandard.acoperite,
       includedOffHoursMinutes: incOffHours.acoperite,
       packageStandardMinutes: pacStandard.acoperite,
@@ -166,6 +202,7 @@ export function allocateMonth(
     packageCreditedMinutes,
     packageUsedMinutes: disponibilPachet - pachet,
     packageClosingMinutes: pachet,
+    paidUsedByTag,
     grossEur: round2(grossEur),
     billableEur: round2(billableEur),
     coveredEur: round2(grossEur - billableEur),
@@ -236,16 +273,31 @@ export function monthsBetween(from: string, to: string): string[] {
 
 export interface TimelineSubscription {
   clientId: string;
+  /** Denumirea abonamentului — eticheta cu care se leaga orele de el */
+  label?: string;
   status: string;
   startDate: string;
   endDate: string | null;
   includedHoursPerMonth: number;
+  /** Ore platite prin abonament: un rezervor care se consuma o singura data */
+  paidHours?: number;
   hourPackage?: { hoursPerMonth: number } | null;
+}
+
+/** Cat a mai ramas dintr-un rezervor de ore platite prin abonament */
+export interface SoldAbonament {
+  label: string;
+  /** Minute cumparate (ore × 60) */
+  totalMinutes: number;
+  usedMinutes: number;
+  remainingMinutes: number;
 }
 
 export interface TimelineResult {
   /** Alocarea fiecarei interventii */
   byLog: Map<string, Allocation>;
+  /** Soldul rezervoarelor de ore platite prin abonament, pe client si eticheta */
+  paidPools: Map<string, Map<string, SoldAbonament>>;
   /** Situatia fiecarei luni, pe client: cheia e "clientId|YYYY-MM" */
   byClientMonth: Map<string, MonthAllocation>;
 }
@@ -263,6 +315,7 @@ export function allocateTimeline<T extends AllocatableLog & { clientId: string }
 ): TimelineResult {
   const byLog = new Map<string, Allocation>();
   const byClientMonth = new Map<string, MonthAllocation>();
+  const paidPools = new Map<string, Map<string, SoldAbonament>>();
 
   const clientIds = new Set([...logs.map((l) => l.clientId), ...subscriptions.map((s) => s.clientId)]);
 
@@ -271,30 +324,60 @@ export function allocateTimeline<T extends AllocatableLog & { clientId: string }
     const abonamente = subscriptions.filter((s) => s.clientId === clientId);
     const pachete = abonamente.filter((s) => s.hourPackage && s.status === 'ACTIVE');
 
+    /*
+     * Rezervoarele de ore platite prin abonament nu se reincarca niciodata: le
+     * pornim pline si le lasam sa scada, luna dupa luna, in ordine cronologica.
+     */
+    const soldPlatit = new Map<string, number>();
+    const totalPlatit = new Map<string, number>();
+    for (const sub of abonamente) {
+      const eticheta = (sub.label ?? '').trim();
+      if (!eticheta || !sub.paidHours || sub.paidHours <= 0) continue;
+      const minute = Math.round(sub.paidHours * 60);
+      soldPlatit.set(eticheta, (soldPlatit.get(eticheta) ?? 0) + minute);
+      totalPlatit.set(eticheta, (totalPlatit.get(eticheta) ?? 0) + minute);
+    }
+
     const luniCuOre = aleClientului.map((l) => monthOf(l.date));
     const luniPachet = pachete.map((s) => monthOf(s.startDate));
     const toateLunile = [...luniCuOre, ...luniPachet];
-    if (toateLunile.length === 0) continue;
 
-    const prima = toateLunile.reduce((a, b) => (a < b ? a : b));
-    const ultima = luniCuOre.length ? luniCuOre.reduce((a, b) => (a > b ? a : b)) : prima;
+    if (toateLunile.length > 0) {
+      const prima = toateLunile.reduce((a, b) => (a < b ? a : b));
+      const ultima = luniCuOre.length ? luniCuOre.reduce((a, b) => (a > b ? a : b)) : prima;
 
-    let soldPachet = 0;
-    for (const month of monthsBetween(prima, ultima)) {
-      const alocare = allocateMonth(
-        aleClientului.filter((l) => monthOf(l.date) === month),
-        includedMinutesForMonth(abonamente, month),
-        soldPachet,
-        packageMinutesForMonth(abonamente, month),
-      );
-      soldPachet = alocare.packageClosingMinutes;
+      let soldPachet = 0;
+      for (const month of monthsBetween(prima, ultima)) {
+        const alocare = allocateMonth(
+          aleClientului.filter((l) => monthOf(l.date) === month),
+          includedMinutesForMonth(abonamente, month),
+          soldPachet,
+          packageMinutesForMonth(abonamente, month),
+          soldPlatit,
+        );
+        soldPachet = alocare.packageClosingMinutes;
 
-      byClientMonth.set(`${clientId}|${month}`, alocare);
-      for (const [logId, a] of alocare.allocations) byLog.set(logId, a);
+        byClientMonth.set(`${clientId}|${month}`, alocare);
+        for (const [logId, a] of alocare.allocations) byLog.set(logId, a);
+      }
+    }
+
+    if (totalPlatit.size > 0) {
+      const solduri = new Map<string, SoldAbonament>();
+      for (const [eticheta, total] of totalPlatit) {
+        const ramas = soldPlatit.get(eticheta) ?? 0;
+        solduri.set(eticheta, {
+          label: eticheta,
+          totalMinutes: total,
+          usedMinutes: total - ramas,
+          remainingMinutes: ramas,
+        });
+      }
+      paidPools.set(clientId, solduri);
     }
   }
 
-  return { byLog, byClientMonth };
+  return { byLog, byClientMonth, paidPools };
 }
 
 /** Varianta scurta, cand intereseaza doar alocarea pe interventii */
