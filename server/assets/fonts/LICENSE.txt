@@ -1,0 +1,6 @@
+Liberation Sans (Regular + Bold) — SIL Open Font License 1.1
+Copyright (c) 2012 Red Hat, Inc.
+https://github.com/liberationfonts/liberation-fonts
+
+Fonturile sunt folosite pentru generarea PDF-urilor pe server: fonturile
+standard din PDF nu contin diacriticele romanesti (ă, â, î, ș, ț).

@@ -111,6 +111,17 @@ vechiul mod, pentru lucrările notate fără ceas.
 Culorile urmează exact regula de facturare de pe server, inclusiv weekendul
 integral majorat, dacă e activat în Setări.
 
+### Fișierul explicativ al lunii (PDF)
+
+Sub calendarul clientului e butonul **Descarcă fișier explicativ (PDF)**: un
+raport de o pagină (sau mai multe, dacă luna e plină) cu antetul firmei și
+sigla, **calendarul lunii cu ceasul fiecărei zile**, lista tuturor lucrărilor
+(data, intervalul, descrierea, eticheta, orele, valoarea) și totalul cu
+reducere și TVA. E gata de trimis clientului, alături de factura din ERP.
+
+PDF-ul se generează pe server (pdfkit), cu fonturile din `server/assets/fonts`
+— cele standard din PDF nu au diacriticele românești.
+
 ### Import de ore din fișier
 
 Pentru lunile completate în urmă, orele se pot importa dintr-un CSV în loc să

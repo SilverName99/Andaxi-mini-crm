@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, Clock4, Moon, Plus, Sun } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Clock4, FileDown, Moon, Plus, Sun } from 'lucide-react';
 import { api } from '../lib/api';
 import {
   useClient, useCrudMutation, useMonthlyApproval, useMonthlyDiscount, useSettings, useWorkLogs,
@@ -213,6 +213,13 @@ export function ClientCalendar() {
               </div>
             </div>
           </div>
+
+          <a
+            href={`/api/month-report?clientId=${id}&month=${month}`}
+            className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-700"
+          >
+            <FileDown className="h-4 w-4" /> Descarcă fișier explicativ (PDF)
+          </a>
         </Card>
 
         <div className="flex flex-col gap-4">

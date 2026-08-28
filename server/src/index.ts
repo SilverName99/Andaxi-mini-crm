@@ -23,6 +23,7 @@ import { monthlyDiscountRouter } from './routes/monthly-discount.js';
 import { monthlyDocumentsRouter } from './routes/monthly-documents.js';
 import { monthlySheetRouter } from './routes/monthly-sheet.js';
 import { monthlyApprovalRouter } from './routes/monthly-approval.js';
+import { monthReportRouter } from './routes/month-report.js';
 import { portalRouter } from './routes/portal.js';
 
 const app = express();
@@ -86,6 +87,7 @@ app.use('/api/monthly-sheet', requireAuth, monthlySheetRouter);
 app.use('/api/monthly-documents', requireAuth, monthlyDocumentsRouter);
 app.use('/api/monthly-discount', requireAuth, monthlyDiscountRouter);
 app.use('/api/monthly-approval', requireAuth, monthlyApprovalRouter);
+app.use('/api/month-report', requireAuth, monthReportRouter);
 
 // In productie servim si build-ul de frontend din acelasi proces (un singur port de expus)
 const webDist = path.resolve(fileURLToPath(new URL('../../web/dist', import.meta.url)));
