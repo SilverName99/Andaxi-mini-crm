@@ -92,14 +92,18 @@ lunară arată extrasul: sold la început, primite, consumate, sold rămas.
 
 ### Ceasul zilei
 
-Fiecare zi are un **ceas de 24 de ore**: fiecare intervenție notată cu interval
-orar devine un arc colorat — indigo cât a picat în programul normal, fucsia
-pentru restul. Ceasul apare în trei locuri: mic, în colțul fiecărei zile din
-calendar, mare în panoul zilei alese și, la fel, în portalul clientului.
+Fiecare intervenție notată cu interval orar devine un arc colorat pe ceasul
+zilei — indigo cât a picat în programul normal, fucsia pentru restul.
+
+Cadranul e **de 12 ore, ca la orice ceas**, cu un comutator ☀️ / 🌙 între prima
+și a doua jumătate a zilei; un punct pe iconiță arată când mai e ceva de văzut
+și pe cealaltă față. Previzualizarea din colțul fiecărei zile din calendar
+rămâne pe 24 de ore, ca să încapă toată ziua într-o singură privire.
 
 În calendarul clientului ceasul e și de desenat: tragi cu mouse-ul sau cu
 degetul peste orele lucrate (se rotunjește la sfert de oră) și intervalul se
-completează singur în formular, cu suma calculată pe loc. Câmpurile *De la* și
+completează singur în formular, cu suma calculată pe loc. Dacă treci de ora 12,
+intervalul continuă singur în cealaltă jumătate a zilei. Câmpurile *De la* și
 *Până la* rămân acolo pentru orele exacte, iar butonul *Doar durata* păstrează
 vechiul mod, pentru lucrările notate fără ceas.
 

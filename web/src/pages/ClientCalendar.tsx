@@ -7,7 +7,7 @@ import {
 } from '../lib/queries';
 import { WorkLogDetail } from './WorkLogs';
 import { MonthlyDocuments } from '../components/MonthlyDocuments';
-import { Ceas24, etichetaInterval, LegendaCeas } from '../components/Ceas24';
+import { CeasZi, etichetaInterval, LegendaCeas } from '../components/CeasZi';
 import { TimeField } from '../components/TimeField';
 import { ImportOre } from '../components/ImportOre';
 import { ReducereLunara, calculeazaReducere } from '../components/ReducereLunara';
@@ -194,7 +194,7 @@ export function ClientCalendar() {
                         </span>
                         {(() => {
                           const segmente = segmenteleZilei(zi.iso, intervaleZilei(zi.iso), program);
-                          return segmente.length > 0 ? <Ceas24 segmente={segmente} marime="mic" /> : null;
+                          return segmente.length > 0 ? <CeasZi segmente={segmente} marime="mic" /> : null;
                         })()}
                       </span>
 
@@ -223,7 +223,7 @@ export function ClientCalendar() {
             </div>
 
             <div className="mb-4 flex flex-col items-center gap-2">
-              <Ceas24
+              <CeasZi
                 segmente={segmenteZiSelectata}
                 selectie={selectie}
                 onSelectie={setSelectie}

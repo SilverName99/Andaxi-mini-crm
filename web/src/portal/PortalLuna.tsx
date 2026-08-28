@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { CalendarDays, Clock4, Download, FileText, Wallet } from 'lucide-react';
 import { Badge, Card, EmptyState, LoadingBlock } from '../components/ui';
-import { Ceas24, LegendaCeas } from '../components/Ceas24';
+import { CeasZi, LegendaCeas } from '../components/CeasZi';
 import { formatDate, formatEur, formatFileSize, formatMinutes, formatRon } from '../lib/format';
 import { grilaLunii, numeZi, ZILE_SCURTE } from '../lib/calendar';
 import { WORK_CATEGORY } from '../lib/labels';
@@ -146,7 +146,7 @@ export function PortalLuna({
                 >
                   {zi.inLuna && segmenteZi(zi.iso).length > 0 && (
                     <span className="absolute right-1 top-1">
-                      <Ceas24 segmente={segmenteZi(zi.iso)} marime="mic" />
+                      <CeasZi segmente={segmenteZi(zi.iso)} marime="mic" />
                     </span>
                   )}
                   <span>{Number(zi.iso.slice(-2))}</span>
@@ -177,7 +177,7 @@ export function PortalLuna({
 
           {ziSelectata && segmenteZi(ziSelectata).length > 0 && (
             <div className="mb-4 flex flex-col items-center gap-2 rounded-2xl bg-slate-50 p-4">
-              <Ceas24 segmente={segmenteZi(ziSelectata)} program={program} date={ziSelectata} marime="mare" />
+              <CeasZi segmente={segmenteZi(ziSelectata)} program={program} date={ziSelectata} marime="mare" />
               <p className="text-sm font-bold text-slate-700">
                 {formatMinutes(
                   minuteSegmente(segmenteZi(ziSelectata)).standard +
