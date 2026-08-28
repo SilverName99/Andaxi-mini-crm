@@ -7,7 +7,7 @@ import { hhMmToMinutes } from '../lib/dates.js';
 import { round2, splitWorkInterval, type RateConfig } from '../lib/rates.js';
 import { allocateByClientMonth } from '../lib/hours.js';
 import { ALLOWED_DOC_TYPES, deleteAttachment, resolveUploadPath, saveAttachment } from '../lib/uploads.js';
-import { normalizeaza, parseCsv, parseData, parseNumar } from '../lib/csv.js';
+import { normalizeaza, parseCsv, parseData, parseNumar, parseOra } from '../lib/csv.js';
 import { HttpError } from '../middleware/errors.js';
 import { CLIENT_REF } from '../lib/selects.js';
 
@@ -168,8 +168,8 @@ const COLOANE = {
   eticheta: ['eticheta', 'proiect', 'lucrare/proiect'],
   categorie: ['categorie', 'tip'],
   tarif: ['tarif', 'regim'],
-  start: ['de la', 'ora start', 'start'],
-  end: ['pana la', 'ora final', 'final', 'end'],
+  start: ['de la', 'ora start', 'start', 'ora inceput', 'interval de la'],
+  end: ['pana la', 'ora final', 'final', 'end', 'ora sfarsit', 'interval pana la'],
 };
 
 function iaValoare(rand: Record<string, string>, chei: string[]): string {
@@ -211,13 +211,19 @@ interface RandImport {
   error: string;
 }
 
-/** Sablonul de completat, cu doua exemple */
+/**
+ * Sablonul de completat. Orele se pot da in doua feluri: interval orar
+ * ("De la" / "Pana la", si atunci tariful iese singur din ceas) sau doar
+ * numarul de ore, cu regimul de tarif ales in ultima coloana.
+ */
 workLogsRouter.get('/import/template', (_req, res) => {
   const linii = [
-    'Data;Ore;Descriere;Eticheta;Categorie;Tarif',
-    '03.07.2026;1;"Stoc oferta (optional) - bug";Mentenanta site;Suport;normal',
-    '09.07.2026;2,5;Actualizare continut si imagini;Mentenanta site;Dezvoltare;normal',
-    '15.07.2026;2;Interventie urgenta seara;;Interventie;majorat',
+    'Data;De la;Pana la;Ore;Descriere;Eticheta;Categorie;Tarif',
+    '03.07.2026;09:00;10:00;;"Stoc oferta (optional) - bug";Mentenanta site;Suport;',
+    '09.07.2026;13:30;16:00;;Actualizare continut si imagini;Mentenanta site;Dezvoltare;',
+    '15.07.2026;18:00;20:00;;Interventie urgenta seara;;Interventie;',
+    '20.07.2026;;;2,5;Lucrare notata doar in ore;Mentenanta site;Dezvoltare;normal',
+    '22.07.2026;;;2;Lucrare in afara programului;;Interventie;majorat',
   ];
   // BOM, ca Excel sa recunoasca diacriticele
   const csv = `\ufeff${linii.join('\r\n')}\r\n`;
@@ -253,8 +259,10 @@ workLogsRouter.post(
     const rezultate: RandImport[] = randuri.map((rand, index) => {
       const linie = index + 2; // +1 pentru antet, +1 ca numaratoarea sa inceapa de la 1
       const date = parseData(iaValoare(rand, COLOANE.data));
-      const start = iaValoare(rand, COLOANE.start);
-      const end = iaValoare(rand, COLOANE.end);
+      const startBrut = iaValoare(rand, COLOANE.start);
+      const endBrut = iaValoare(rand, COLOANE.end);
+      const start = parseOra(startBrut) ?? '';
+      const end = parseOra(endBrut) ?? '';
       const ore = parseNumar(iaValoare(rand, COLOANE.ore));
       const rateType = citesteTarif(iaValoare(rand, COLOANE.tarif));
       const categorieBruta = normalizeaza(iaValoare(rand, COLOANE.categorie));
@@ -276,9 +284,19 @@ workLogsRouter.post(
 
       if (!date) return { ...gol, error: 'Data lipsește sau nu e validă' };
 
+      // ora scrisa, dar de neinteles: mai bine oprim linia decat sa ghicim
+      if (startBrut && !start) return { ...gol, error: `Ora de început „${startBrut}" nu e validă` };
+      if (endBrut && !end) return { ...gol, error: `Ora de final „${endBrut}" nu e validă` };
+
       const areInterval = Boolean(start && end);
+      if ((startBrut || endBrut) && !areInterval) {
+        return { ...gol, error: 'Completează și ora de început, și cea de final' };
+      }
       if (!areInterval && (!ore || ore <= 0)) {
-        return { ...gol, error: 'Completează numărul de ore sau intervalul orar' };
+        return { ...gol, error: 'Completează intervalul orar sau numărul de ore' };
+      }
+      if (areInterval && end <= start) {
+        return { ...gol, error: 'Ora de final trebuie să fie după cea de început' };
       }
 
       try {

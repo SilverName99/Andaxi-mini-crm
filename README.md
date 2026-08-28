@@ -94,8 +94,19 @@ lunară arată extrasul: sold la început, primite, consumate, sold rămas.
 
 Pentru lunile completate în urmă, orele se pot importa dintr-un CSV în loc să
 fie introduse zi cu zi. Șablonul se descarcă din calendarul clientului și are
-coloanele `Data · Ore · Descriere · Etichetă · Categorie · Tarif` (opțional `De la`
-și `Până la`, dacă vrei interval orar în locul duratei).
+coloanele `Data · De la · Până la · Ore · Descriere · Etichetă · Categorie · Tarif`.
+
+Munca se notează în două feluri, alese linie cu linie:
+
+- **cu interval orar** (`De la` / `Până la`) — atunci împărțirea între tariful
+  normal și cel majorat se face singură, după ceas, iar coloanele `Ore` și
+  `Tarif` se lasă goale;
+- **doar cu durata** (`Ore`) — pentru lucrările lungi, unde alegi regimul din
+  coloana `Tarif` (`normal` sau `majorat`).
+
+Orele se pot scrie cum le scrie omul sau Excel: `9`, `9:00`, `09:30`, `9.30`
+sau `17:00:00`. O oră de neînțeles oprește linia respectivă cu un mesaj clar,
+în loc să fie ghicită.
 
 Fișierul acceptă separator `;` sau `,`, virgulă zecimală, diacritice și date în
 format `zz.ll.aaaa` sau `aaaa-ll-zz`. Înainte de import se afișează exact ce

@@ -8,6 +8,9 @@ import { formatDate, formatEur, formatMinutes } from '../lib/format';
 interface RandImport {
   linie: number;
   date: string;
+  /** Intervalul citit din fisier, gol la liniile notate doar cu numarul de ore */
+  start: string;
+  end: string;
   description: string;
   projectTag: string;
   minutes: number;
@@ -116,7 +119,9 @@ export function ImportOre({ clientId, clientName }: { clientId: string; clientNa
         <span className="text-sm text-slate-500">
           {verifica.isPending ? 'Se citește fișierul…' : 'Încarcă un CSV cu orele lunii'}
         </span>
-        <span className="text-xs text-slate-400">Data · Ore · Descriere · Etichetă · Categorie · Tarif</span>
+        <span className="text-xs text-slate-400">
+          Data · De la · Până la · Ore · Descriere · Etichetă · Categorie · Tarif
+        </span>
       </button>
 
       {error && <div className="mt-3"><ErrorBlock message={error} /></div>}
@@ -137,6 +142,7 @@ export function ImportOre({ clientId, clientName }: { clientId: string; clientNa
                 <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
                   <th className="py-2 pr-3 font-semibold">Linia</th>
                   <th className="py-2 pr-3 font-semibold">Data</th>
+                  <th className="py-2 pr-3 font-semibold">Interval</th>
                   <th className="py-2 pr-3 font-semibold">Lucrare</th>
                   <th className="py-2 pr-3 text-right font-semibold">Ore</th>
                   <th className="py-2 text-right font-semibold">Valoare</th>
@@ -148,6 +154,9 @@ export function ImportOre({ clientId, clientName }: { clientId: string; clientNa
                     <td className="py-2 pr-3 text-slate-400">{rand.linie}</td>
                     <td className="py-2 pr-3 whitespace-nowrap text-slate-600">
                       {rand.date ? formatDate(rand.date) : '—'}
+                    </td>
+                    <td className="py-2 pr-3 whitespace-nowrap text-slate-500">
+                      {rand.start && rand.end ? `${rand.start}–${rand.end}` : '—'}
                     </td>
                     <td className="py-2 pr-3">
                       <p className="text-slate-800">{rand.description || '—'}</p>

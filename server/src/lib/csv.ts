@@ -88,3 +88,22 @@ export function parseData(valoare: string): string | null {
   const test = new Date(`${data}T00:00:00Z`);
   return test.toISOString().slice(0, 10) === data ? data : null;
 }
+
+/**
+ * Ora dintr-o celula, in forma "HH:MM". Acceptam cum scriu oamenii si Excel:
+ * "9:00", "09:00", "9.30", "9,30", "09:00:00" (Excel adauga secundele) sau
+ * doar "9". Returneaza null daca celula e goala sau nu seamana a ora.
+ */
+export function parseOra(valoare: string): string | null {
+  const curat = valoare.trim().replace(/[.,]/g, ':');
+  if (!curat) return null;
+
+  const match = /^(\d{1,2})(?::(\d{1,2}))?(?::\d{1,2})?$/.exec(curat);
+  if (!match) return null;
+
+  const ore = Number(match[1]);
+  const minute = Number(match[2] ?? 0);
+  if (ore > 24 || minute > 59 || (ore === 24 && minute > 0)) return null;
+
+  return `${String(ore).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
