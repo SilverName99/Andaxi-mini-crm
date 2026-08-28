@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, Building2, CalendarClock, Clock4, Globe, Mail, MapPin, Paperclip, Pencil, Phone, Plus, Repeat,
-  StickyNote, Wallet,
+  AlertTriangle, ArrowLeft, Building2, CalendarClock, Clock4, Database, Globe, Mail, MapPin, Paperclip, Pencil,
+  Phone, Plus, Repeat, StickyNote, Trash2, Users, Wallet,
 } from 'lucide-react';
-import { useClient, useSettings } from '../lib/queries';
-import { Avatar, Badge, Button, Card, CardTitle, ErrorBlock, LoadingBlock, Segmented, StatCard } from '../components/ui';
+import { api } from '../lib/api';
+import { useClient, useCrudMutation, useSettings } from '../lib/queries';
+import {
+  Avatar, Badge, Button, Card, CardTitle, ConfirmDialog, ErrorBlock, LoadingBlock, Segmented, StatCard, useToast,
+} from '../components/ui';
 import { ClientForm } from './Clients';
 import { SubscriptionForm } from './Subscriptions';
 import { WorkLogDetail } from './WorkLogs';
@@ -15,7 +18,8 @@ import { formatDate, formatEur, formatMinutes, formatRon, minutesToHhMm } from '
 import {
   BILLING_STATUS, CLIENT_STATUS, CYCLE, PRODUCT, SUBSCRIPTION_KIND, SUBSCRIPTION_STATUS, WORK_CATEGORY, WORK_STATUS,
 } from '../lib/labels';
-import type { AccentColor } from '../lib/types';
+import { cn } from '../lib/cn';
+import type { AccentColor, Subscription } from '../lib/types';
 
 type Tab = 'abonamente' | 'ore' | 'scadentar' | 'detalii';
 
@@ -24,9 +28,13 @@ export function ClientDetail() {
   const navigate = useNavigate();
   const { data: client, isLoading, error } = useClient(id);
   const { data: settings } = useSettings();
+  const toast = useToast();
+  const stergeAbonament = useCrudMutation((subId: string) => api.del(`/subscriptions/${subId}`));
   const [tab, setTab] = useState<Tab>('abonamente');
   const [editingClient, setEditingClient] = useState(false);
   const [addingSub, setAddingSub] = useState(false);
+  const [editingSub, setEditingSub] = useState<Subscription | null>(null);
+  const [deletingSub, setDeletingSub] = useState<Subscription | null>(null);
   const [detaliiLog, setDetaliiLog] = useState<string | null>(null);
 
   if (isLoading) return <LoadingBlock />;
@@ -123,7 +131,14 @@ export function ClientDetail() {
             </Card>
           ) : (
             subscriptions.map((sub) => (
-              <Card key={sub.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <Card
+                key={sub.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setEditingSub(sub)}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setEditingSub(sub)}
+                className="flex cursor-pointer flex-col gap-3 transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-soft sm:flex-row sm:items-start sm:justify-between"
+              >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-bold text-slate-800">{sub.label}</p>
@@ -133,19 +148,88 @@ export function ClientDetail() {
                     <Badge className={SUBSCRIPTION_KIND[sub.kind].chip}>{SUBSCRIPTION_KIND[sub.kind].text}</Badge>
                     <Badge className={PRODUCT[sub.product].chip}>{PRODUCT[sub.product].text}</Badge>
                     <Badge className={CYCLE[sub.cycle].chip}>{CYCLE[sub.cycle].text}</Badge>
+                    {sub.users ? (
+                      <Badge className="bg-indigo-100 text-indigo-700">
+                        <Users className="h-3 w-3" /> {sub.users} utilizatori
+                      </Badge>
+                    ) : null}
+                    {sub.hourPackage ? (
+                      <Badge className="bg-indigo-100 text-indigo-700">
+                        {sub.hourPackage.hoursPerMonth} h/lună preplătite
+                      </Badge>
+                    ) : null}
+                    {sub.includedHoursPerMonth > 0 ? (
+                      <Badge className="bg-indigo-50 text-indigo-600">
+                        {sub.includedHoursPerMonth} h incluse/lună
+                      </Badge>
+                    ) : null}
                   </div>
+
                   <OreAbonament
                     paidHours={sub.paidHours}
                     remainingMinutes={sub.paidRemainingMinutes}
                     className="mt-3 max-w-xs"
                   />
-                  {sub.notes && <p className="mt-2 text-xs text-slate-500">{sub.notes}</p>}
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-extrabold text-slate-900">{formatEur(sub.amountEur)}</p>
-                  <p className="flex items-center justify-end gap-1 text-xs text-slate-400">
-                    <CalendarClock className="h-3.5 w-3.5" /> {formatDate(sub.nextDueDate)}
+
+                  {sub.storageIncludedGb != null && sub.storageUsedGb != null && (
+                    <p
+                      className={cn(
+                        'mt-3 inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold',
+                        sub.storageUsedGb > sub.storageIncludedGb
+                          ? 'bg-red-50 text-red-700'
+                          : 'bg-slate-50 text-slate-600',
+                      )}
+                    >
+                      {sub.storageUsedGb > sub.storageIncludedGb ? (
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                      ) : (
+                        <Database className="h-3.5 w-3.5" />
+                      )}
+                      {sub.storageUsedGb} din {sub.storageIncludedGb} GB
+                    </p>
+                  )}
+
+                  <p className="mt-3 text-xs text-slate-400">
+                    Din {formatDate(sub.startDate)}
+                    {sub.endDate ? ` până în ${formatDate(sub.endDate)}` : ''}
                   </p>
+                  {sub.notes && <p className="mt-1 text-xs text-slate-500">{sub.notes}</p>}
+                </div>
+
+                <div className="flex items-start gap-3 sm:flex-col sm:items-end">
+                  <div className="text-right">
+                    <p className="text-lg font-extrabold text-slate-900">{formatEur(sub.amountEur)}</p>
+                    {CYCLE[sub.cycle].months > 1 && (
+                      <p className="text-[11px] text-slate-400">
+                        {formatEur(sub.amountEur / CYCLE[sub.cycle].months)} / lună
+                      </p>
+                    )}
+                    <p className="flex items-center justify-end gap-1 text-xs text-slate-400">
+                      <CalendarClock className="h-3.5 w-3.5" /> {formatDate(sub.nextDueDate)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingSub(sub);
+                      }}
+                      className="rounded-xl p-2 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600"
+                      aria-label="Editează abonamentul"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeletingSub(sub);
+                      }}
+                      className="rounded-xl p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                      aria-label="Șterge abonamentul"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </Card>
             ))
@@ -285,6 +369,23 @@ export function ClientDetail() {
 
       {editingClient && <ClientForm open onClose={() => setEditingClient(false)} client={client} />}
       {addingSub && <SubscriptionForm open onClose={() => setAddingSub(false)} defaultClientId={client.id} />}
+      {editingSub && (
+        <SubscriptionForm open onClose={() => setEditingSub(null)} subscription={editingSub} />
+      )}
+
+      <ConfirmDialog
+        open={Boolean(deletingSub)}
+        title="Ștergi abonamentul?"
+        message={`„${deletingSub?.label}" dispare împreună cu pozițiile lui din scadențar. Orele rămân.`}
+        loading={stergeAbonament.isPending}
+        onCancel={() => setDeletingSub(null)}
+        onConfirm={async () => {
+          if (!deletingSub) return;
+          await stergeAbonament.mutateAsync(deletingSub.id);
+          setDeletingSub(null);
+          toast('Abonament șters');
+        }}
+      />
       {detaliiLog && <WorkLogDetail logId={detaliiLog} onClose={() => setDetaliiLog(null)} />}
     </div>
   );

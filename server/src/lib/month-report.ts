@@ -39,15 +39,20 @@ function ziSaptamana(iso: string): number {
   return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;
 }
 
-function formatOre(minute: number): string {
+function formatOre(minute: number, gol = '—'): string {
   const h = Math.floor(minute / 60);
   const m = minute % 60;
-  if (!minute) return '—';
+  if (!minute) return gol;
   return m === 0 ? `${h}h` : h === 0 ? `${m}m` : `${h}h ${m}m`;
 }
 
-function formatEur(valoare: number): string {
-  return `${valoare.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR`;
+function suma(valoare: number, moneda: 'RON' | 'EUR'): string {
+  return `${valoare.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${moneda}`;
+}
+
+/** In lei suma principala, in euro cea de referinta */
+function inLei(valoareEur: number, curs: number): string {
+  return suma(valoareEur * curs, 'RON');
 }
 
 /** Toate zilele lunii, plus zilele goale de la inceput pana la prima zi de luni */
@@ -129,7 +134,7 @@ function deseneazaCeas(
  */
 export async function buildMonthReportPdf(clientId: string, month: string): Promise<Buffer> {
   const fisa = await buildMonthlySheet(clientId, month);
-  const { client, settings, rows, totals, discount } = fisa;
+  const { client, settings, rows, totals, discount, paidPools, packageStatement } = fisa;
 
   const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
   doc.registerFont('normal', NORMAL);
@@ -172,7 +177,7 @@ export async function buildMonthReportPdf(clientId: string, month: string): Prom
   /* ──────────────────────────────────────────────────── calendarul lunii ── */
   const grila = grilaLunii(month);
   const latimeCelula = latime / 7;
-  const inaltimeCelula = 58;
+  const inaltimeCelula = 48;
   let y = 108;
 
   doc.font('bold').fontSize(11).fillColor(TEXT).text('Calendarul lunii', stanga, y);
@@ -218,7 +223,7 @@ export async function buildMonthReportPdf(clientId: string, month: string): Prom
         const bucati = intervale.flatMap((interval) =>
           segmente(iso, interval, settings.standardStart, settings.standardEnd, settings.weekendOffHours),
         );
-        deseneazaCeas(doc, x + latimeCelula - 16, y + inaltimeCelula - 18, 9, bucati);
+        deseneazaCeas(doc, x + latimeCelula - 15, y + inaltimeCelula - 16, 8, bucati);
       }
     }
   }
@@ -231,6 +236,40 @@ export async function buildMonthReportPdf(clientId: string, month: string): Prom
   doc.fillColor(GRI).text('în afara programului', stanga + 95, y);
   y += 18;
 
+  /* ───────────────────────────────────────────── orele din pachete si abonamente ── */
+  const randuriOre: string[] = [];
+
+  if (totals.includedMinutes > 0) {
+    randuriOre.push(
+      `Ore incluse în pachet: ${formatOre(totals.usedIncludedMinutes, '0h')} consumate din ${formatOre(totals.includedMinutes)}` +
+        ` · ${formatOre(totals.remainingIncludedMinutes)} rămase în luna asta`,
+    );
+  }
+  if (packageStatement.creditedMinutes > 0 || packageStatement.usedMinutes > 0) {
+    randuriOre.push(
+      `Pachet preplătit: ${formatOre(packageStatement.usedMinutes, '0h')} consumate luna asta` +
+        ` · sold la final ${formatOre(packageStatement.closingMinutes)}`,
+    );
+  }
+  for (const pool of paidPools) {
+    randuriOre.push(
+      `Ore plătite prin „${pool.label}": ${formatOre(pool.usedThisMonth, '0h')} consumate luna asta` +
+        ` · ${formatOre(pool.remainingMinutes)} rămase din ${formatOre(pool.totalMinutes)}`,
+    );
+  }
+
+  if (randuriOre.length > 0) {
+    const inaltime = randuriOre.length * 13 + 14;
+    doc.roundedRect(stanga, y, latime, inaltime, 6).fillColor('#f8fafc').fill();
+    y += 8;
+    for (const rand of randuriOre) {
+      doc.circle(stanga + 13, y + 5, 2.5).fillColor(INDIGO).fill();
+      doc.font('normal').fontSize(8.5).fillColor(TEXT).text(rand, stanga + 20, y, { width: latime - 30 });
+      y += 13;
+    }
+    y += 12;
+  }
+
   /* ─────────────────────────────────────────────────── lista lucrarilor ── */
   doc.font('bold').fontSize(11).fillColor(TEXT).text('Ce s-a lucrat', stanga, y);
   y += 18;
@@ -238,9 +277,9 @@ export async function buildMonthReportPdf(clientId: string, month: string): Prom
   const coloane = [
     { titlu: 'Data', x: stanga, latime: 58 },
     { titlu: 'Interval', x: stanga + 58, latime: 62 },
-    { titlu: 'Lucrare', x: stanga + 120, latime: latime - 120 - 60 - 70 },
-    { titlu: 'Ore', x: stanga + latime - 130, latime: 60, aliniere: 'right' as const },
-    { titlu: 'Valoare', x: stanga + latime - 70, latime: 70, aliniere: 'right' as const },
+    { titlu: 'Lucrare', x: stanga + 120, latime: latime - 120 - 55 - 95 },
+    { titlu: 'Ore', x: stanga + latime - 150, latime: 55, aliniere: 'right' as const },
+    { titlu: 'Valoare', x: stanga + latime - 95, latime: 95, aliniere: 'right' as const },
   ];
 
   const scrieAntetTabel = () => {
@@ -284,55 +323,91 @@ export async function buildMonthReportPdf(clientId: string, month: string): Prom
     );
     doc.fillColor(TEXT).text(descriere, coloane[2].x, y, { width: coloane[2].latime });
     doc.text(formatOre(row.minutes), coloane[3].x, y, { width: coloane[3].latime, align: 'right' });
-    doc
-      .font(row.billableEur > 0 ? 'bold' : 'normal')
-      .fillColor(row.billableEur > 0 ? TEXT : GRI)
-      .text(row.billableEur > 0 ? formatEur(row.billableEur) : 'inclus', coloane[4].x, y, {
+    if (row.billableEur > 0) {
+      doc.font('bold').fillColor(TEXT).text(inLei(row.billableEur, settings.eurRon), coloane[4].x, y, {
         width: coloane[4].latime,
         align: 'right',
       });
+      doc.font('normal').fontSize(7).fillColor(GRI).text(suma(row.billableEur, 'EUR'), coloane[4].x, y + 10, {
+        width: coloane[4].latime,
+        align: 'right',
+      });
+      doc.fontSize(8.5);
+    } else {
+      doc.font('normal').fillColor(GRI).text('inclus', coloane[4].x, y, {
+        width: coloane[4].latime,
+        align: 'right',
+      });
+    }
 
-    y += Math.max(inaltimeText, 11) + 7;
+    y += Math.max(inaltimeText, row.billableEur > 0 ? 18 : 11) + 7;
     doc.moveTo(stanga, y - 4).lineTo(stanga + latime, y - 4).lineWidth(0.4).strokeColor('#f1f5f9').stroke();
   }
 
   /* ────────────────────────────────────────────────────────────── total ── */
-  if (y > doc.page.height - 150) {
+  const latimeTotal = 230;
+  const xTotal = stanga + latime - latimeTotal;
+
+  /** eticheta, suma in EUR (null = doar text), text simplu, accent */
+  const randuriTotal: { eticheta: string; eur: number | null; text?: string; accent?: boolean; semn?: string }[] = [
+    { eticheta: 'Ore lucrate', eur: null, text: formatOre(totals.minutes) },
+    ...(totals.discountEur > 0
+      ? [
+          {
+            eticheta: discount?.type === 'PERCENT' ? `Reducere ${discount.value}%` : 'Reducere',
+            eur: totals.discountEur,
+            semn: '−',
+          },
+        ]
+      : []),
+    { eticheta: 'De plată', eur: totals.netEur, accent: true },
+    ...(settings.vatRate > 0
+      ? [
+          { eticheta: `TVA ${settings.vatRate}%`, eur: totals.tva },
+          { eticheta: 'Total cu TVA', eur: totals.totalCuTva, accent: true },
+        ]
+      : []),
+  ];
+
+  const inaltimeRand = (rand: (typeof randuriTotal)[number]) => (rand.eur === null ? 16 : 22);
+  const inaltimeTotal = randuriTotal.reduce((total, rand) => total + inaltimeRand(rand), 14);
+
+  // spatiul de care are nevoie blocul: 10 deasupra, cutia si randul cu cursul dedesubt
+  const nevoieTotal = 10 + inaltimeTotal + 16;
+  if (y + nevoieTotal > doc.page.height - doc.page.margins.bottom) {
     doc.addPage();
     y = doc.page.margins.top;
   }
   y += 10;
 
-  const latimeTotal = 210;
-  const xTotal = stanga + latime - latimeTotal;
-  const randuriTotal: [string, string, boolean][] = [
-    ['Ore lucrate', formatOre(totals.minutes), false],
-    ...(totals.discountEur > 0
-      ? ([
-          [
-            discount?.type === 'PERCENT' ? `Reducere ${discount.value}%` : 'Reducere',
-            `−${formatEur(totals.discountEur)}`,
-            false,
-          ],
-        ] as [string, string, boolean][])
-      : []),
-    ['De plată', formatEur(totals.netEur), true],
-    ...(settings.vatRate > 0
-      ? ([
-          [`TVA ${settings.vatRate}%`, formatEur(totals.tva), false],
-          ['Total cu TVA', formatEur(totals.totalCuTva), true],
-        ] as [string, string, boolean][])
-      : []),
-  ];
-
-  doc.roundedRect(xTotal, y, latimeTotal, randuriTotal.length * 16 + 14, 6).fillColor('#f8fafc').fill();
+  doc.roundedRect(xTotal, y, latimeTotal, inaltimeTotal, 6).fillColor('#f8fafc').fill();
   y += 8;
-  for (const [eticheta, valoare, accent] of randuriTotal) {
-    doc.font(accent ? 'bold' : 'normal').fontSize(accent ? 10 : 9).fillColor(accent ? TEXT : GRI);
-    doc.text(eticheta, xTotal + 10, y + 2, { width: latimeTotal - 20 });
-    doc.text(valoare, xTotal + 10, y + 2, { width: latimeTotal - 20, align: 'right' });
-    y += 16;
+  for (const rand of randuriTotal) {
+    doc.font(rand.accent ? 'bold' : 'normal').fontSize(rand.accent ? 10 : 9).fillColor(rand.accent ? TEXT : GRI);
+    doc.text(rand.eticheta, xTotal + 10, y + 2, { width: latimeTotal - 20 });
+    doc.text(
+      rand.eur === null ? (rand.text ?? '') : `${rand.semn ?? ''}${inLei(rand.eur, settings.eurRon)}`,
+      xTotal + 10,
+      y + 2,
+      { width: latimeTotal - 20, align: 'right' },
+    );
+    if (rand.eur !== null) {
+      doc.font('normal').fontSize(7).fillColor(GRI).text(
+        `${rand.semn ?? ''}${suma(rand.eur, 'EUR')}`,
+        xTotal + 10,
+        y + (rand.accent ? 14 : 13),
+        { width: latimeTotal - 20, align: 'right' },
+      );
+    }
+    y += inaltimeRand(rand);
   }
+  y += 6;
+  doc.font('normal').fontSize(7).fillColor(GRI).text(
+    `Sumele sunt calculate la cursul 1 EUR = ${settings.eurRon.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON`,
+    xTotal,
+    y,
+    { width: latimeTotal, align: 'right' },
+  );
 
   /* ──────────────────────────────────────────────────────────── subsol ── */
   const pagini = doc.bufferedPageRange();

@@ -36,7 +36,7 @@ export async function buildMonthlySheet(clientId: string, month: string) {
     prisma.monthlyApproval.findUnique({ where: { clientId_month: { clientId, month } } }),
   ]);
 
-  const { byClientMonth, byLog } = allocateTimeline(logs, subscriptions);
+  const { byClientMonth, byLog, paidPools } = allocateTimeline(logs, subscriptions);
   const alocare = byClientMonth.get(`${clientId}|${month}`);
   const logsLuna = logs.filter((log) => log.date.startsWith(month));
 
@@ -89,6 +89,17 @@ export async function buildMonthlySheet(clientId: string, month: string) {
     includedFrom: subscriptions
       .filter((sub) => sub.includedHoursPerMonth > 0 && sub.status === 'ACTIVE')
       .map((sub) => ({ id: sub.id, label: sub.label, hours: sub.includedHoursPerMonth })),
+    /**
+     * Rezervoarele de ore platite prin abonament: cat s-a consumat luna asta si
+     * cat mai era la finalul ei (fisa incarca doar orele pana la ultima zi a lunii)
+     */
+    paidPools: [...(paidPools.get(clientId) ?? new Map()).values()].map((sold) => ({
+      label: sold.label,
+      totalMinutes: sold.totalMinutes,
+      usedMinutes: sold.usedMinutes,
+      remainingMinutes: sold.remainingMinutes,
+      usedThisMonth: alocare?.paidUsedByTag.get(sold.label) ?? 0,
+    })),
     /** Pachetele de ore preplatite ale clientului */
     packages: subscriptions
       .filter((sub) => sub.hourPackage && sub.status === 'ACTIVE')

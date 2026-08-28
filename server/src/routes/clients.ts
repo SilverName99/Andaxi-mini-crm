@@ -7,6 +7,8 @@ import { CLIENT_STATUSES, COLORS } from '../lib/validation.js';
 import { ALLOWED_IMAGE_TYPES, deleteUpload, saveImage } from '../lib/uploads.js';
 import { genereazaPin, genereazaToken } from '../lib/portal.js';
 import { soldurileClientului } from '../lib/paid-hours.js';
+import { includedStorageGb, isPerUserProduct } from '../lib/pricing.js';
+import { getSettings } from '../prisma.js';
 
 export const clientsRouter = Router();
 
@@ -73,7 +75,7 @@ clientsRouter.get(
       },
     });
 
-    const solduri = await soldurileClientului(client.id);
+    const [solduri, settings] = await Promise.all([soldurileClientului(client.id), getSettings()]);
     res.json({
       ...client,
       subscriptions: client.subscriptions.map((sub) => {
@@ -82,6 +84,10 @@ clientsRouter.get(
           ...sub,
           paidUsedMinutes: sold?.usedMinutes ?? 0,
           paidRemainingMinutes: sold?.remainingMinutes ?? Math.round(sub.paidHours * 60),
+          storageIncludedGb:
+            isPerUserProduct(sub.product) && sub.users
+              ? includedStorageGb(settings, sub.product, sub.users)
+              : null,
         };
       }),
     });

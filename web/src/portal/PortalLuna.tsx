@@ -14,9 +14,9 @@ function sursa(row: PortalRow): { text: string; chip: string } | null {
   if (row.paidMinutes >= row.minutes && row.minutes > 0) {
     return { text: 'din orele abonamentului', chip: 'bg-emerald-50 text-emerald-700' };
   }
-  if (row.includedInPackage) return { text: 'inclus în abonament', chip: 'bg-emerald-50 text-emerald-700' };
+  if (row.includedInPackage) return { text: 'inclus în pachet', chip: 'bg-emerald-50 text-emerald-700' };
   if (!row.billable) return { text: 'fără cost', chip: 'bg-emerald-50 text-emerald-700' };
-  if (row.includedMinutes >= row.minutes) return { text: 'inclus în abonament', chip: 'bg-emerald-50 text-emerald-700' };
+  if (row.includedMinutes >= row.minutes) return { text: 'inclus în pachet', chip: 'bg-emerald-50 text-emerald-700' };
   if (row.packageMinutes >= row.minutes) return { text: 'din pachetul de ore', chip: 'bg-indigo-50 text-indigo-700' };
   if (row.includedMinutes > 0 || row.packageMinutes > 0) {
     return {

@@ -205,7 +205,7 @@ export function WorkLogForm({
             if (value) set('billable', false);
           }}
           label="Ore incluse în pachet"
-          hint="Orele intră în abonamentul clientului: nu se facturează, dar scad din orele lui incluse"
+          hint="Orele intră în pachetul clientului: nu se facturează, dar scad din orele lui incluse"
         />
         <Toggle
           checked={form.billable}
@@ -214,7 +214,7 @@ export function WorkLogForm({
             if (value) set('includedInPackage', false);
           }}
           label="Facturabil"
-          hint="Dezactivează pentru munca inclusă în abonament sau făcută din curtoazie"
+          hint="Dezactivează pentru munca inclusă în pachet sau făcută din curtoazie"
         />
         <Toggle
           checked={form.manual}
@@ -472,7 +472,7 @@ export function WorkLogs() {
                         {log.includedMinutes || log.packageMinutes ? (
                           <p className="text-[11px] font-medium text-emerald-600">
                             {[
-                              log.includedMinutes ? `${formatMinutes(log.includedMinutes)} din abonament` : '',
+                              log.includedMinutes ? `${formatMinutes(log.includedMinutes)} din pachet` : '',
                               log.packageMinutes ? `${formatMinutes(log.packageMinutes)} din pachet` : '',
                             ]
                               .filter(Boolean)
