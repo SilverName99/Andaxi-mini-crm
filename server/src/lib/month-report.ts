@@ -129,7 +129,7 @@ function deseneazaCeas(
  */
 export async function buildMonthReportPdf(clientId: string, month: string): Promise<Buffer> {
   const fisa = await buildMonthlySheet(clientId, month);
-  const { client, settings, rows, totals } = fisa;
+  const { client, settings, rows, totals, discount } = fisa;
 
   const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
   doc.registerFont('normal', NORMAL);
@@ -307,7 +307,15 @@ export async function buildMonthReportPdf(clientId: string, month: string): Prom
   const xTotal = stanga + latime - latimeTotal;
   const randuriTotal: [string, string, boolean][] = [
     ['Ore lucrate', formatOre(totals.minutes), false],
-    ...(totals.discountEur > 0 ? ([['Reducere', `−${formatEur(totals.discountEur)}`, false]] as [string, string, boolean][]) : []),
+    ...(totals.discountEur > 0
+      ? ([
+          [
+            discount?.type === 'PERCENT' ? `Reducere ${discount.value}%` : 'Reducere',
+            `−${formatEur(totals.discountEur)}`,
+            false,
+          ],
+        ] as [string, string, boolean][])
+      : []),
     ['De plată', formatEur(totals.netEur), true],
     ...(settings.vatRate > 0
       ? ([
