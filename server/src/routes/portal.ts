@@ -7,6 +7,8 @@ import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { buildMonthlySheet } from '../lib/monthly-sheet.js';
 import { includedStorageGb, isPerUserProduct } from '../lib/pricing.js';
 import { soldurileClientului } from '../lib/paid-hours.js';
+import { ORE_RASPUNS, termenOreDeLucru } from '../lib/working-hours.js';
+import { sablonEmail, trimiteEmail } from '../lib/mailer.js';
 import { today } from '../lib/dates.js';
 import { resolveUploadPath } from '../lib/uploads.js';
 import {
@@ -136,6 +138,7 @@ portalRouter.get(
         where: { clientId, fromPortal: true },
         orderBy: [{ done: 'asc' }, { createdAt: 'desc' }],
         take: 30,
+        include: { messages: { select: { author: true, readByClient: true } } },
       }),
     ]);
 
@@ -182,9 +185,15 @@ portalRouter.get(
         id: task.id,
         title: task.title,
         details: task.details,
+        kind: task.requestKind || 'NORMAL',
+        dueAt: task.dueAt,
+        chatClosed: task.chatClosed,
         done: task.done,
         doneAt: task.doneAt,
         createdAt: task.createdAt,
+        /** Cate mesaje de la noi n-au fost citite inca */
+        unread: task.messages.filter((m) => m.author === 'ADMIN' && !m.readByClient).length,
+        messages: task.messages.length,
       })),
       billing: billing.map((item) => ({
         id: item.id,
@@ -356,6 +365,8 @@ portalRouter.delete(
 const cerereSchema = z.object({
   title: z.string().trim().min(3, 'Scrie pe scurt ce ai nevoie').max(120),
   details: z.string().trim().max(2000).default(''),
+  /** NORMAL = raspuns in 24 de ore de lucru · URGENT = in 12 */
+  kind: z.enum(['NORMAL', 'URGENT']).default('NORMAL'),
 });
 
 /** Cererile clientului devin task-uri in CRM, marcate ca venite din portal */
@@ -369,19 +380,151 @@ portalRouter.post(
     const asteptare = limitatorCereri.asteptare(portal.id);
     if (asteptare > 0) throw new HttpError(429, 'Ai trimis prea multe cereri. Incearca mai tarziu.');
 
-    const { title, details } = cerereSchema.parse(req.body);
+    const { title, details, kind } = cerereSchema.parse(req.body);
+    const settings = await getSettings();
+    const dueAt = termenOreDeLucru(new Date(), ORE_RASPUNS[kind], settings).toISOString();
+
     const task = await prisma.task.create({
-      data: { clientId: portal.clientId, title, details, fromPortal: true, priority: 'MEDIUM' },
+      data: {
+        clientId: portal.clientId,
+        title,
+        details,
+        fromPortal: true,
+        requestKind: kind,
+        dueAt,
+        priority: kind === 'URGENT' ? 'HIGH' : 'MEDIUM',
+      },
     });
     limitatorCereri.esec(portal.id);
+
+    // anuntam pe email, dar o problema de posta nu trebuie sa strice cererea
+    const client = await prisma.client.findUnique({
+      where: { id: portal.clientId },
+      select: { name: true, company: true, email: true },
+    });
+    const numeClient = client?.company || client?.name || 'Client';
+    const termen = new Date(dueAt).toLocaleString('ro-RO', { timeZone: 'Europe/Bucharest' });
+
+    void trimiteEmail({
+      to: settings.notifyEmail || settings.companyEmail || settings.smtpUser,
+      subject: `${kind === 'URGENT' ? '[URGENT] ' : ''}Cerere nouă de la ${numeClient}: ${title}`,
+      replyTo: client?.email || undefined,
+      text: `${numeClient} a trimis o cerere din portal.\n\n${title}\n\n${details}\n\nTermen de răspuns: ${termen}`,
+      html: sablonEmail(`Cerere nouă de la ${numeClient}`, [
+        `<strong>${title}</strong>`,
+        details || '(fără detalii)',
+        `Fel: ${kind === 'URGENT' ? 'Intervenție rapidă — 12 ore de lucru' : 'Intervenție normală — 24 de ore de lucru'}`,
+        `Termen de răspuns: <strong>${termen}</strong>`,
+      ]),
+    });
 
     res.status(201).json({
       id: task.id,
       title: task.title,
       details: task.details,
+      kind,
+      dueAt: task.dueAt,
+      chatClosed: task.chatClosed,
       done: task.done,
       doneAt: task.doneAt,
       createdAt: task.createdAt,
+      unread: 0,
+      messages: 0,
+    });
+  }),
+);
+
+/* ─────────────────────────────────────────── discutia pe marginea cererii ── */
+
+/** Cererea, doar daca e a clientului din sesiune */
+async function cerereaClientului(clientId: string, taskId: string) {
+  const task = await prisma.task.findFirst({ where: { id: taskId, clientId, fromPortal: true } });
+  if (!task) throw new HttpError(404, 'Cererea nu a fost gasita.');
+  return task;
+}
+
+portalRouter.get(
+  '/requests/:id/messages',
+  requirePortal,
+  asyncHandler(async (req, res) => {
+    const portal = await portalActiv(req.portal!.portalId);
+    const task = await cerereaClientului(portal.clientId, req.params.id);
+
+    const mesaje = await prisma.requestMessage.findMany({
+      where: { taskId: task.id },
+      orderBy: { createdAt: 'asc' },
+    });
+    // ce a scris administratorul a fost acum citit
+    await prisma.requestMessage.updateMany({
+      where: { taskId: task.id, author: 'ADMIN', readByClient: false },
+      data: { readByClient: true },
+    });
+
+    res.json({
+      id: task.id,
+      title: task.title,
+      details: task.details,
+      kind: task.requestKind || 'NORMAL',
+      dueAt: task.dueAt,
+      chatClosed: task.chatClosed,
+      done: task.done,
+      createdAt: task.createdAt,
+      messages: mesaje.map((m) => ({
+        id: m.id,
+        author: m.author,
+        authorName: m.authorName,
+        body: m.body,
+        createdAt: m.createdAt,
+      })),
+    });
+  }),
+);
+
+const mesajSchema = z.object({
+  body: z.string().trim().min(1, 'Scrie un mesaj').max(4000),
+  authorName: z.string().trim().max(80).default(''),
+});
+
+portalRouter.post(
+  '/requests/:id/messages',
+  requirePortal,
+  asyncHandler(async (req, res) => {
+    const portal = await portalActiv(req.portal!.portalId);
+    const task = await cerereaClientului(portal.clientId, req.params.id);
+    if (task.chatClosed) throw new HttpError(403, 'Discutia a fost inchisa.');
+
+    const asteptare = limitatorCereri.asteptare(`mesaje-${portal.id}`);
+    if (asteptare > 0) throw new HttpError(429, 'Prea multe mesaje trimise. Incearca mai tarziu.');
+
+    const { body, authorName } = mesajSchema.parse(req.body);
+    const mesaj = await prisma.requestMessage.create({
+      data: { taskId: task.id, author: 'CLIENT', authorName, body, readByClient: true },
+    });
+    limitatorCereri.esec(`mesaje-${portal.id}`);
+
+    const [settings, client] = await Promise.all([
+      getSettings(),
+      prisma.client.findUnique({
+        where: { id: portal.clientId },
+        select: { name: true, company: true, email: true },
+      }),
+    ]);
+    const numeClient = client?.company || client?.name || 'Client';
+
+    void trimiteEmail({
+      to: settings.notifyEmail || settings.companyEmail || settings.smtpUser,
+      subject: `Mesaj nou de la ${numeClient}: ${task.title}`,
+      replyTo: client?.email || undefined,
+      text: `${authorName || numeClient} a scris pe cererea „${task.title}":\n\n${body}`,
+      html: sablonEmail(`Mesaj nou de la ${numeClient}`, [`<strong>${task.title}</strong>`, body]),
+    });
+
+    res.status(201).json({
+      id: mesaj.id,
+      author: mesaj.author,
+      authorName: mesaj.authorName,
+      body: mesaj.body,
+      createdAt: mesaj.createdAt,
     });
   }),
 );

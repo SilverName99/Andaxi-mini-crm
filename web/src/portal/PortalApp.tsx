@@ -310,11 +310,13 @@ function Abonamente({ me }: { me: PortalMe }) {
 
           {me.flags.showMoney && sub.amountEur !== null && (
             <div>
-              <p className="text-2xl font-extrabold text-indigo-600">{formatEur(sub.amountEur)}</p>
+              <p className="text-2xl font-extrabold text-indigo-600">
+                {formatRon(sub.amountEur, me.currency.eurRon)}
+              </p>
               <p className="text-xs text-slate-400">
-                {CYCLE[sub.cycle].text.toLowerCase()} · {formatRon(sub.amountEur, me.currency.eurRon)}
+                {formatEur(sub.amountEur)} · {CYCLE[sub.cycle].text.toLowerCase()}
                 {CYCLE[sub.cycle].months > 1 &&
-                  ` · ≈ ${formatEur(sub.amountEur / CYCLE[sub.cycle].months)} / lună`}
+                  ` · ≈ ${formatRon(sub.amountEur / CYCLE[sub.cycle].months, me.currency.eurRon)} / lună`}
               </p>
             </div>
           )}
@@ -369,7 +371,12 @@ function Plati({ me }: { me: PortalMe }) {
             {neachitate.length} {neachitate.length === 1 ? 'factură emisă' : 'facturi emise'} și neîncasate
           </p>
         </div>
-        <p className="text-2xl font-extrabold text-indigo-700">{formatEur(totalNeachitat)}</p>
+        <div className="text-right">
+          <p className="text-2xl font-extrabold text-indigo-700">
+            {formatRon(totalNeachitat, me.currency.eurRon)}
+          </p>
+          <p className="text-xs text-slate-400">{formatEur(totalNeachitat)}</p>
+        </div>
       </Card>
     )}
     <Card className="overflow-x-auto">
@@ -408,8 +415,11 @@ function Plati({ me }: { me: PortalMe }) {
                 {item.invoiceRef && <span className="ml-2 text-xs text-slate-400">{item.invoiceRef}</span>}
               </td>
               {me.flags.showMoney && (
-                <td className={cn('py-2.5 text-right font-bold', item.estimat ? 'text-slate-500' : 'text-slate-900')}>
-                  {formatEur(item.amountEur ?? 0)}
+                <td className={cn('py-2.5 text-right', item.estimat ? 'text-slate-500' : 'text-slate-900')}>
+                  <span className="block font-bold">
+                    {formatRon(item.amountEur ?? 0, me.currency.eurRon)}
+                  </span>
+                  <span className="block text-[11px] text-slate-400">{formatEur(item.amountEur ?? 0)}</span>
                 </td>
               )}
             </tr>

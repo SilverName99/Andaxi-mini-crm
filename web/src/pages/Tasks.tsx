@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CalendarDays, Check, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react';
+import { CalendarDays, Check, ListChecks, MessagesSquare, Pencil, Plus, Trash2 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useClients, useCrudMutation, useTasks } from '../lib/queries';
 import { PageHeader } from '../components/Layout';
@@ -8,7 +8,8 @@ import {
   Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBlock, Field, Input, LoadingBlock, Modal, Segmented,
   Select, Textarea, useToast,
 } from '../components/ui';
-import { formatDate, todayIso } from '../lib/format';
+import { formatDate, formatDateTime, todayIso } from '../lib/format';
+import { DiscutieCerere } from '../components/DiscutieCerere';
 import { PRIORITY, options } from '../lib/labels';
 import { cn } from '../lib/cn';
 import type { Task } from '../lib/types';
@@ -81,6 +82,7 @@ export function Tasks() {
   const [filter, setFilter] = useState<'OPEN' | 'DONE' | 'ALL'>('OPEN');
   const [editing, setEditing] = useState<Task | null | undefined>(undefined);
   const [deleting, setDeleting] = useState<Task | null>(null);
+  const [discutie, setDiscutie] = useState<string | null>(null);
   const toast = useToast();
 
   const { data: tasks = [], isLoading, error } = useTasks();
@@ -147,7 +149,38 @@ export function Tasks() {
                     <Badge className={PRIORITY[task.priority].chip}>{PRIORITY[task.priority].text}</Badge>
                     {task.client && <Badge>{task.client.company || task.client.name}</Badge>}
                     {task.fromPortal && (
-                      <Badge className="bg-indigo-50 text-indigo-700">Cerere din portal</Badge>
+                      <>
+                        <Badge
+                          className={
+                            task.requestKind === 'URGENT'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-indigo-50 text-indigo-700'
+                          }
+                        >
+                          {task.requestKind === 'URGENT' ? 'Cerere rapidă · 12h' : 'Cerere din portal · 24h'}
+                        </Badge>
+                        {task.dueAt && !task.done && (
+                          <Badge
+                            className={
+                              new Date(task.dueAt) < new Date()
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-slate-100 text-slate-600'
+                            }
+                          >
+                            răspuns până pe {formatDateTime(task.dueAt)}
+                          </Badge>
+                        )}
+                        <button
+                          onClick={() => setDiscutie(task.id)}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:brightness-110"
+                        >
+                          <MessagesSquare className="h-3.5 w-3.5" />
+                          Discuție
+                          {(task.messages ?? []).some((m) => m.author === 'CLIENT' && !m.readByAdmin) && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                          )}
+                        </button>
+                      </>
                     )}
                   </div>
                   {task.details && <p className="mt-1 text-sm text-slate-500">{task.details}</p>}
@@ -174,6 +207,7 @@ export function Tasks() {
       )}
 
       {editing !== undefined && <TaskForm open onClose={() => setEditing(undefined)} task={editing} />}
+      {discutie && <DiscutieCerere taskId={discutie} onClose={() => setDiscutie(null)} />}
 
       <ConfirmDialog
         open={Boolean(deleting)}

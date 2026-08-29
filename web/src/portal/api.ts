@@ -28,14 +28,7 @@ export interface PortalMe {
     storageIncludedGb: number | null;
     amountEur: number | null;
   }[];
-  requests: {
-    id: string;
-    title: string;
-    details: string;
-    done: boolean;
-    doneAt: string | null;
-    createdAt: string;
-  }[];
+  requests: PortalCerere[];
   billing: {
     id: string;
     label: string;
@@ -48,6 +41,42 @@ export interface PortalMe {
     estimat: boolean;
     amountEur: number | null;
   }[];
+}
+
+export interface PortalCerere {
+  id: string;
+  title: string;
+  details: string;
+  /** NORMAL = 24 de ore de lucru · URGENT = 12 */
+  kind: 'NORMAL' | 'URGENT';
+  dueAt: string | null;
+  chatClosed: boolean;
+  done: boolean;
+  doneAt: string | null;
+  createdAt: string;
+  /** Mesaje de la noi, necitite */
+  unread: number;
+  messages: number;
+}
+
+export interface PortalMesaj {
+  id: string;
+  author: 'ADMIN' | 'CLIENT';
+  authorName: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface PortalDiscutie {
+  id: string;
+  title: string;
+  details: string;
+  kind: 'NORMAL' | 'URGENT';
+  dueAt: string | null;
+  chatClosed: boolean;
+  done: boolean;
+  createdAt: string;
+  messages: PortalMesaj[];
 }
 
 export interface PortalRow {
@@ -137,8 +166,20 @@ export function retrageConfirmarea(month: string) {
   return api.del(`/portal/month/${month}/confirm`);
 }
 
-export function trimiteCerere(body: { title: string; details: string }) {
-  return api.post<PortalMe['requests'][number]>('/portal/requests', body);
+export function trimiteCerere(body: { title: string; details: string; kind: 'NORMAL' | 'URGENT' }) {
+  return api.post<PortalCerere>('/portal/requests', body);
+}
+
+export function usePortalDiscutie(cerereId: string | null) {
+  return useQuery({
+    queryKey: ['portal', 'discutie', cerereId],
+    queryFn: () => api.get<PortalDiscutie>(`/portal/requests/${cerereId}/messages`),
+    enabled: Boolean(cerereId),
+  });
+}
+
+export function trimiteMesaj(cerereId: string, body: { body: string; authorName: string }) {
+  return api.post<PortalMesaj>(`/portal/requests/${cerereId}/messages`, body);
 }
 
 /** Deschide sesiunea din linkul primit; raspunde daca mai e nevoie de PIN */

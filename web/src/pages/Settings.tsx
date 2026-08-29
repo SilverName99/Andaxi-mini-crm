@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import {
-  Building2, Clock4, Coins, Image, KeyRound, Moon, Plus, Save, Sun, Trash2, Upload, Users,
+  Building2, Clock4, Coins, Image, KeyRound, Moon, Plus, Save, Send, Sun, Trash2, Upload, Users,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useCrudMutation, useHourPackages, useSettings } from '../lib/queries';
@@ -188,6 +188,8 @@ export function SettingsPage() {
           </div>
         </Card>
 
+        <SmtpCard form={form} set={set} />
+
         <PasswordCard email={user?.email ?? ''} />
       </div>
     </div>
@@ -348,6 +350,122 @@ function PackageRow({
 }
 
 /** Marimea maxima acceptata de server pentru sigla */
+
+/**
+ * Setarile de trimitere a emailurilor. Parola nu se citeste niciodata inapoi de
+ * pe server: campul ramane gol daca exista una salvata, iar daca nu scrii nimic
+ * cand salvezi, parola de acum ramane neschimbata.
+ */
+function SmtpCard({
+  form,
+  set,
+}: {
+  form: Settings;
+  set: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+}) {
+  const toast = useToast();
+  const [parola, setParola] = useState('');
+  const [testCatre, setTestCatre] = useState(form.notifyEmail || form.companyEmail || '');
+  const [error, setError] = useState('');
+
+  const salveazaParola = useCrudMutation((valoare: string) => api.put('/settings', { smtpPass: valoare }));
+  const test = useCrudMutation((payload: unknown) => api.post('/settings/smtp-test', payload));
+
+  async function trimiteTest() {
+    setError('');
+    try {
+      // trimitem si parola scrisa acum, ca sa poti testa inainte de a salva
+      await test.mutateAsync({ to: testCatre, ...(parola ? { smtpPass: parola } : {}) });
+      toast('Emailul de test a plecat');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Nu am putut trimite emailul de test');
+    }
+  }
+
+  return (
+    <Card>
+      <CardTitle
+        title="Trimitere emailuri (SMTP)"
+        subtitle="Din contul ăsta pleacă anunțurile despre cererile clienților"
+        icon={<Send className="h-5 w-5" />}
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Server SMTP" hint="Ex. smtp.hostinger.com">
+          <Input value={form.smtpHost} onChange={(e) => set('smtpHost', e.target.value)} placeholder="smtp.hostinger.com" />
+        </Field>
+        <Field label="Port" hint="465 cu SSL, 587 cu STARTTLS">
+          <Input type="number" value={form.smtpPort} onChange={(e) => set('smtpPort', Number(e.target.value))} />
+        </Field>
+        <Field label="Utilizator" hint="De obicei adresa de email întreagă">
+          <Input value={form.smtpUser} onChange={(e) => set('smtpUser', e.target.value)} placeholder="contact@andaxi.ro" />
+        </Field>
+        <Field
+          label="Parolă"
+          hint={form.smtpHasPassword ? 'E salvată. Scrie una nouă doar dacă vrei să o schimbi.' : 'Parola contului de email'}
+        >
+          <div className="flex gap-2">
+            <Input
+              type="password"
+              value={parola}
+              onChange={(e) => setParola(e.target.value)}
+              placeholder={form.smtpHasPassword ? '••••••••' : 'parola'}
+              autoComplete="new-password"
+            />
+            {parola && (
+              <Button
+                variant="secondary"
+                loading={salveazaParola.isPending}
+                onClick={async () => {
+                  await salveazaParola.mutateAsync(parola);
+                  setParola('');
+                  toast('Parolă salvată');
+                }}
+              >
+                Salvează
+              </Button>
+            )}
+          </div>
+        </Field>
+        <Field label="Expeditor" hint="Adresa care apare ca expeditor; gol = utilizatorul">
+          <Input type="email" value={form.smtpFrom} onChange={(e) => set('smtpFrom', e.target.value)} placeholder="contact@andaxi.ro" />
+        </Field>
+        <Field label="Primesc anunțurile pe" hint="Gol = emailul firmei">
+          <Input type="email" value={form.notifyEmail} onChange={(e) => set('notifyEmail', e.target.value)} placeholder="contact@andaxi.ro" />
+        </Field>
+      </div>
+
+      <div className="mt-4">
+        <Toggle
+          checked={form.smtpSecure}
+          onChange={(value) => set('smtpSecure', value)}
+          label="Conexiune SSL de la început (portul 465)"
+          hint="Dezactivat, se folosește STARTTLS — potrivit pentru portul 587"
+        />
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-4">
+        <Field label="Trimite un email de test către" className="flex-1">
+          <Input type="email" value={testCatre} onChange={(e) => setTestCatre(e.target.value)} />
+        </Field>
+        <Button
+          variant="secondary"
+          icon={<Send className="h-4 w-4" />}
+          loading={test.isPending}
+          disabled={!testCatre}
+          onClick={trimiteTest}
+        >
+          Trimite test
+        </Button>
+      </div>
+      <p className="mt-2 text-xs text-slate-400">
+        Testul folosește datele scrise aici, chiar dacă nu le-ai salvat încă.
+      </p>
+
+      {error && <div className="mt-4"><ErrorBlock message={error} /></div>}
+    </Card>
+  );
+}
 
 /** Incarcarea siglei: fisierul e trimis codificat base64, serverul il salveaza pe disc */
 function LogoCard({ logoUrl, companyName }: { logoUrl: string; companyName: string }) {

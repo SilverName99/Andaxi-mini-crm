@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getSettings, prisma } from '../prisma.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { ALLOWED_IMAGE_TYPES, deleteUpload, saveImage } from '../lib/uploads.js';
+import { trimiteTest } from '../lib/mailer.js';
 
 export const settingsRouter = Router();
 
@@ -40,21 +41,88 @@ const settingsSchema = z.object({
   crmTier3StorageGb: z.coerce.number().nonnegative().optional(),
   discountSemiannual: z.coerce.number().min(0).max(100).optional(),
   discountAnnual: z.coerce.number().min(0).max(100).optional(),
+
+  // SMTP
+  smtpHost: z.string().optional(),
+  smtpPort: z.coerce.number().int().min(1).max(65535).optional(),
+  smtpSecure: z.boolean().optional(),
+  smtpUser: z.string().optional(),
+  /** Gol inseamna "lasa parola de acum neschimbata" */
+  smtpPass: z.string().optional(),
+  smtpFrom: z.string().email().or(z.literal('')).optional(),
+  notifyEmail: z.string().email().or(z.literal('')).optional(),
 });
+
+/** Setarile trimise catre interfata: parola SMTP nu pleaca niciodata inapoi */
+function faraParola<T extends { smtpPass: string }>(settings: T) {
+  const { smtpPass, ...restul } = settings;
+  return { ...restul, smtpHasPassword: smtpPass.length > 0 };
+}
 
 settingsRouter.get(
   '/',
   asyncHandler(async (_req, res) => {
-    res.json(await getSettings());
+    res.json(faraParola(await getSettings()));
   }),
 );
 
 settingsRouter.put(
   '/',
   asyncHandler(async (req, res) => {
-    const data = settingsSchema.parse(req.body);
+    const { smtpPass, ...data } = settingsSchema.parse(req.body);
     await getSettings();
-    res.json(await prisma.settings.update({ where: { id: 'singleton' }, data }));
+    res.json(
+      faraParola(
+        await prisma.settings.update({
+          where: { id: 'singleton' },
+          // parola se schimba doar cand chiar scrii una noua
+          data: { ...data, ...(smtpPass ? { smtpPass } : {}) },
+        }),
+      ),
+    );
+  }),
+);
+
+/* ─────────────────────────────────────────────────────── test pentru SMTP ── */
+
+const testSchema = z.object({
+  to: z.string().email('Scrie o adresa de email valida'),
+  /** Datele de test, daca vrei sa incerci inainte sa salvezi */
+  smtpHost: z.string().optional(),
+  smtpPort: z.coerce.number().int().min(1).max(65535).optional(),
+  smtpSecure: z.boolean().optional(),
+  smtpUser: z.string().optional(),
+  smtpPass: z.string().optional(),
+  smtpFrom: z.string().optional(),
+});
+
+settingsRouter.post(
+  '/smtp-test',
+  asyncHandler(async (req, res) => {
+    const { to, ...date } = testSchema.parse(req.body);
+    const salvate = await getSettings();
+
+    const config = {
+      smtpHost: date.smtpHost ?? salvate.smtpHost,
+      smtpPort: date.smtpPort ?? salvate.smtpPort,
+      smtpSecure: date.smtpSecure ?? salvate.smtpSecure,
+      smtpUser: date.smtpUser ?? salvate.smtpUser,
+      // daca nu scrii parola in formular, incercam cu cea salvata
+      smtpPass: date.smtpPass || salvate.smtpPass,
+      smtpFrom: date.smtpFrom ?? salvate.smtpFrom,
+      companyName: salvate.companyName,
+    };
+
+    if (!config.smtpHost || !config.smtpUser || !config.smtpPass) {
+      throw new HttpError(400, 'Completeaza serverul, utilizatorul si parola inainte de test');
+    }
+
+    try {
+      await trimiteTest(config, to);
+    } catch (err) {
+      throw new HttpError(400, err instanceof Error ? err.message : 'Serverul de email a refuzat mesajul');
+    }
+    res.json({ ok: true });
   }),
 );
 

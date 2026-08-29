@@ -25,6 +25,16 @@ export interface Settings {
   logoUrl: string;
   /** Adresa portalului clienților (ex. https://client.andaxi.ro); gol = același domeniu */
   portalBaseUrl: string;
+  /* Trimiterea emailurilor */
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser: string;
+  smtpFrom: string;
+  /** Unde ajung anunțurile despre cererile din portal; gol = emailul firmei */
+  notifyEmail: string;
+  /** Serverul nu trimite niciodată parola înapoi; doar dacă există una salvată */
+  smtpHasPassword?: boolean;
   standardRate: number;
   offHoursRate: number;
   standardStart: number;
@@ -240,6 +250,34 @@ export interface Task {
   doneAt: string | null;
   /** Cerere venită din portalul clientului */
   fromPortal?: boolean;
+  /** NORMAL (24 ore de lucru) · URGENT (12 ore de lucru) */
+  requestKind?: string;
+  /** Termenul de răspuns (ISO) */
+  dueAt?: string | null;
+  chatClosed?: boolean;
+  /** Mesajele discuției, pentru punctul de „mesaj nou" */
+  messages?: { author: string; readByAdmin: boolean }[];
+}
+
+export interface RequestMessage {
+  id: string;
+  author: 'ADMIN' | 'CLIENT';
+  authorName: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface RequestThread {
+  id: string;
+  title: string;
+  details: string;
+  kind: string;
+  dueAt: string | null;
+  chatClosed: boolean;
+  done: boolean;
+  client?: ClientRef | null;
+  createdAt: string;
+  messages: RequestMessage[];
 }
 
 export interface RateSplit {

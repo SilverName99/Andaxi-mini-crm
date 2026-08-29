@@ -59,6 +59,47 @@ function Cifra({
   );
 }
 
+/** Un rând din bloc de total: suma în lei mare, echivalentul în euro dedesubt */
+function RandTotal({
+  eticheta,
+  eur,
+  curs,
+  semn = '',
+  accent = false,
+  separator = false,
+  tenta,
+}: {
+  eticheta: string;
+  eur: number;
+  curs: number;
+  semn?: string;
+  accent?: boolean;
+  separator?: boolean;
+  tenta?: 'verde';
+}) {
+  return (
+    <div
+      className={cn(
+        'flex items-start justify-between gap-4 py-1.5',
+        separator && 'border-t border-slate-200',
+        tenta === 'verde' ? 'text-emerald-700' : accent ? 'text-slate-900' : 'text-slate-500',
+      )}
+    >
+      <span className={accent ? 'font-bold' : undefined}>{eticheta}</span>
+      <span className="text-right">
+        <span className={cn('block', accent ? 'text-base font-extrabold' : 'font-semibold')}>
+          {semn}
+          {formatRon(eur, curs)}
+        </span>
+        <span className="block text-[11px] font-medium text-slate-400">
+          {semn}
+          {formatEur(eur)}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 export function PortalLuna({
   luna,
   date,
@@ -109,8 +150,8 @@ export function PortalLuna({
         {bani && (
           <Cifra
             eticheta="De plată"
-            valoare={formatEur(t.netEur ?? 0)}
-            detaliu={`${formatRon(t.netEur ?? 0, me.currency.eurRon)}${me.flags.showVat ? ' · fără TVA' : ''}`}
+            valoare={formatRon(t.netEur ?? 0, me.currency.eurRon)}
+            detaliu={`${formatEur(t.netEur ?? 0)}${me.flags.showVat ? ' · fără TVA' : ''}`}
             icon={<Wallet className="h-5 w-5" />}
             tenta="accent"
           />
@@ -211,16 +252,19 @@ export function PortalLuna({
                           {row.timeLabel || formatMinutes(row.minutes)}
                         </span>
                       </span>
-                      {bani && (
-                        <span
-                          className={cn(
-                            'text-sm font-extrabold',
-                            (row.billableEur ?? 0) > 0 ? 'text-slate-900' : 'text-emerald-600',
-                          )}
-                        >
-                          {(row.billableEur ?? 0) > 0 ? formatEur(row.billableEur ?? 0) : 'inclus'}
-                        </span>
-                      )}
+                      {bani &&
+                        ((row.billableEur ?? 0) > 0 ? (
+                          <span className="text-right">
+                            <span className="block text-sm font-extrabold text-slate-900">
+                              {formatRon(row.billableEur ?? 0, me.currency.eurRon)}
+                            </span>
+                            <span className="block text-[11px] text-slate-400">
+                              {formatEur(row.billableEur ?? 0)}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-sm font-extrabold text-emerald-600">inclus</span>
+                        ))}
                     </div>
                     <p className="mt-1 text-sm text-slate-600">{row.description || '—'}</p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -266,29 +310,29 @@ export function PortalLuna({
         <Card className="ml-auto w-full max-w-sm">
           <div className="text-sm">
             {(t.discountEur ?? 0) > 0 && (
-              <div className="flex justify-between gap-4 py-1 text-emerald-700">
-                <span>Reducere</span>
-                <span className="font-semibold">−{formatEur(t.discountEur ?? 0)}</span>
-              </div>
+              <RandTotal
+                eticheta="Reducere"
+                eur={t.discountEur ?? 0}
+                curs={me.currency.eurRon}
+                semn="−"
+                tenta="verde"
+              />
             )}
-            <div className="flex justify-between gap-4 py-1.5 text-slate-700">
-              <span>De plată</span>
-              <span className="font-bold">{formatEur(t.netEur ?? 0)}</span>
-            </div>
+            <RandTotal eticheta="De plată" eur={t.netEur ?? 0} curs={me.currency.eurRon} accent />
             {me.flags.showVat && (
               <>
-                <div className="flex justify-between gap-4 py-1 text-slate-500">
-                  <span>TVA</span>
-                  <span>{formatEur(t.tva ?? 0)}</span>
-                </div>
-                <div className="flex justify-between gap-4 border-t border-slate-200 py-2 text-base font-extrabold text-slate-900">
-                  <span>Total cu TVA</span>
-                  <span>{formatEur(t.totalCuTva ?? 0)}</span>
-                </div>
+                <RandTotal eticheta="TVA" eur={t.tva ?? 0} curs={me.currency.eurRon} />
+                <RandTotal
+                  eticheta="Total cu TVA"
+                  eur={t.totalCuTva ?? 0}
+                  curs={me.currency.eurRon}
+                  accent
+                  separator
+                />
               </>
             )}
-            <p className="mt-1 text-right text-xs text-slate-400">
-              {formatRon(t.totalCuTva ?? t.netEur ?? 0, me.currency.eurRon)}
+            <p className="mt-2 text-right text-[11px] text-slate-400">
+              Curs 1 EUR = {me.currency.eurRon.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON
             </p>
           </div>
         </Card>

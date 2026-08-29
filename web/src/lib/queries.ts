@@ -3,6 +3,7 @@ import { api, qs } from './api';
 import type {
   BillingItem, CalendarData, Client, Dashboard, HourPackage, MonthlySheet, ReportData, Settings, Subscription,
   MonthlyDiscount, MonthlyDocument, SubscriptionUserChange, Task, WorkLog, ClientPortal, MonthlyApproval,
+  RequestThread,
 } from './types';
 
 /* Cheile de cache; invalidam larg dupa mutatii, aplicatia are volum mic de date */
@@ -21,6 +22,7 @@ export const keys = {
   monthlySheet: (filters?: unknown) => ['monthly-sheet', filters ?? {}] as const,
   clientPortal: (clientId: string) => ['client-portal', clientId] as const,
   monthlyApproval: (clientId: string, month: string) => ['monthly-approval', clientId, month] as const,
+  taskThread: (taskId: string) => ['task-thread', taskId] as const,
 };
 
 export function useDashboard() {
@@ -36,6 +38,15 @@ export function useClients(filters: { status?: string; q?: string } = {}) {
 
 export function useClient(id: string) {
   return useQuery({ queryKey: keys.client(id), queryFn: () => api.get<Client>(`/clients/${id}`) });
+}
+
+/** Discutia pe marginea unei cereri venite din portal */
+export function useTaskThread(taskId: string | null) {
+  return useQuery({
+    queryKey: keys.taskThread(taskId ?? ''),
+    queryFn: () => api.get<RequestThread>(`/tasks/${taskId}/messages`),
+    enabled: Boolean(taskId),
+  });
 }
 
 /** Confirmarea lunii trimisa de client din portal; null cand nu a confirmat */

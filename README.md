@@ -222,10 +222,39 @@ administrare e doar de citit.
 
 #### Cererile de intervenție
 
-Clientul poate trimite din portal o cerere („Nu se trimit emailurile de
-comandă"), care devine **task în CRM**, marcat *Cerere din portal* și legat de
-client. Când îl bifezi ca rezolvat, clientul vede în portal starea *Rezolvată*.
-Se pot opri per client, iar volumul e limitat la 10 cereri pe oră.
+Clientul alege din portal unul din două feluri de cerere:
+
+| Fel | Timp de răspuns |
+|---|---|
+| Intervenție normală | 24 de **ore de lucru** |
+| Intervenție rapidă | 12 **ore de lucru** |
+
+„Ore de lucru" înseamnă exact asta: ceasul merge doar în programul din Setări
+(implicit 09:00–16:00), de luni până vineri. O cerere trimisă sâmbătă seara are
+termenul calculat de luni dimineața. Termenul apare la client în portal și la
+tine pe task, iar depășirea lui se colorează roșu.
+
+Cererea devine **task în CRM**, marcat cu felul ei, și **deschide o discuție**
+între tine și client: el scrie din portal, tu răspunzi din CRM, iar tu o poți
+**închide** (clientul o vede în continuare, dar nu mai poate scrie) și
+redeschide oricând. Se pot opri per client, iar volumul e limitat la 10 cereri
+pe oră.
+
+La fiecare cerere nouă și la fiecare mesaj al clientului primești **un email**;
+când răspunzi tu, clientul primește un email cu linkul portalului (dacă are
+adresă în fișă și SMTP-ul e configurat).
+
+### Trimiterea emailurilor (SMTP)
+
+În Setări → *Trimitere emailuri* pui serverul, portul, utilizatorul și parola
+contului de email (la Hostinger: `smtp.hostinger.com`, portul 465 cu SSL sau
+587 cu STARTTLS). Butonul **Trimite test** verifică datele pe loc, chiar
+înainte să le salvezi.
+
+Parola se ține în baza de date și **nu pleacă niciodată înapoi către
+interfață**; câmpul rămâne gol, iar dacă nu scrii nimic la salvare, parola de
+acum rămâne neschimbată. Fără SMTP configurat aplicația merge la fel — doar că
+nu pleacă niciun email.
 
 ### TVA
 

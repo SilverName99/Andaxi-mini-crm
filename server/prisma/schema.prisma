@@ -82,6 +82,19 @@ model Settings {
   discountSemiannual Float @default(5)
   discountAnnual     Float @default(10)
 
+  // ── Trimiterea emailurilor (SMTP) ──────────────────────────────────────────
+  smtpHost     String  @default("")
+  smtpPort     Int     @default(587)
+  /// true = conexiune SSL de la inceput (portul 465); false = STARTTLS (587)
+  smtpSecure   Boolean @default(false)
+  smtpUser     String  @default("")
+  /// Parola contului de email; nu pleaca niciodata inapoi catre interfata
+  smtpPass     String  @default("")
+  /// Adresa care apare ca expeditor; gol = smtpUser
+  smtpFrom     String  @default("")
+  /// Unde ajung anuntarile despre cererile din portal; gol = companyEmail
+  notifyEmail  String  @default("")
+
   updatedAt DateTime @updatedAt
 }
 
@@ -326,12 +339,41 @@ model Task {
   doneAt   String?
   /// Cererile venite din portalul clientului, ca sa le recunosti in lista
   fromPortal Boolean @default(false)
+  /// NORMAL (raspuns in 24 de ore de lucru) | URGENT (12 ore de lucru); gol la task-urile tale
+  requestKind String @default("")
+  /// Termenul de raspuns (ISO), calculat doar in orele de program
+  dueAt       String?
+  /// Discutia cu clientul a fost inchisa de tine
+  chatClosed  Boolean @default(false)
+
+  messages RequestMessage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([done])
   @@index([dueDate])
+}
+
+/// Un mesaj din discutia pe marginea unei cereri venite din portal
+model RequestMessage {
+  id     String @id @default(cuid())
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  /// ADMIN (tu) | CLIENT
+  author     String
+  /// Numele scris de client, daca l-a completat
+  authorName String @default("")
+  body       String
+
+  /// Marcaje pentru punctul de "mesaj nou"
+  readByAdmin  Boolean @default(false)
+  readByClient Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
 }
 
 /// Fisier atasat unei interventii (deviz, proces-verbal, raport etc.)
