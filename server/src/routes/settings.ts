@@ -151,7 +151,7 @@ settingsRouter.post(
 
     // stergem sigla veche abia dupa ce noua a fost scrisa cu succes
     if (current.logoUrl) deleteUpload(current.logoUrl);
-    res.json(await prisma.settings.update({ where: { id: 'singleton' }, data: { logoUrl } }));
+    res.json(faraParola(await prisma.settings.update({ where: { id: 'singleton' }, data: { logoUrl } })));
   }),
 );
 
@@ -160,6 +160,6 @@ settingsRouter.delete(
   asyncHandler(async (_req, res) => {
     const current = await getSettings();
     if (current.logoUrl) deleteUpload(current.logoUrl);
-    res.json(await prisma.settings.update({ where: { id: 'singleton' }, data: { logoUrl: '' } }));
+    res.json(faraParola(await prisma.settings.update({ where: { id: 'singleton' }, data: { logoUrl: '' } })));
   }),
 );

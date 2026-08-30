@@ -22,13 +22,18 @@ export function SettingsPage() {
   const toast = useToast();
   const { data, isLoading } = useSettings();
   const [form, setForm] = useState<Settings | null>(null);
+  // parola SMTP nu vine niciodata inapoi de pe server, deci o tinem separat
+  const [smtpPass, setSmtpPass] = useState('');
   const [error, setError] = useState('');
 
+  // completam formularul o singura data, la incarcare: orice reimprospatare in
+  // fundal (dupa alta salvare din pagina) ar sterge altfel ce ai scris si nu ai
+  // apucat inca sa salvezi
   useEffect(() => {
-    if (data) setForm(data);
+    setForm((prev) => prev ?? data ?? null);
   }, [data]);
 
-  const save = useCrudMutation((payload: Partial<Settings>) => api.put('/settings', payload));
+  const save = useCrudMutation((payload: Partial<Settings>) => api.put<Settings>('/settings', payload));
 
   if (isLoading || !form) return <LoadingBlock />;
 
@@ -47,8 +52,11 @@ export function SettingsPage() {
       return;
     }
     try {
-      const { id: _id, ...payload } = form;
-      await save.mutateAsync(payload);
+      const { id: _id, smtpHasPassword: _areParola, ...payload } = form;
+      // parola pleaca doar daca ai scris una noua; goala inseamna "las-o cum e"
+      const salvate = await save.mutateAsync({ ...payload, ...(smtpPass ? { smtpPass } : {}) });
+      if (salvate) setForm(salvate);
+      setSmtpPass('');
       toast('Setări salvate');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Eroare la salvare');
@@ -157,7 +165,7 @@ export function SettingsPage() {
 
         <HourPackagesCard />
 
-        <LogoCard logoUrl={form.logoUrl} companyName={form.companyName} />
+        <LogoCard logoUrl={form.logoUrl} companyName={form.companyName} onChange={(url) => set('logoUrl', url)} />
 
         <Card>
           <CardTitle title="Date firmă" subtitle="Apar în rapoarte și exporturi" icon={<Building2 className="h-5 w-5" />} />
@@ -188,7 +196,7 @@ export function SettingsPage() {
           </div>
         </Card>
 
-        <SmtpCard form={form} set={set} />
+        <SmtpCard form={form} set={set} parola={smtpPass} setParola={setSmtpPass} />
 
         <PasswordCard email={user?.email ?? ''} />
       </div>
@@ -354,28 +362,39 @@ function PackageRow({
 /**
  * Setarile de trimitere a emailurilor. Parola nu se citeste niciodata inapoi de
  * pe server: campul ramane gol daca exista una salvata, iar daca nu scrii nimic
- * cand salvezi, parola de acum ramane neschimbata.
+ * cand salvezi, parola de acum ramane neschimbata. Se salveaza odata cu restul
+ * setarilor, din butonul din capul paginii.
  */
 function SmtpCard({
   form,
   set,
+  parola,
+  setParola,
 }: {
   form: Settings;
   set: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+  parola: string;
+  setParola: (valoare: string) => void;
 }) {
   const toast = useToast();
-  const [parola, setParola] = useState('');
   const [testCatre, setTestCatre] = useState(form.notifyEmail || form.companyEmail || '');
   const [error, setError] = useState('');
 
-  const salveazaParola = useCrudMutation((valoare: string) => api.put('/settings', { smtpPass: valoare }));
   const test = useCrudMutation((payload: unknown) => api.post('/settings/smtp-test', payload));
 
   async function trimiteTest() {
     setError('');
     try {
-      // trimitem si parola scrisa acum, ca sa poti testa inainte de a salva
-      await test.mutateAsync({ to: testCatre, ...(parola ? { smtpPass: parola } : {}) });
+      // trimitem exact ce e scris in formular, ca sa poti testa inainte de a salva
+      await test.mutateAsync({
+        to: testCatre,
+        smtpHost: form.smtpHost,
+        smtpPort: form.smtpPort,
+        smtpSecure: form.smtpSecure,
+        smtpUser: form.smtpUser,
+        smtpFrom: form.smtpFrom,
+        ...(parola ? { smtpPass: parola } : {}),
+      });
       toast('Emailul de test a plecat');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Nu am putut trimite emailul de test');
@@ -404,28 +423,13 @@ function SmtpCard({
           label="Parolă"
           hint={form.smtpHasPassword ? 'E salvată. Scrie una nouă doar dacă vrei să o schimbi.' : 'Parola contului de email'}
         >
-          <div className="flex gap-2">
-            <Input
-              type="password"
-              value={parola}
-              onChange={(e) => setParola(e.target.value)}
-              placeholder={form.smtpHasPassword ? '••••••••' : 'parola'}
-              autoComplete="new-password"
-            />
-            {parola && (
-              <Button
-                variant="secondary"
-                loading={salveazaParola.isPending}
-                onClick={async () => {
-                  await salveazaParola.mutateAsync(parola);
-                  setParola('');
-                  toast('Parolă salvată');
-                }}
-              >
-                Salvează
-              </Button>
-            )}
-          </div>
+          <Input
+            type="password"
+            value={parola}
+            onChange={(e) => setParola(e.target.value)}
+            placeholder={form.smtpHasPassword ? '••••••••' : 'parola'}
+            autoComplete="new-password"
+          />
         </Field>
         <Field label="Expeditor" hint="Adresa care apare ca expeditor; gol = utilizatorul">
           <Input type="email" value={form.smtpFrom} onChange={(e) => set('smtpFrom', e.target.value)} placeholder="contact@andaxi.ro" />
@@ -459,7 +463,8 @@ function SmtpCard({
         </Button>
       </div>
       <p className="mt-2 text-xs text-slate-400">
-        Testul folosește datele scrise aici, chiar dacă nu le-ai salvat încă.
+        Testul folosește datele scrise aici, chiar dacă nu le-ai salvat încă. Ca să rămână salvate,
+        apasă „Salvează setările” din capul paginii.
       </p>
 
       {error && <div className="mt-4"><ErrorBlock message={error} /></div>}
@@ -468,15 +473,23 @@ function SmtpCard({
 }
 
 /** Incarcarea siglei: fisierul e trimis codificat base64, serverul il salveaza pe disc */
-function LogoCard({ logoUrl, companyName }: { logoUrl: string; companyName: string }) {
+function LogoCard({
+  logoUrl,
+  companyName,
+  onChange,
+}: {
+  logoUrl: string;
+  companyName: string;
+  onChange: (logoUrl: string) => void;
+}) {
   const toast = useToast();
   const input = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
 
   const incarca = useCrudMutation((payload: { data: string; mimeType: string }) =>
-    api.post('/settings/logo', payload),
+    api.post<Settings>('/settings/logo', payload),
   );
-  const sterge = useCrudMutation(() => api.del('/settings/logo'));
+  const sterge = useCrudMutation(() => api.del<Settings>('/settings/logo'));
 
   async function laAlegereFisier(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -486,7 +499,8 @@ function LogoCard({ logoUrl, companyName }: { logoUrl: string; companyName: stri
     setError('');
     try {
       const imagine = await citesteImagine(file);
-      await incarca.mutateAsync({ data: imagine.data, mimeType: imagine.mimeType });
+      const salvate = await incarca.mutateAsync({ data: imagine.data, mimeType: imagine.mimeType });
+      onChange(salvate.logoUrl);
       toast('Siglă actualizată');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Nu am putut încărca imaginea');
@@ -530,6 +544,7 @@ function LogoCard({ logoUrl, companyName }: { logoUrl: string; companyName: stri
                 loading={sterge.isPending}
                 onClick={async () => {
                   await sterge.mutateAsync(undefined);
+                  onChange('');
                   toast('Siglă ștearsă');
                 }}
               >
