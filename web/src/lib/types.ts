@@ -119,6 +119,24 @@ export interface Client {
   billingItems?: BillingItem[];
   tasks?: Task[];
   _count?: { workLogs: number; subscriptions: number };
+  /** Cifrele din capul fișei, calculate pe tot istoricul */
+  stats?: {
+    workLogCount: number;
+    minutes: number;
+    unbilledSubscriptionsEur: number;
+    unbilledHoursEur: number;
+    discountEur: number;
+    unbilledEur: number;
+  };
+}
+
+export interface SubscriptionDocument {
+  id: string;
+  subscriptionId: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  createdAt: string;
 }
 
 export interface Subscription {
@@ -139,6 +157,8 @@ export interface Subscription {
   /** Cât s-a consumat și cât a mai rămas din rezervor (calculate de server) */
   paidUsedMinutes?: number;
   paidRemainingMinutes?: number;
+  /** Câte acte are atașate (contract etc.) */
+  _count?: { documents: number };
   /** Pentru abonamentele de tip pachet de ore */
   hourPackageId: string | null;
   hourPackage?: HourPackage | null;

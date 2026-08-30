@@ -236,9 +236,27 @@ model Subscription {
   updatedAt DateTime @updatedAt
 
   billingItems BillingItem[]
+  documents    SubscriptionDocument[]
 
   @@index([clientId])
   @@index([status])
+}
+
+/// Contractul (sau orice alt act) atasat unui abonament
+model SubscriptionDocument {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  fileName String
+  mimeType String
+  size     Int
+  /// Calea relativa la folderul de upload
+  path     String
+
+  createdAt DateTime @default(now())
+
+  @@index([subscriptionId])
 }
 
 /// O pozitie de facturat generata dintr-un abonament (o perioada = o pozitie)

@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { z } from 'zod';
 import { getSettings, prisma } from '../prisma.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
@@ -10,6 +10,7 @@ import { CYCLE_MONTHS, isCycle } from '../lib/cycles.js';
 import { round2 } from '../lib/rates.js';
 import { CLIENT_REF } from '../lib/selects.js';
 import { soldurilePeClienti } from '../lib/paid-hours.js';
+import { ALLOWED_DOC_TYPES, deleteAttachment, resolveUploadPath, saveAttachment } from '../lib/uploads.js';
 
 export const subscriptionsRouter = Router();
 
@@ -104,6 +105,7 @@ subscriptionsRouter.get(
       include: {
         client: { select: CLIENT_REF },
         hourPackage: true,
+        _count: { select: { documents: true } },
       },
     });
 
@@ -287,5 +289,91 @@ subscriptionsRouter.post(
     res.json(
       await prisma.subscriptionUserChange.update({ where: { id: schimbare.id }, data: { applied: true } }),
     );
+  }),
+);
+
+/* ─────────────────────────────────────────── contractul unui abonament ── */
+
+/** Actele atasate abonamentului: contract semnat, acte aditionale, orice */
+subscriptionsRouter.get(
+  '/:id/documents',
+  asyncHandler(async (req, res) => {
+    res.json(
+      await prisma.subscriptionDocument.findMany({
+        where: { subscriptionId: req.params.id },
+        orderBy: { createdAt: 'asc' },
+      }),
+    );
+  }),
+);
+
+/** Incarcare: fisierul vine binar, cu numele in antetul X-File-Name */
+subscriptionsRouter.post(
+  '/:id/documents',
+  express.raw({ type: () => true, limit: '12mb' }),
+  asyncHandler(async (req, res) => {
+    const abonament = await prisma.subscription.findUniqueOrThrow({ where: { id: req.params.id } });
+    const mimeType = (req.headers['content-type'] ?? '').split(';')[0].trim();
+    const numeBrut = req.headers['x-file-name'];
+    const fileName = decodeURIComponent(
+      Array.isArray(numeBrut) ? numeBrut[0] : (numeBrut ?? 'contract'),
+    ).slice(0, 255);
+
+    if (!(mimeType in ALLOWED_DOC_TYPES)) {
+      throw new HttpError(400, 'Acceptam PDF, Word, Excel, text sau imagini');
+    }
+    if (!Buffer.isBuffer(req.body)) throw new HttpError(400, 'Fisierul lipseste din cerere');
+
+    const cate = await prisma.subscriptionDocument.count({ where: { subscriptionId: abonament.id } });
+
+    let salvat: { path: string; size: number };
+    try {
+      salvat = saveAttachment(req.body, mimeType, Date.now(), cate, 'contracte');
+    } catch (err) {
+      throw new HttpError(400, err instanceof Error ? err.message : 'Nu am putut salva fisierul');
+    }
+
+    res.status(201).json(
+      await prisma.subscriptionDocument.create({
+        data: {
+          subscriptionId: abonament.id,
+          fileName,
+          mimeType,
+          size: salvat.size,
+          path: salvat.path,
+        },
+      }),
+    );
+  }),
+);
+
+subscriptionsRouter.get(
+  '/documents/:docId',
+  asyncHandler(async (req, res) => {
+    const document = await prisma.subscriptionDocument.findUniqueOrThrow({
+      where: { id: req.params.docId },
+    });
+    const numeAscii = document.fileName.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '_');
+
+    res.setHeader('Content-Type', document.mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${numeAscii}"; filename*=UTF-8''${encodeURIComponent(document.fileName)}`,
+    );
+    res.sendFile(resolveUploadPath(document.path), (error) => {
+      if (error && !res.headersSent) res.status(404).json({ error: 'Fisierul nu mai exista pe server' });
+    });
+  }),
+);
+
+subscriptionsRouter.delete(
+  '/documents/:docId',
+  asyncHandler(async (req, res) => {
+    const document = await prisma.subscriptionDocument.findUniqueOrThrow({
+      where: { id: req.params.docId },
+    });
+    await prisma.subscriptionDocument.delete({ where: { id: document.id } });
+    deleteAttachment(document.path);
+    res.json({ ok: true });
   }),
 );

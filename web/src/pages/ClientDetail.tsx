@@ -14,6 +14,7 @@ import { SubscriptionForm } from './Subscriptions';
 import { WorkLogDetail } from './WorkLogs';
 import { PortalClient } from '../components/PortalClient';
 import { OreAbonament } from '../components/OreAbonament';
+import { Paginare } from '../components/Paginare';
 import { formatDate, formatEur, formatMinutes, formatRon, minutesToHhMm } from '../lib/format';
 import {
   BILLING_STATUS, CLIENT_STATUS, CYCLE, PRODUCT, SUBSCRIPTION_KIND, SUBSCRIPTION_STATUS, WORK_CATEGORY, WORK_STATUS,
@@ -36,6 +37,7 @@ export function ClientDetail() {
   const [editingSub, setEditingSub] = useState<Subscription | null>(null);
   const [deletingSub, setDeletingSub] = useState<Subscription | null>(null);
   const [detaliiLog, setDetaliiLog] = useState<string | null>(null);
+  const [paginaOre, setPaginaOre] = useState(1);
 
   if (isLoading) return <LoadingBlock />;
   if (error || !client) return <ErrorBlock message={error instanceof Error ? error.message : 'Client inexistent'} />;
@@ -47,10 +49,18 @@ export function ClientDetail() {
   const mrr = subscriptions
     .filter((s) => s.status === 'ACTIVE')
     .reduce((sum, s) => sum + s.amountEur / CYCLE[s.cycle].months, 0);
-  const minutes = workLogs.reduce((s, l) => s + l.standardMinutes + l.offHoursMinutes, 0);
-  const unbilled =
-    billingItems.filter((i) => i.status === 'PENDING').reduce((s, i) => s + i.amountEur, 0) +
-    workLogs.filter((l) => l.status === 'PENDING').reduce((s, l) => s + l.amountEur, 0);
+
+  // cifrele vin de pe server: tin cont de tot istoricul, de orele acoperite din
+  // abonament si de reducerile lunare
+  // lista de ore se taie in pagini: la clientii vechi sunt sute de interventii
+  const PE_PAGINA = 20;
+  const paginiOre = Math.max(1, Math.ceil(workLogs.length / PE_PAGINA));
+  const pagina = Math.min(paginaOre, paginiOre);
+  const oreAfisate = workLogs.slice((pagina - 1) * PE_PAGINA, pagina * PE_PAGINA);
+
+  const stats = client.stats;
+  const minutes = stats?.minutes ?? workLogs.reduce((s, l) => s + l.standardMinutes + l.offHoursMinutes, 0);
+  const unbilled = stats?.unbilledEur ?? 0;
 
   return (
     <div className="animate-fade-up">
@@ -95,13 +105,19 @@ export function ClientDetail() {
         <StatCard
           label="Ore lucrate"
           value={formatMinutes(minutes)}
-          hint={`${workLogs.length} intervenții`}
+          hint={`${stats?.workLogCount ?? workLogs.length} intervenții`}
           icon={<Clock4 className="h-5 w-5" />}
         />
         <StatCard
           label="De facturat"
           value={formatEur(unbilled)}
-          hint="abonamente + ore"
+          hint={
+            stats
+              ? `${formatEur(stats.unbilledSubscriptionsEur)} abonamente + ${formatEur(stats.unbilledHoursEur)} ore${
+                  stats.discountEur > 0 ? ` · reducere −${formatEur(stats.discountEur)}` : ''
+                }`
+              : 'abonamente + ore'
+          }
           icon={<Wallet className="h-5 w-5" />}
           tone={unbilled > 0 ? 'danger' : 'success'}
         />
@@ -113,7 +129,7 @@ export function ClientDetail() {
           onChange={setTab}
           options={[
             { value: 'abonamente', label: 'Abonamente', count: subscriptions.length },
-            { value: 'ore', label: 'Ore & intervenții', count: workLogs.length },
+            { value: 'ore', label: 'Ore & intervenții', count: stats?.workLogCount ?? workLogs.length },
             { value: 'scadentar', label: 'Scadențar', count: billingItems.length },
             { value: 'detalii', label: 'Detalii' },
           ]}
@@ -161,6 +177,11 @@ export function ClientDetail() {
                     {sub.includedHoursPerMonth > 0 ? (
                       <Badge className="bg-indigo-50 text-indigo-600">
                         {sub.includedHoursPerMonth} h incluse/lună
+                      </Badge>
+                    ) : null}
+                    {sub._count?.documents ? (
+                      <Badge className="bg-slate-100 text-slate-600">
+                        <Paperclip className="h-3 w-3" /> {sub._count.documents}
                       </Badge>
                     ) : null}
                   </div>
@@ -247,7 +268,7 @@ export function ClientDetail() {
               </Link>
             </Card>
           ) : (
-            workLogs.map((log) => (
+            oreAfisate.map((log) => (
               <Card
                 key={log.id}
                 onClick={() => setDetaliiLog(log.id)}
@@ -278,6 +299,15 @@ export function ClientDetail() {
               </Card>
             ))
           )}
+
+          <Paginare
+            pagina={pagina}
+            pagini={paginiOre}
+            total={workLogs.length}
+            numeElemente="intervenții"
+            onSchimba={setPaginaOre}
+            className="px-1 pt-2"
+          />
         </div>
       )}
 

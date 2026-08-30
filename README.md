@@ -78,6 +78,14 @@ lunară, în rapoarte și pe panoul de control.
 Orele incluse **nu se reportează** în luna următoare (fiecare lună începe cu
 pachetul întreg).
 
+### Contractul abonamentului
+
+Fiecare abonament ține la dosar contractul semnat (scanat) și orice alte acte:
+în fereastra de editare a abonamentului, secțiunea *Contract și acte* — PDF,
+Word, Excel, text sau imagini, maximum 10 MB fiecare. Pe cardul abonamentului
+apare o agrafă cu numărul de acte. Fișierele stau în `data/uploads/contracte`,
+în afara codului, deci supraviețuiesc actualizărilor.
+
 ### Orele plătite prin abonament
 
 Fiecare abonament poate avea un număr de **ore plătite** (câmpul *Ore plătite

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CalendarClock, Database, History, Pencil, Plus, Repeat, Trash2, Users } from 'lucide-react';
+import {
+  AlertTriangle, CalendarClock, Database, History, Paperclip, Pencil, Plus, Repeat, Trash2, Users,
+} from 'lucide-react';
 import { api } from '../lib/api';
 import {
   useClients, useCrudMutation, useHourPackages, useSettings, useSubscriptions, useUserChanges,
@@ -12,6 +14,7 @@ import {
   Segmented, Select, Textarea, Toggle, useToast,
 } from '../components/ui';
 import { formatDate, formatEur, formatMinutes, todayIso } from '../lib/format';
+import { ContractAbonament } from '../components/ContractAbonament';
 import { cn } from '../lib/cn';
 import { CYCLE, PRODUCT, SUBSCRIPTION_KIND, SUBSCRIPTION_STATUS, options } from '../lib/labels';
 import type {
@@ -269,6 +272,16 @@ export function SubscriptionForm({
         </Field>
       </div>
 
+      {subscription ? (
+        <div className="mt-4">
+          <ContractAbonament subscriptionId={subscription.id} />
+        </div>
+      ) : (
+        <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-xs text-slate-500">
+          Contractul se poate atașa după ce salvezi abonamentul.
+        </p>
+      )}
+
       {estePachet && pachetAles && (
         <div className="mt-4 rounded-3xl border border-indigo-200 bg-indigo-50 p-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
@@ -506,6 +519,11 @@ export function Subscriptions() {
                   {sub.includedHoursPerMonth > 0 ? (
                     <Badge className="bg-indigo-50 text-indigo-600">
                       {sub.includedHoursPerMonth} h incluse/lună
+                    </Badge>
+                  ) : null}
+                  {sub._count?.documents ? (
+                    <Badge className="bg-slate-100 text-slate-600">
+                      <Paperclip className="h-3 w-3" /> {sub._count.documents}
                     </Badge>
                   ) : null}
                 </div>
