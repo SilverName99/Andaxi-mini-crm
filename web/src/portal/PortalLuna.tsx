@@ -9,6 +9,36 @@ import { minuteSegmente, segmenteleZilei, type FereastraProgram } from '../lib/c
 import { cn } from '../lib/cn';
 import type { PortalMe, PortalMonth, PortalRow } from './api';
 
+/**
+ * Cum stă o lucrare cu plata, din punctul de vedere al clientului:
+ * ce e acoperit din pachet sau abonament e la fel de bun ca plătit (verde),
+ * ce e facturat așteaptă plata (gri), restul urmează pe factura viitoare.
+ */
+type StarePlata = 'platit' | 'inclus' | 'facturat' | 'urmeaza';
+
+function starePlata(row: PortalRow): StarePlata {
+  if (row.status === 'PAID') return 'platit';
+  if (!row.billable || row.includedInPackage || row.billableMinutes === 0) return 'inclus';
+  return row.status === 'INVOICED' ? 'facturat' : 'urmeaza';
+}
+
+/** Ziua ia culoarea celei mai „neterminate" lucrări din ea */
+function stareaZilei(rows: PortalRow[]): StarePlata | null {
+  if (rows.length === 0) return null;
+  const stari = rows.map(starePlata);
+  if (stari.includes('urmeaza')) return 'urmeaza';
+  if (stari.includes('facturat')) return 'facturat';
+  return stari.includes('platit') ? 'platit' : 'inclus';
+}
+
+/** Culorile zilelor din calendar, după starea plății */
+const CULORI_ZI: Record<StarePlata, string> = {
+  platit: 'border-emerald-200 bg-emerald-50 font-bold text-emerald-700 hover:border-emerald-400',
+  inclus: 'border-emerald-200 bg-emerald-50 font-bold text-emerald-700 hover:border-emerald-400',
+  facturat: 'border-slate-300 bg-slate-100 font-bold text-slate-600 hover:border-slate-400',
+  urmeaza: 'border-indigo-200 bg-indigo-50 font-bold text-indigo-700 hover:border-indigo-400',
+};
+
 /** Ce a acoperit orele unei lucrări: abonamentul, pachetul sau factura */
 function sursa(row: PortalRow): { text: string; chip: string } | null {
   if (row.paidMinutes >= row.minutes && row.minutes > 0) {
@@ -184,7 +214,7 @@ export function PortalLuna({
                     'relative flex aspect-square flex-col items-center justify-center gap-0.5 rounded-2xl border text-xs transition',
                     !zi.inLuna && 'cursor-default border-transparent text-slate-300',
                     zi.inLuna && !minute && 'border-slate-100 text-slate-500 hover:border-slate-300',
-                    zi.inLuna && minute > 0 && 'border-indigo-200 bg-indigo-50 font-bold text-indigo-700 hover:border-indigo-400',
+                    zi.inLuna && minute > 0 && CULORI_ZI[stareaZilei(ale) ?? 'urmeaza'],
                     selectata && 'border-indigo-500 ring-2 ring-indigo-200',
                   )}
                 >
@@ -199,9 +229,18 @@ export function PortalLuna({
               );
             })}
           </div>
-          <p className="mt-3 text-xs text-slate-400">
-            Apasă pe o zi ca să vezi doar lucrările din ea.
-          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> plătit sau inclus
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-slate-400" /> facturat, de plată
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-indigo-400" /> urmează pe factură
+            </span>
+          </div>
+          <p className="mt-1.5 text-xs text-slate-400">Apasă pe o zi ca să vezi doar lucrările din ea.</p>
         </Card>
 
         <Card>
@@ -243,8 +282,19 @@ export function PortalLuna({
             <ul className="flex max-h-[28rem] flex-col gap-2 overflow-y-auto pr-1">
               {afisate.map((row) => {
                 const eticheta = sursa(row);
+                const stare = starePlata(row);
                 return (
-                  <li key={row.id} className="rounded-2xl border border-slate-200 p-3">
+                  <li
+                    key={row.id}
+                    className={cn(
+                      'rounded-2xl border p-3',
+                      stare === 'platit' || stare === 'inclus'
+                        ? 'border-emerald-200 bg-emerald-50/40'
+                        : stare === 'facturat'
+                          ? 'border-slate-300 bg-slate-50'
+                          : 'border-slate-200',
+                    )}
+                  >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-sm font-bold text-slate-800">
                         {formatDate(row.date)}
@@ -273,6 +323,12 @@ export function PortalLuna({
                         <Badge className="bg-slate-100 text-slate-600">{row.projectTag}</Badge>
                       )}
                       {eticheta && <Badge className={eticheta.chip}>{eticheta.text}</Badge>}
+                      {stare === 'platit' && (
+                        <Badge className="bg-emerald-100 text-emerald-700">Plătit</Badge>
+                      )}
+                      {stare === 'facturat' && (
+                        <Badge className="bg-slate-200 text-slate-700">Facturat · de plată</Badge>
+                      )}
                     </div>
                   </li>
                 );

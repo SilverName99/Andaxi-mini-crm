@@ -94,6 +94,8 @@ export interface PortalRow {
   projectTag: string;
   includedInPackage: boolean;
   billable: boolean;
+  /** PENDING = urmează pe factură · INVOICED = facturat · PAID = încasat */
+  status: 'PENDING' | 'INVOICED' | 'PAID' | 'NONBILLABLE';
   minutes: number;
   paidMinutes: number;
   includedMinutes: number;

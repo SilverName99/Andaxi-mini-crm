@@ -270,6 +270,8 @@ portalRouter.get(
         projectTag: row.projectTag,
         includedInPackage: row.includedInPackage,
         billable: row.billable,
+        /** Ca sa vada ce e deja platit, ce e facturat si ce urmeaza */
+        status: row.status,
         minutes: row.minutes,
         paidMinutes: row.paidMinutes,
         includedMinutes: row.includedMinutes,
