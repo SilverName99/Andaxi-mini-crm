@@ -5,7 +5,7 @@ import { asyncHandler, HttpError } from '../middleware/errors.js';
 import { isoDate, CYCLES, PRODUCTS, SUBSCRIPTION_KINDS, SUBSCRIPTION_STATUSES } from '../lib/validation.js';
 import { syncBillingItems } from '../lib/billing-sync.js';
 import { computeSubscriptionPrice, includedStorageGb, isPerUserProduct, prorate } from '../lib/pricing.js';
-import { today } from '../lib/dates.js';
+import { addDays, today } from '../lib/dates.js';
 import { CYCLE_MONTHS, isCycle } from '../lib/cycles.js';
 import { round2 } from '../lib/rates.js';
 import { CLIENT_REF } from '../lib/selects.js';
@@ -165,9 +165,12 @@ subscriptionsRouter.put(
     if (endDate && endDate < startDate) {
       throw new HttpError(400, 'Data de final nu poate fi inaintea datei de start');
     }
-    // Daca s-a mutat data de start, resetam seria de facturare de la noua data;
-    // pozitiile deja marcate ca facturate raman neatinse.
-    const resetSeries = data.startDate && data.startDate !== current.startDate;
+    // Daca s-a mutat data de start sau s-a schimbat ciclul, perioadele arata
+    // altfel: refacem seria de facturare de la data de start. Pozitiile deja
+    // facturate sau incasate raman neatinse.
+    const resetSeries =
+      (!!data.startDate && data.startDate !== current.startDate) ||
+      (!!data.cycle && data.cycle !== current.cycle);
     const { amountEur, users } = await rezolvaSuma({
       product: data.product ?? current.product,
       cycle: data.cycle ?? current.cycle,
@@ -196,7 +199,7 @@ subscriptionsRouter.put(
           ? { storageUpdatedAt: today() }
           : {}),
         endDate,
-        ...(resetSeries ? { nextDueDate: data.startDate } : {}),
+        ...(resetSeries ? { nextDueDate: startDate } : {}),
       },
     });
     if (schimbare) {
@@ -230,6 +233,21 @@ subscriptionsRouter.put(
       await prisma.billingItem.deleteMany({
         where: { subscriptionId: updated.id, status: 'PENDING' },
       });
+      /*
+       * Seria noua incepe dupa ultima perioada deja facturata, incasata sau
+       * sarita — altfel ori am factura de doua ori aceeasi perioada, ori ar
+       * ramane o gaura intre vechiul ciclu si primul termen nou.
+       */
+      const ultima = await prisma.billingItem.findFirst({
+        where: { subscriptionId: updated.id, status: { not: 'PENDING' } },
+        orderBy: { periodEnd: 'desc' },
+      });
+      if (ultima && ultima.periodEnd >= startDate) {
+        await prisma.subscription.update({
+          where: { id: updated.id },
+          data: { nextDueDate: addDays(ultima.periodEnd, 1) },
+        });
+      }
     }
     await syncBillingItems();
     res.json(updated);

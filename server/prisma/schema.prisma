@@ -357,6 +357,8 @@ model Task {
   doneAt   String?
   /// Cererile venite din portalul clientului, ca sa le recunosti in lista
   fromPortal Boolean @default(false)
+  /// Discutia deschisa de tine, dar vizibila clientului in portal
+  sharedWithClient Boolean @default(false)
   /// NORMAL (raspuns in 24 de ore de lucru) | URGENT (12 ore de lucru); gol la task-urile tale
   requestKind String @default("")
   /// Termenul de raspuns (ISO), calculat doar in orele de program

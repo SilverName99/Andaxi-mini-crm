@@ -16,10 +16,12 @@ const MAX_ITERATIONS = 600;
  */
 export async function syncBillingItems(now: string = today()): Promise<number> {
   const horizon = addDays(now, HORIZON_DAYS);
-  const subscriptions = await prisma.subscription.findMany({ where: { status: 'ACTIVE' } });
+  const subscriptions = await prisma.subscription.findMany();
   let created = 0;
 
   for (const sub of subscriptions) {
+    await curataPozitii(sub, now);
+    if (sub.status !== 'ACTIVE') continue;
     if (!isCycle(sub.cycle)) continue;
     const cycle: Cycle = sub.cycle;
     let due = sub.nextDueDate;
@@ -54,4 +56,27 @@ export async function syncBillingItems(now: string = today()): Promise<number> {
   }
 
   return created;
+}
+
+/**
+ * Scoate din scadentar pozitiile inca nefacturate care nu mai au acoperire in
+ * abonament: perioade dinaintea datei de start sau de dupa data de final (cand
+ * le muti), perioade ramase dupa o schimbare de ciclu si perioadele viitoare
+ * ale abonamentelor oprite. Pozitiile deja facturate, incasate sau ignorate
+ * raman neatinse — sunt istoric, nu previziune.
+ */
+async function curataPozitii(
+  sub: { id: string; startDate: string; endDate: string | null; status: string; cycle: string },
+  now: string,
+): Promise<void> {
+  const inafara: { periodStart: { lt: string } | { gt: string } }[] = [
+    { periodStart: { lt: sub.startDate } },
+  ];
+  if (sub.endDate) inafara.push({ periodStart: { gt: sub.endDate } });
+  // un abonament oprit nu mai genereaza perioade viitoare
+  if (sub.status !== 'ACTIVE') inafara.push({ periodStart: { gt: now } });
+
+  await prisma.billingItem.deleteMany({
+    where: { subscriptionId: sub.id, status: 'PENDING', OR: inafara },
+  });
 }

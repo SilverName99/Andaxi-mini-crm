@@ -20,7 +20,39 @@ const taskSchema = z.object({
   done: z.boolean().default(false),
   /** Discutia cu clientul: o inchizi cand cererea s-a rezolvat */
   chatClosed: z.boolean().optional(),
+  /** Vizibila in portalul clientului, ca o discutie deschisa de tine */
+  sharedWithClient: z.boolean().optional(),
 });
+
+/**
+ * Anunta clientul ca i-ai deschis o discutie noua in portal. O problema de
+ * posta nu trebuie sa strice task-ul, deci nu aruncam niciodata de aici.
+ */
+async function anuntaConversatie(taskId: string): Promise<void> {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: { client: { select: { email: true } } },
+  });
+  if (!task?.client?.email) return;
+
+  const settings = await getSettings();
+  const portal = await prisma.clientPortal.findUnique({ where: { clientId: task.clientId ?? '' } });
+  if (!portal?.enabled) return;
+  const link = settings.portalBaseUrl
+    ? `${settings.portalBaseUrl.replace(/\/+$/, '')}/portal#${portal.token}`
+    : '';
+
+  void trimiteEmail({
+    to: task.client.email,
+    subject: `Discuție nouă: ${task.title}`,
+    text: `${task.title}\n\n${task.details}\n\n${link ? `Poți răspunde din portal: ${link}` : ''}`,
+    html: sablonEmail(
+      `Discuție nouă: ${task.title}`,
+      [task.details || '(fără detalii)'],
+      link ? { text: 'Deschide portalul', url: link } : undefined,
+    ),
+  });
+}
 
 tasksRouter.get(
   '/',
@@ -46,11 +78,19 @@ tasksRouter.post(
   '/',
   asyncHandler(async (req, res) => {
     const data = taskSchema.parse(req.body);
-    res.status(201).json(
-      await prisma.task.create({
-        data: { ...data, clientId: data.clientId || null, dueDate: data.dueDate ?? null },
-      }),
-    );
+    // un task legat de un client e, implicit, o discutie pe care o vede si el
+    const sharedWithClient = data.clientId ? (data.sharedWithClient ?? true) : false;
+
+    const task = await prisma.task.create({
+      data: {
+        ...data,
+        clientId: data.clientId || null,
+        dueDate: data.dueDate ?? null,
+        sharedWithClient,
+      },
+    });
+    if (sharedWithClient) await anuntaConversatie(task.id);
+    res.status(201).json(task);
   }),
 );
 
@@ -58,16 +98,20 @@ tasksRouter.put(
   '/:id',
   asyncHandler(async (req, res) => {
     const data = taskSchema.partial().parse(req.body);
-    res.json(
-      await prisma.task.update({
-        where: { id: req.params.id },
-        data: {
-          ...data,
-          ...(data.clientId !== undefined ? { clientId: data.clientId || null } : {}),
-          ...(data.done !== undefined ? { doneAt: data.done ? today() : null } : {}),
-        },
-      }),
-    );
+    const current = await prisma.task.findUniqueOrThrow({ where: { id: req.params.id } });
+    const task = await prisma.task.update({
+      where: { id: req.params.id },
+      data: {
+        ...data,
+        ...(data.clientId !== undefined ? { clientId: data.clientId || null } : {}),
+        ...(data.done !== undefined ? { doneAt: data.done ? today() : null } : {}),
+        // fara client nu are cui sa fie vizibila discutia
+        ...(data.clientId !== undefined && !data.clientId ? { sharedWithClient: false } : {}),
+      },
+    });
+    // daca abia acum ai deschis-o catre client, il anuntam ca pe o discutie noua
+    if (task.sharedWithClient && !current.sharedWithClient) await anuntaConversatie(task.id);
+    res.json(task);
   }),
 );
 

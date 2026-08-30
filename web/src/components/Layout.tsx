@@ -2,21 +2,30 @@ import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   BarChart3, CalendarClock, CalendarDays, Clock4, FileSpreadsheet, LayoutDashboard, ListChecks, LogOut, Menu,
-  Repeat, Settings as SettingsIcon, Users, X,
+  Repeat, Settings as SettingsIcon, Users, X, type LucideIcon,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useAuth } from '../lib/auth';
-import { useSettings } from '../lib/queries';
+import { useCereriNoi, useSettings } from '../lib/queries';
 import { initials } from '../lib/format';
 
-const NAV = [
+interface NavItem {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  end?: boolean;
+  /** Bulina cu numarul de cereri de la clienti */
+  badge?: 'cereri';
+}
+
+const NAV: NavItem[] = [
   { to: '/', label: 'Panou de control', icon: LayoutDashboard, end: true },
   { to: '/clienti', label: 'Clienți', icon: Users },
   { to: '/abonamente', label: 'Abonamente', icon: Repeat },
   { to: '/scadentar', label: 'Scadențar', icon: CalendarClock },
   { to: '/calendar', label: 'Calendar', icon: CalendarDays },
   { to: '/interventii', label: 'Ore & intervenții', icon: Clock4 },
-  { to: '/taskuri', label: 'Task-uri', icon: ListChecks },
+  { to: '/taskuri', label: 'Task-uri', icon: ListChecks, badge: 'cereri' },
   { to: '/fisa-lunara', label: 'Fișă lunară', icon: FileSpreadsheet },
   { to: '/rapoarte', label: 'Rapoarte', icon: BarChart3 },
   { to: '/setari', label: 'Setări', icon: SettingsIcon },
@@ -44,7 +53,20 @@ function BrandMark({ logoUrl, companyName, size = 'md' }: { logoUrl?: string; co
   );
 }
 
+/** Bulina rosie cu numarul de cereri de la clienti */
+function Bulina({ numar }: { numar: number }) {
+  return (
+    <span
+      className="ml-auto grid h-5 min-w-[20px] place-items-center rounded-full bg-red-500 px-1.5 text-[11px] font-extrabold leading-none text-white shadow-sm"
+      aria-label={`${numar} ${numar === 1 ? 'cerere nouă' : 'cereri noi'} de la clienți`}
+    >
+      {numar > 99 ? '99+' : numar}
+    </span>
+  );
+}
+
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
+  const cereriNoi = useCereriNoi();
   return (
     <nav className="flex flex-col gap-1">
       {NAV.map((item) => (
@@ -73,6 +95,7 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
                 <item.icon className="h-[18px] w-[18px]" strokeWidth={2.2} />
               </span>
               {item.label}
+              {item.badge === 'cereri' && cereriNoi > 0 && <Bulina numar={cereriNoi} />}
             </>
           )}
         </NavLink>
@@ -85,6 +108,7 @@ export function Layout() {
   const { user, logout } = useAuth();
   const { data: settings } = useSettings();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const cereriNoi = useCereriNoi();
   const location = useLocation();
   const current = NAV.find((item) => (item.end ? location.pathname === item.to : location.pathname.startsWith(item.to)));
 
@@ -142,10 +166,13 @@ export function Layout() {
             </div>
             <button
               onClick={() => setMobileOpen(true)}
-              className="rounded-xl p-2 text-slate-600 transition hover:bg-slate-100"
-              aria-label="Meniu"
+              className="relative rounded-xl p-2 text-slate-600 transition hover:bg-slate-100"
+              aria-label={cereriNoi > 0 ? `Meniu · ${cereriNoi} cereri noi` : 'Meniu'}
             >
               <Menu className="h-5 w-5" />
+              {cereriNoi > 0 && (
+                <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" />
+              )}
             </button>
           </div>
 

@@ -196,6 +196,9 @@ function PortalContinut() {
     );
   }
 
+  // cate mesaje de la noi n-a citit inca, ca sa vada pastila pe fila de discutii
+  const necitite = me.requests.reduce((total, cerere) => total + cerere.unread, 0);
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
@@ -247,7 +250,7 @@ function PortalContinut() {
               { value: 'luna', label: 'Luna' },
               { value: 'abonamente', label: 'Abonamente' },
               { value: 'plati', label: 'Plăți' },
-              { value: 'cereri', label: 'Cereri' },
+              { value: 'cereri', label: 'Discuții', count: necitite || undefined },
             ]}
           />
 

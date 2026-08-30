@@ -270,6 +270,8 @@ export interface Task {
   doneAt: string | null;
   /** Cerere venită din portalul clientului */
   fromPortal?: boolean;
+  /** Discuție deschisă de tine, dar vizibilă clientului în portal */
+  sharedWithClient?: boolean;
   /** NORMAL (24 ore de lucru) · URGENT (12 ore de lucru) */
   requestKind?: string;
   /** Termenul de răspuns (ISO) */

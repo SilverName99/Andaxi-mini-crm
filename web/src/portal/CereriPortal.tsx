@@ -24,6 +24,20 @@ const FELURI = {
   },
 } as const;
 
+/** Discuțiile deschise de noi n-au termen promis — le arătăm ca atare */
+const DESCHISA_DE_NOI = {
+  titlu: 'Deschisă de noi',
+  timp: '',
+  chip: 'bg-violet-100 text-violet-700',
+  Icon: MessagesSquare,
+} as const;
+
+/** Ce etichetă poartă o discuție: felul cererii sau „deschisă de noi” */
+function felDiscutie(discutie: { kind: string; openedBy: string }) {
+  if (discutie.openedBy === 'ADMIN') return DESCHISA_DE_NOI;
+  return FELURI[discutie.kind as keyof typeof FELURI] ?? FELURI.NORMAL;
+}
+
 /** Cererile de intervenție trimise din portal, cu discuția pe fiecare */
 export function CereriPortal({ me }: { me: PortalMe }) {
   const toast = useToast();
@@ -64,7 +78,7 @@ export function CereriPortal({ me }: { me: PortalMe }) {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <LifeBuoy className="h-4 w-4 text-indigo-500" />
-            <p className="text-sm font-bold text-slate-800">Cererile tale</p>
+            <p className="text-sm font-bold text-slate-800">Cereri și discuții</p>
           </div>
           {me.flags.allowRequests && (
             <Button size="sm" icon={<Send className="h-4 w-4" />} onClick={() => setDeschis(true)}>
@@ -76,8 +90,8 @@ export function CereriPortal({ me }: { me: PortalMe }) {
         {me.requests.length === 0 ? (
           <p className="text-sm text-slate-500">
             {me.flags.allowRequests
-              ? 'Nu ai trimis nicio cerere. Apasă butonul de sus când ai nevoie de ceva.'
-              : 'Nu ai cereri trimise.'}
+              ? 'Nicio discuție deocamdată. Apasă butonul de sus când ai nevoie de ceva.'
+              : 'Nicio discuție deocamdată.'}
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -171,7 +185,7 @@ export function CereriPortal({ me }: { me: PortalMe }) {
 }
 
 function RandCerere({ cerere, onDeschide }: { cerere: PortalCerere; onDeschide: () => void }) {
-  const fel = FELURI[cerere.kind] ?? FELURI.NORMAL;
+  const fel = felDiscutie(cerere);
 
   return (
     <button
@@ -219,7 +233,7 @@ function RandCerere({ cerere, onDeschide }: { cerere: PortalCerere; onDeschide: 
 
       {cerere.details && <p className="mt-1.5 line-clamp-2 text-sm text-slate-600">{cerere.details}</p>}
       <p className="mt-1 text-xs text-slate-400">
-        Trimisă {formatDateTime(cerere.createdAt)}
+        {cerere.openedBy === 'ADMIN' ? 'Deschisă' : 'Trimisă'} {formatDateTime(cerere.createdAt)}
         {cerere.done && cerere.doneAt && ` · rezolvată pe ${formatDate(cerere.doneAt)}`}
       </p>
     </button>
@@ -249,10 +263,10 @@ function Discutie({ cerereId, onClose }: { cerereId: string; onClose: () => void
     }
   }
 
-  const fel = data ? (FELURI[data.kind] ?? FELURI.NORMAL) : FELURI.NORMAL;
+  const fel = data ? felDiscutie(data) : FELURI.NORMAL;
 
   return (
-    <Modal open onClose={onClose} size="lg" title={data?.title ?? 'Cerere'} subtitle="Discuția pe marginea cererii">
+    <Modal open onClose={onClose} size="lg" title={data?.title ?? 'Discuție'} subtitle="Discuția pe marginea acestei cereri">
       {isLoading || !data ? (
         <LoadingBlock />
       ) : (
@@ -267,7 +281,9 @@ function Discutie({ cerereId, onClose }: { cerereId: string; onClose: () => void
               )}
             </div>
             <p className="whitespace-pre-wrap text-sm text-slate-700">{data.details || '—'}</p>
-            <p className="mt-1 text-xs text-slate-400">Trimisă {formatDateTime(data.createdAt)}</p>
+            <p className="mt-1 text-xs text-slate-400">
+              {data.openedBy === 'ADMIN' ? 'Deschisă' : 'Trimisă'} {formatDateTime(data.createdAt)}
+            </p>
           </div>
 
           {data.messages.length > 0 && (

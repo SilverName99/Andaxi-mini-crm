@@ -47,8 +47,10 @@ export interface PortalCerere {
   id: string;
   title: string;
   details: string;
-  /** NORMAL = 24 de ore de lucru · URGENT = 12 */
-  kind: 'NORMAL' | 'URGENT';
+  /** NORMAL = 24 de ore de lucru · URGENT = 12 · gol la discuțiile deschise de noi */
+  kind: 'NORMAL' | 'URGENT' | '';
+  /** Cine a deschis discuția */
+  openedBy: 'CLIENT' | 'ADMIN';
   dueAt: string | null;
   chatClosed: boolean;
   done: boolean;
@@ -71,7 +73,8 @@ export interface PortalDiscutie {
   id: string;
   title: string;
   details: string;
-  kind: 'NORMAL' | 'URGENT';
+  kind: 'NORMAL' | 'URGENT' | '';
+  openedBy: 'CLIENT' | 'ADMIN';
   dueAt: string | null;
   chatClosed: boolean;
   done: boolean;

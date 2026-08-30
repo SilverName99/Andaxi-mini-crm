@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, qs } from './api';
+import { numaraCereri } from './cereri';
 import type {
   BillingItem, CalendarData, Client, Dashboard, HourPackage, MonthlySheet, ReportData, Settings, Subscription,
   MonthlyDiscount, MonthlyDocument, SubscriptionUserChange, Task, WorkLog, ClientPortal, MonthlyApproval,
@@ -97,6 +98,20 @@ export function useWorkLog(id: string) {
 
 export function useTasks(filters: { done?: string; clientId?: string } = {}) {
   return useQuery({ queryKey: keys.tasks(filters), queryFn: () => api.get<Task[]>(`/tasks${qs(filters)}`) });
+}
+
+/**
+ * Cate cereri din portal asteapta un raspuns — pentru bulina rosie din meniu.
+ * Se reimprospateaza singura, ca sa vezi cererile noi fara sa reincarci pagina.
+ */
+export function useCereriNoi(): number {
+  const { data = [] } = useQuery({
+    queryKey: keys.tasks({ done: 'false' }),
+    queryFn: () => api.get<Task[]>(`/tasks${qs({ done: 'false' })}`),
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  });
+  return numaraCereri(data);
 }
 
 export function useCalendar(from: string, to: string) {

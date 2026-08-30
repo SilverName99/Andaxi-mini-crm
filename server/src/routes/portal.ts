@@ -23,6 +23,12 @@ const limitator = creeazaLimitator();
 /** Maxim 10 cereri de interventie pe ora, ca portalul sa nu poata fi inundat */
 const limitatorCereri = creeazaLimitator(10, 60 * 60_000);
 
+/**
+ * Ce vede clientul in portal: cererile trimise de el si discutiile pe care i
+ * le-ai deschis tu. Task-urile tale interne raman doar la tine.
+ */
+const DISCUTII_VIZIBILE = { OR: [{ fromPortal: true }, { sharedWithClient: true }] };
+
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
@@ -135,7 +141,7 @@ portalRouter.get(
       }),
       prisma.workLog.findFirst({ where: { clientId }, orderBy: { date: 'asc' }, select: { date: true } }),
       prisma.task.findMany({
-        where: { clientId, fromPortal: true },
+        where: { clientId, ...DISCUTII_VIZIBILE },
         orderBy: [{ done: 'asc' }, { createdAt: 'desc' }],
         take: 30,
         include: { messages: { select: { author: true, readByClient: true } } },
@@ -185,7 +191,10 @@ portalRouter.get(
         id: task.id,
         title: task.title,
         details: task.details,
-        kind: task.requestKind || 'NORMAL',
+        /** Gol la discutiile deschise de noi: acolo nu exista termen de raspuns */
+        kind: task.requestKind,
+        /** CLIENT (a cerut-o el) sau ADMIN (i-am deschis-o noi) */
+        openedBy: task.fromPortal ? 'CLIENT' : 'ADMIN',
         dueAt: task.dueAt,
         chatClosed: task.chatClosed,
         done: task.done,
@@ -423,6 +432,7 @@ portalRouter.post(
       title: task.title,
       details: task.details,
       kind,
+      openedBy: 'CLIENT',
       dueAt: task.dueAt,
       chatClosed: task.chatClosed,
       done: task.done,
@@ -438,7 +448,7 @@ portalRouter.post(
 
 /** Cererea, doar daca e a clientului din sesiune */
 async function cerereaClientului(clientId: string, taskId: string) {
-  const task = await prisma.task.findFirst({ where: { id: taskId, clientId, fromPortal: true } });
+  const task = await prisma.task.findFirst({ where: { id: taskId, clientId, ...DISCUTII_VIZIBILE } });
   if (!task) throw new HttpError(404, 'Cererea nu a fost gasita.');
   return task;
 }
@@ -464,7 +474,8 @@ portalRouter.get(
       id: task.id,
       title: task.title,
       details: task.details,
-      kind: task.requestKind || 'NORMAL',
+      kind: task.requestKind,
+      openedBy: task.fromPortal ? 'CLIENT' : 'ADMIN',
       dueAt: task.dueAt,
       chatClosed: task.chatClosed,
       done: task.done,

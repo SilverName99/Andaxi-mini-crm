@@ -6,7 +6,7 @@ import { PageHeader } from '../components/Layout';
 import { DateField } from '../components/DateField';
 import {
   Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBlock, Field, Input, LoadingBlock, Modal, Segmented,
-  Select, Textarea, useToast,
+  Select, Textarea, Toggle, useToast,
 } from '../components/ui';
 import { formatDate, formatDateTime, todayIso } from '../lib/format';
 import { DiscutieCerere } from '../components/DiscutieCerere';
@@ -18,7 +18,16 @@ function TaskForm({ open, onClose, task }: { open: boolean; onClose: () => void;
   const toast = useToast();
   const { data: clients = [] } = useClients();
   const [form, setForm] = useState<Partial<Task>>(
-    task ?? { title: '', details: '', dueDate: todayIso(), priority: 'MEDIUM', clientId: null, done: false },
+    task ?? {
+      title: '',
+      details: '',
+      dueDate: todayIso(),
+      priority: 'MEDIUM',
+      clientId: null,
+      done: false,
+      // un task pe un client e, implicit, o discutie pe care o vede si el
+      sharedWithClient: true,
+    },
   );
   const [error, setError] = useState('');
   const mutation = useCrudMutation((data: Partial<Task>) =>
@@ -51,6 +60,15 @@ function TaskForm({ open, onClose, task }: { open: boolean; onClose: () => void;
         <Field label="Prioritate">
           <Select value={form.priority ?? 'MEDIUM'} onChange={(e) => set('priority', e.target.value)} options={options(PRIORITY)} />
         </Field>
+
+        {form.clientId && (
+          <Toggle
+            checked={form.sharedWithClient ?? true}
+            onChange={(value) => set('sharedWithClient', value)}
+            label="Vizibil pentru client"
+            hint="Apare în portalul lui ca o discuție nouă și primește un email. Dezactivează pentru notițele tale."
+          />
+        )}
       </div>
 
       {error && <div className="mt-4"><ErrorBlock message={error} /></div>}
@@ -170,17 +188,22 @@ export function Tasks() {
                             răspuns până pe {formatDateTime(task.dueAt)}
                           </Badge>
                         )}
-                        <button
-                          onClick={() => setDiscutie(task.id)}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:brightness-110"
-                        >
-                          <MessagesSquare className="h-3.5 w-3.5" />
-                          Discuție
-                          {(task.messages ?? []).some((m) => m.author === 'CLIENT' && !m.readByAdmin) && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                          )}
-                        </button>
                       </>
+                    )}
+                    {!task.fromPortal && task.sharedWithClient && task.client && (
+                      <Badge className="bg-violet-100 text-violet-700">Vizibil în portal</Badge>
+                    )}
+                    {(task.fromPortal || (task.sharedWithClient && task.client)) && (
+                      <button
+                        onClick={() => setDiscutie(task.id)}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:brightness-110"
+                      >
+                        <MessagesSquare className="h-3.5 w-3.5" />
+                        Discuție
+                        {(task.messages ?? []).some((m) => m.author === 'CLIENT' && !m.readByAdmin) && (
+                          <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                        )}
+                      </button>
                     )}
                   </div>
                   {task.details && <p className="mt-1 text-sm text-slate-500">{task.details}</p>}
