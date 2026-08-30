@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type MouseEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, Clock4, FileDown, Moon, Plus, Sun } from 'lucide-react';
+import {
+  ArrowLeft, BadgeCheck, CheckCheck, ChevronLeft, ChevronRight, Clock4, FileDown, Moon, Plus, Sun, Undo2,
+} from 'lucide-react';
 import { api } from '../lib/api';
 import {
   useClient, useCrudMutation, useMonthlyApproval, useMonthlyDiscount, useSettings, useWorkLogs,
@@ -18,10 +20,30 @@ import {
 import { formatDate, formatEur, formatMinutes, minutesToHhMm, todayIso } from '../lib/format';
 import { grilaLunii, numeLuna, numeZi, schimbaLuna, ZILE_SCURTE } from '../lib/calendar';
 import { minuteSegmente, segmenteInterval, segmenteleZilei, type FereastraProgram } from '../lib/ceas';
-import { WORK_CATEGORY, options } from '../lib/labels';
+import { WORK_CATEGORY, WORK_STATUS, options } from '../lib/labels';
 import { optiuniLucrare } from '../lib/lucrari';
 import { cn } from '../lib/cn';
-import type { AccentColor, Subscription, WorkCategory, WorkLog } from '../lib/types';
+import type { AccentColor, Subscription, WorkCategory, WorkLog, WorkStatus } from '../lib/types';
+
+/**
+ * Cum arata o zi in ansamblu: incasata daca tot ce e facturabil in ea e
+ * incasat, facturata daca tot e cel putin facturat, altfel ramane de facturat.
+ */
+function stareaZilei(logs: WorkLog[]): WorkStatus | null {
+  const facturabile = logs.filter((l) => l.billable);
+  if (facturabile.length === 0) return null;
+  if (facturabile.every((l) => l.status === 'PAID')) return 'PAID';
+  if (facturabile.every((l) => l.status === 'PAID' || l.status === 'INVOICED')) return 'INVOICED';
+  return 'PENDING';
+}
+
+/** Culoarea pastilei cu orele zilei, dupa starea de facturare */
+const PASTILA_ZI: Record<WorkStatus, string> = {
+  PENDING: 'bg-indigo-100 text-indigo-700',
+  INVOICED: 'bg-slate-200 text-slate-700',
+  PAID: 'bg-emerald-100 text-emerald-700',
+  NONBILLABLE: 'bg-slate-100 text-slate-500',
+};
 
 /**
  * Calendarul de lucru al unui client: o lună pe zile, în care notezi direct
@@ -35,6 +57,8 @@ export function ClientCalendar() {
 
   const [month, setMonth] = useState(todayIso().slice(0, 7));
   const [ziSelectata, setZiSelectata] = useState(todayIso());
+  /** Zilele alese cu Ctrl/Shift, ca sa le poti factura pe toate odata */
+  const [zileMarcate, setZileMarcate] = useState<string[]>([]);
   const [detalii, setDetalii] = useState<string | null>(null);
   /** Intervalul desenat acum pe ceas, folosit de formularul de adaugare */
   const [selectie, setSelectie] = useState<{ start: number; end: number } | null>(null);
@@ -83,6 +107,49 @@ export function ClientCalendar() {
     : null;
 
   const aleZilei = peZile.get(ziSelectata) ?? [];
+
+  /* ── alegerea mai multor zile deodata, pentru marcarea in bloc ───────── */
+
+  const zileAlese = zileMarcate.length > 0 ? zileMarcate : [ziSelectata];
+  const deMarcat = logs.filter((l) => zileAlese.includes(l.date) && l.billable);
+  const valoareAleasa = deMarcat.reduce((s, l) => s + (l.billableEur ?? l.amountEur), 0);
+
+  const marcheaza = useCrudMutation((input: { ids: string[]; status: WorkStatus }) =>
+    api.post('/worklogs/bulk', input),
+  );
+
+  /**
+   * Click simplu = o singura zi. Cu Ctrl (sau ⌘) adaugi/scoti zile una cate
+   * una, cu Shift iei tot intervalul de la ultima zi apasata pana aici.
+   */
+  function apasaZi(zi: string, event: MouseEvent) {
+    setSelectie(null); // intervalul desenat era al zilei de dinainte
+    if (!event.ctrlKey && !event.metaKey && !event.shiftKey) {
+      setZiSelectata(zi);
+      setZileMarcate([]);
+      return;
+    }
+
+    const baza = zileMarcate.length > 0 ? zileMarcate : [ziSelectata];
+    if (event.shiftKey) {
+      const [de, pana] = ziSelectata <= zi ? [ziSelectata, zi] : [zi, ziSelectata];
+      const interval = zile.filter((z) => z.iso >= de && z.iso <= pana).map((z) => z.iso);
+      setZileMarcate([...new Set([...baza, ...interval])].sort());
+    } else {
+      const alese = new Set(baza);
+      if (alese.has(zi)) alese.delete(zi);
+      else alese.add(zi);
+      setZileMarcate([...alese].sort());
+    }
+    setZiSelectata(zi);
+  }
+
+  async function marcheazaZilele(status: WorkStatus, mesaj: string) {
+    if (deMarcat.length === 0) return;
+    await marcheaza.mutateAsync({ ids: deMarcat.map((l) => l.id), status });
+    toast(mesaj);
+    setZileMarcate([]);
+  }
 
   /** Intervalele orare ale unei zile, singurele care se pot desena pe ceas */
   const intervaleZilei = (zi: string) =>
@@ -165,15 +232,13 @@ export function ClientCalendar() {
                 {zile.map((zi) => {
                   const ale = peZile.get(zi.iso) ?? [];
                   const minute = ale.reduce((s, l) => s + l.standardMinutes + l.offHoursMinutes, 0);
-                  const selectata = zi.iso === ziSelectata;
+                  const selectata = zileAlese.includes(zi.iso);
+                  const stare = stareaZilei(ale);
                   return (
                     <button
                       key={zi.iso}
                       type="button"
-                      onClick={() => {
-                        setZiSelectata(zi.iso);
-                        setSelectie(null); // intervalul desenat era al zilei de dinainte
-                      }}
+                      onClick={(event) => apasaZi(zi.iso, event)}
                       className={cn(
                         'group flex min-h-[5rem] flex-col gap-1 rounded-2xl border p-1.5 text-left transition sm:min-h-[6rem]',
                         selectata
@@ -199,7 +264,12 @@ export function ClientCalendar() {
                       </span>
 
                       {minute > 0 ? (
-                        <span className="rounded-lg bg-indigo-100 px-1.5 py-0.5 text-center text-xs font-bold text-indigo-700">
+                        <span
+                          className={cn(
+                            'rounded-lg px-1.5 py-0.5 text-center text-xs font-bold',
+                            PASTILA_ZI[stare ?? 'NONBILLABLE'],
+                          )}
+                        >
                           {formatMinutes(minute)}
                         </span>
                       ) : (
@@ -213,6 +283,60 @@ export function ClientCalendar() {
               </div>
             </div>
           </div>
+
+          {deMarcat.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 p-2.5">
+              <span className="text-xs font-semibold text-slate-600">
+                {zileAlese.length === 1 ? formatDate(zileAlese[0]) : `${zileAlese.length} zile alese`} ·{' '}
+                {deMarcat.length} {deMarcat.length === 1 ? 'intervenție' : 'intervenții'} ·{' '}
+                <span className="text-slate-900">{formatEur(valoareAleasa)}</span>
+              </span>
+              {zileMarcate.length > 0 && (
+                <button
+                  onClick={() => setZileMarcate([])}
+                  className="text-xs font-semibold text-slate-400 transition hover:text-indigo-600"
+                >
+                  renunță
+                </button>
+              )}
+              <span className="ml-auto flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={<Undo2 className="h-3.5 w-3.5" />}
+                  loading={marcheaza.isPending}
+                  onClick={() => marcheazaZilele('PENDING', 'Trecute înapoi la de facturat')}
+                >
+                  De facturat
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<CheckCheck className="h-3.5 w-3.5" />}
+                  loading={marcheaza.isPending}
+                  onClick={() => marcheazaZilele('INVOICED', 'Marcate ca facturate')}
+                >
+                  Facturate
+                </Button>
+                <Button
+                  size="sm"
+                  variant="success"
+                  icon={<BadgeCheck className="h-3.5 w-3.5" />}
+                  loading={marcheaza.isPending}
+                  onClick={() => marcheazaZilele('PAID', 'Marcate ca încasate')}
+                >
+                  Încasate
+                </Button>
+              </span>
+            </div>
+          )}
+
+          <p className="mt-2 text-center text-xs text-slate-400">
+            Ține <kbd className="rounded bg-slate-100 px-1 font-sans font-semibold text-slate-500">Ctrl</kbd> apăsat
+            ca să alegi mai multe zile, sau{' '}
+            <kbd className="rounded bg-slate-100 px-1 font-sans font-semibold text-slate-500">Shift</kbd> pentru un
+            interval de zile.
+          </p>
 
           <a
             href={`/api/month-report?clientId=${id}&month=${month}`}
@@ -295,6 +419,9 @@ export function ClientCalendar() {
                         )}
                         {log.includedInPackage && (
                           <Badge className="bg-emerald-50 text-emerald-700">Inclus în pachet</Badge>
+                        )}
+                        {log.billable && (
+                          <Badge className={WORK_STATUS[log.status].chip}>{WORK_STATUS[log.status].text}</Badge>
                         )}
                       </div>
                     </button>
