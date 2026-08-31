@@ -199,6 +199,22 @@ function PortalContinut() {
   // cate mesaje de la noi n-a citit inca, ca sa vada pastila pe fila de discutii
   const necitite = me.requests.reduce((total, cerere) => total + cerere.unread, 0);
 
+  /*
+   * Prin ce luni se poate umbla: tot anul curent, plus istoricul de la prima
+   * lucrare incoace si orice scadenta de abonament din afara anului. Asa vede
+   * si lunile in care nu s-a lucrat, dar are un abonament de platit.
+   */
+  const anCurent = todayIso().slice(0, 4);
+  const reper = [
+    me.firstMonth,
+    todayIso().slice(0, 7),
+    `${anCurent}-01`,
+    `${anCurent}-12`,
+    ...me.billing.map((item) => item.dueDate.slice(0, 7)),
+  ];
+  const primaLuna = reper.reduce((a, b) => (a < b ? a : b));
+  const ultimaLuna = reper.reduce((a, b) => (a > b ? a : b));
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
@@ -267,7 +283,7 @@ function PortalContinut() {
               <button
                 onClick={() => setLuna(schimbaLuna(luna, -1))}
                 aria-label="Luna anterioară"
-                disabled={luna <= me.firstMonth}
+                disabled={luna <= primaLuna}
                 className="grid h-9 w-9 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100 disabled:opacity-30"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -278,7 +294,7 @@ function PortalContinut() {
               <button
                 onClick={() => setLuna(schimbaLuna(luna, 1))}
                 aria-label="Luna următoare"
-                disabled={luna >= todayIso().slice(0, 7)}
+                disabled={luna >= ultimaLuna}
                 className="grid h-9 w-9 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100 disabled:opacity-30"
               >
                 <ChevronRight className="h-4 w-4" />
@@ -440,9 +456,6 @@ function Plati({ me }: { me: PortalMe }) {
           ))}
         </tbody>
       </table>
-      <p className="mt-3 text-xs text-slate-400">
-        Pozițiile marcate „Estimat" nu sunt facturi emise, ci sume care urmează la reînnoire.
-      </p>
     </Card>
     </div>
   );

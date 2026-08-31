@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CalendarDays, Clock4, Download, FileText, Wallet } from 'lucide-react';
+import { CalendarDays, Clock4, Download, FileText, Repeat, Wallet } from 'lucide-react';
 import { Badge, Card, EmptyState, LoadingBlock } from '../components/ui';
 import { CeasZi, LegendaCeas } from '../components/CeasZi';
 import { formatDate, formatEur, formatFileSize, formatMinutes, formatRon } from '../lib/format';
@@ -30,6 +30,13 @@ function stareaZilei(rows: PortalRow[]): StarePlata | null {
   if (stari.includes('facturat')) return 'facturat';
   return stari.includes('platit') ? 'platit' : 'inclus';
 }
+
+/** Abonamentele scadente în lună, cu starea lor de plată */
+const STARE_ABONAMENT: Record<string, { text: string; chip: string; punct: string }> = {
+  PAID: { text: 'Achitat', chip: 'bg-emerald-100 text-emerald-700', punct: 'bg-emerald-500' },
+  INVOICED: { text: 'Facturat · de plată', chip: 'bg-slate-200 text-slate-700', punct: 'bg-slate-400' },
+  PENDING: { text: 'Urmează factura', chip: 'bg-indigo-100 text-indigo-700', punct: 'bg-indigo-500' },
+};
 
 /** Culorile zilelor din calendar, după starea plății */
 const CULORI_ZI: Record<StarePlata, string> = {
@@ -168,6 +175,10 @@ export function PortalLuna({
 
   const t = date.totals;
   const afisate = ziSelectata ? (peZile.get(ziSelectata) ?? []) : (date.rows ?? []);
+
+  // abonamentele care se plătesc în luna asta, ca să se vadă direct în calendar
+  const scadente = me.billing.filter((item) => item.dueDate.startsWith(luna) && item.status !== 'SKIPPED');
+  const totalScadent = scadente.reduce((s, item) => s + (item.amountEur ?? 0), 0);
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -223,6 +234,21 @@ export function PortalLuna({
                       <CeasZi segmente={segmenteZi(zi.iso)} marime="mic" />
                     </span>
                   )}
+                  {zi.inLuna &&
+                    scadente.some((item) => item.dueDate === zi.iso) &&
+                    (() => {
+                      const item = scadente.find((s) => s.dueDate === zi.iso)!;
+                      const stare = STARE_ABONAMENT[item.status] ?? STARE_ABONAMENT.PENDING;
+                      return (
+                        <span
+                          className={cn(
+                            'absolute bottom-1 left-1 h-2.5 w-2.5 rounded-full ring-2 ring-white',
+                            stare.punct,
+                          )}
+                          title={`${item.label || 'Abonament'} · ${stare.text}`}
+                        />
+                      );
+                    })()}
                   <span>{Number(zi.iso.slice(-2))}</span>
                   {minute > 0 && <span className="text-[10px] font-semibold">{formatMinutes(minute)}</span>}
                 </button>
@@ -240,7 +266,10 @@ export function PortalLuna({
               <span className="h-2.5 w-2.5 rounded-full bg-indigo-400" /> urmează pe factură
             </span>
           </div>
-          <p className="mt-1.5 text-xs text-slate-400">Apasă pe o zi ca să vezi doar lucrările din ea.</p>
+          <p className="mt-1.5 text-xs text-slate-400">
+            Apasă pe o zi ca să vezi doar lucrările din ea. Bulina din colțul zilei arată un abonament
+            scadent atunci.
+          </p>
         </Card>
 
         <Card>
@@ -337,6 +366,65 @@ export function PortalLuna({
           )}
         </Card>
       </div>
+
+      {scadente.length > 0 && (
+        <Card>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Repeat className="h-4 w-4 text-indigo-500" />
+              <p className="text-sm font-bold text-slate-800">Abonamente scadente luna asta</p>
+            </div>
+            {bani && totalScadent > 0 && (
+              <span className="text-right">
+                <span className="block text-sm font-extrabold text-slate-900">
+                  {formatRon(totalScadent, me.currency.eurRon)}
+                </span>
+                <span className="block text-[11px] text-slate-400">{formatEur(totalScadent)}</span>
+              </span>
+            )}
+          </div>
+
+          <ul className="flex flex-col gap-2">
+            {scadente.map((item) => {
+              const stare = STARE_ABONAMENT[item.status] ?? STARE_ABONAMENT.PENDING;
+              const achitat = item.status === 'PAID';
+              return (
+                <li
+                  key={item.id}
+                  className={cn(
+                    'flex flex-wrap items-center justify-between gap-2 rounded-2xl border p-3',
+                    achitat ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200',
+                  )}
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-800">{item.label || 'Abonament'}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {formatDate(item.periodStart)} – {formatDate(item.periodEnd)} · scadent{' '}
+                      {formatDate(item.dueDate)}
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <Badge className={stare.chip}>{stare.text}</Badge>
+                      {item.invoiceRef && (
+                        <span className="text-xs text-slate-400">{item.invoiceRef}</span>
+                      )}
+                    </div>
+                  </div>
+                  {bani && (
+                    <span className="text-right">
+                      <span className="block text-sm font-extrabold text-slate-900">
+                        {formatRon(item.amountEur ?? 0, me.currency.eurRon)}
+                      </span>
+                      <span className="block text-[11px] text-slate-400">
+                        {formatEur(item.amountEur ?? 0)}
+                      </span>
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
 
       {date.documents.length > 0 && (
         <Card>

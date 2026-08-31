@@ -1,11 +1,12 @@
 import { useMemo, useState, type MouseEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, BadgeCheck, CheckCheck, ChevronLeft, ChevronRight, Clock4, FileDown, Moon, Plus, Sun, Undo2,
+  ArrowLeft, BadgeCheck, CheckCheck, ChevronLeft, ChevronRight, Clock4, FileDown, Moon, Plus, Repeat, Sun,
+  Undo2,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import {
-  useClient, useCrudMutation, useMonthlyApproval, useMonthlyDiscount, useSettings, useWorkLogs,
+  useBilling, useClient, useCrudMutation, useMonthlyApproval, useMonthlyDiscount, useSettings, useWorkLogs,
 } from '../lib/queries';
 import { WorkLogDetail } from './WorkLogs';
 import { MonthlyDocuments } from '../components/MonthlyDocuments';
@@ -20,7 +21,7 @@ import {
 import { formatDate, formatEur, formatMinutes, minutesToHhMm, todayIso } from '../lib/format';
 import { grilaLunii, numeLuna, numeZi, schimbaLuna, ZILE_SCURTE } from '../lib/calendar';
 import { minuteSegmente, segmenteInterval, segmenteleZilei, type FereastraProgram } from '../lib/ceas';
-import { WORK_CATEGORY, WORK_STATUS, options } from '../lib/labels';
+import { BILLING_STATUS, WORK_CATEGORY, WORK_STATUS, options } from '../lib/labels';
 import { optiuniLucrare } from '../lib/lucrari';
 import { cn } from '../lib/cn';
 import type { AccentColor, Subscription, WorkCategory, WorkLog, WorkStatus } from '../lib/types';
@@ -36,6 +37,14 @@ function stareaZilei(logs: WorkLog[]): WorkStatus | null {
   if (facturabile.every((l) => l.status === 'PAID' || l.status === 'INVOICED')) return 'INVOICED';
   return 'PENDING';
 }
+
+/** Bulina de pe zi si culoarea pastilei unui abonament scadent */
+const PUNCT_ABONAMENT: Record<string, string> = {
+  PENDING: 'bg-indigo-500',
+  INVOICED: 'bg-slate-400',
+  PAID: 'bg-emerald-500',
+  SKIPPED: 'bg-slate-300',
+};
 
 /** Culoarea pastilei cu orele zilei, dupa starea de facturare */
 const PASTILA_ZI: Record<WorkStatus, string> = {
@@ -93,6 +102,10 @@ export function ClientCalendar() {
   const valoareLuna = dinLuna
     .filter((l) => l.billable)
     .reduce((s, l) => s + (l.billableEur ?? l.amountEur), 0);
+
+  // abonamentele scadente in luna afisata, ca sa se vada langa ore
+  const { data: pozitii = [] } = useBilling({ clientId: id });
+  const scadente = pozitii.filter((item) => item.dueDate.startsWith(month));
 
   const { data: discount } = useMonthlyDiscount(id, month);
   const reducere = calculeazaReducere(valoareLuna, discount);
@@ -263,6 +276,20 @@ export function ClientCalendar() {
                         })()}
                       </span>
 
+                      {scadente.some((item) => item.dueDate === zi.iso) && (
+                        <span className="flex flex-wrap items-center gap-1">
+                          {scadente
+                            .filter((item) => item.dueDate === zi.iso)
+                            .map((item) => (
+                              <span
+                                key={item.id}
+                                className={cn('h-2 w-2 rounded-full', PUNCT_ABONAMENT[item.status])}
+                                title={`${item.subscription?.label ?? 'Abonament'} · ${BILLING_STATUS[item.status].text}`}
+                              />
+                            ))}
+                        </span>
+                      )}
+
                       {minute > 0 ? (
                         <span
                           className={cn(
@@ -328,6 +355,35 @@ export function ClientCalendar() {
                   Încasate
                 </Button>
               </span>
+            </div>
+          )}
+
+          {scadente.length > 0 && (
+            <div className="mt-3 rounded-2xl border border-slate-200 p-3">
+              <div className="mb-2 flex items-center gap-2">
+                <Repeat className="h-4 w-4 text-indigo-500" />
+                <p className="text-sm font-bold text-slate-800">Abonamente scadente în {numeLuna(month)}</p>
+              </div>
+              <ul className="flex flex-col gap-1.5">
+                {scadente.map((item) => (
+                  <li
+                    key={item.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm"
+                  >
+                    <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                      <span className={cn('h-2 w-2 shrink-0 rounded-full', PUNCT_ABONAMENT[item.status])} />
+                      <span className="font-semibold text-slate-800">
+                        {item.subscription?.label ?? 'Abonament'}
+                      </span>
+                      <span className="text-xs text-slate-400">scadent {formatDate(item.dueDate)}</span>
+                      <Badge className={BILLING_STATUS[item.status].chip}>
+                        {BILLING_STATUS[item.status].text}
+                      </Badge>
+                    </span>
+                    <span className="font-extrabold text-slate-900">{formatEur(item.amountEur)}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
