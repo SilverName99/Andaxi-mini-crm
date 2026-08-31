@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import {
-  Building2, Clock4, Coins, Image, KeyRound, Moon, Plus, Save, Send, Sun, Trash2, Upload, Users,
+  Building2, Clock4, Coins, Image, KeyRound, Moon, Plus, RefreshCw, Save, Send, Sun, Trash2, Upload, Users,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useCrudMutation, useHourPackages, useSettings } from '../lib/queries';
 import { useAuth } from '../lib/auth';
 import { PageHeader } from '../components/Layout';
 import { TimeField } from '../components/TimeField';
-import { Button, Card, CardTitle, ErrorBlock, Field, Input, LoadingBlock, Toggle, useToast } from '../components/ui';
+import {
+  Button, Card, CardTitle, ConfirmDialog, ErrorBlock, Field, Input, LoadingBlock, Toggle, useToast,
+} from '../components/ui';
 import { minutesToHhMm } from '../lib/format';
 import { citesteImagine, TIPURI_IMAGINE } from '../lib/files';
 import type { HourPackage, Settings } from '../lib/types';
@@ -163,6 +165,8 @@ export function SettingsPage() {
           </div>
         </Card>
 
+        <RecalculareCard />
+
         <HourPackagesCard />
 
         <LogoCard logoUrl={form.logoUrl} companyName={form.companyName} onChange={(url) => set('logoUrl', url)} />
@@ -201,6 +205,95 @@ export function SettingsPage() {
         <PasswordCard email={user?.email ?? ''} />
       </div>
     </div>
+  );
+}
+
+/**
+ * Fiecare interventie retine tarifele si programul de la momentul notarii, ca
+ * lunile deja facturate sa nu se schimbe sub tine. De aici treci prin calcul
+ * din nou orele care inca n-au fost facturate, dupa ce ai schimbat programul
+ * sau tarifele.
+ */
+function RecalculareCard() {
+  const toast = useToast();
+  const [previzualizare, setPrevizualizare] = useState<{ affected: number; deltaEur: number } | null>(null);
+  const [error, setError] = useState('');
+
+  const recalculeaza = useCrudMutation((dryRun: boolean) =>
+    api.post<{ checked: number; affected: number; deltaEur: number }>('/worklogs/recalculate', { dryRun }),
+  );
+
+  async function verifica() {
+    setError('');
+    try {
+      const rezultat = await recalculeaza.mutateAsync(true);
+      if (rezultat.affected === 0) {
+        toast('Nu e nimic de recalculat — orele nefacturate sunt deja la zi');
+        return;
+      }
+      setPrevizualizare(rezultat);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Nu am putut verifica orele');
+    }
+  }
+
+  async function aplica() {
+    setError('');
+    try {
+      const rezultat = await recalculeaza.mutateAsync(false);
+      setPrevizualizare(null);
+      toast(`${rezultat.affected} intervenții recalculate`);
+    } catch (err) {
+      setPrevizualizare(null);
+      setError(err instanceof Error ? err.message : 'Nu am putut recalcula orele');
+    }
+  }
+
+  const semn = (previzualizare?.deltaEur ?? 0) >= 0 ? '+' : '−';
+  const diferenta = Math.abs(previzualizare?.deltaEur ?? 0).toFixed(2);
+
+  return (
+    <Card>
+      <CardTitle
+        title="Recalculează orele nefacturate"
+        subtitle="După ce schimbi programul normal sau tarifele"
+        icon={<RefreshCw className="h-5 w-5" />}
+      />
+      <p className="text-sm text-slate-600">
+        Fiecare intervenție reține programul și tarifele din momentul în care ai notat-o, ca lunile deja
+        facturate să rămână așa cum le-ai trimis. Apasă aici ca să treci prin calcul din nou doar orele care
+        încă n-au fost facturate.
+      </p>
+      <p className="mt-2 text-xs text-slate-400">
+        Nu se ating orele facturate, încasate, nefacturabile sau cele cu suma scrisă de mână.
+      </p>
+      <div className="mt-4">
+        <Button
+          variant="secondary"
+          icon={<RefreshCw className="h-4 w-4" />}
+          loading={recalculeaza.isPending}
+          onClick={verifica}
+        >
+          Vezi ce se schimbă
+        </Button>
+      </div>
+
+      {error && <div className="mt-4"><ErrorBlock message={error} /></div>}
+
+      <ConfirmDialog
+        open={previzualizare !== null}
+        title="Recalculez orele nefacturate?"
+        message={
+          previzualizare
+            ? `${previzualizare.affected} ${previzualizare.affected === 1 ? 'intervenție se schimbă' : 'intervenții se schimbă'}, iar totalul de facturat se modifică cu ${semn}${diferenta} €. Orele facturate sau încasate rămân neatinse.`
+            : ''
+        }
+        confirmLabel="Recalculează"
+        loading={recalculeaza.isPending}
+        onConfirm={aplica}
+        onCancel={() => setPrevizualizare(null)}
+      />
+    </Card>
   );
 }
 

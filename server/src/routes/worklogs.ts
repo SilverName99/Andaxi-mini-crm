@@ -481,6 +481,81 @@ workLogsRouter.patch(
   }),
 );
 
+/* ────────────────────────────────── recalcularea orelor nefacturate ────── */
+
+/**
+ * Fiecare interventie retine cum a fost calculata atunci: impartirea pe program
+ * normal / majorat si tarifele in vigoare. Asa raman corecte lunile deja
+ * facturate cand schimbi programul sau tarifele. Cand vrei ca schimbarea sa
+ * prinda si orele inca nefacturate, le treci prin calcul din nou de aici.
+ *
+ * Nu se ating: orele facturate, incasate sau nefacturabile, si nici cele cu
+ * suma scrisa de mana.
+ */
+workLogsRouter.post(
+  '/recalculate',
+  asyncHandler(async (req, res) => {
+    const { dryRun = false } = z.object({ dryRun: z.boolean().default(false) }).parse(req.body ?? {});
+
+    const logs = await prisma.workLog.findMany({
+      where: { status: 'PENDING', manualAmount: false },
+    });
+
+    // tarifele tin de client (pachetul lui de ore), deci le luam o data pe client
+    const configuri = new Map<string, RateConfig>();
+    let schimbate = 0;
+    let deltaEur = 0;
+
+    for (const log of logs) {
+      let config = configuri.get(log.clientId);
+      if (!config) {
+        config = await rateConfig(log.clientId);
+        configuri.set(log.clientId, config);
+      }
+
+      const nou =
+        log.entryMode === 'INTERVAL'
+          ? splitWorkInterval(log.date, log.startMinutes, log.endMinutes, config)
+          : (() => {
+              // la orele notate ca durata, felul tarifului a fost ales de tine
+              const minute = log.standardMinutes + log.offHoursMinutes;
+              const normal = log.offHoursMinutes === 0;
+              return {
+                standardMinutes: normal ? minute : 0,
+                offHoursMinutes: normal ? 0 : minute,
+                amountEur: round2((minute / 60) * (normal ? config.standardRate : config.offHoursRate)),
+              };
+            })();
+
+      const identic =
+        nou.standardMinutes === log.standardMinutes &&
+        nou.offHoursMinutes === log.offHoursMinutes &&
+        nou.amountEur === log.amountEur &&
+        config.standardRate === log.standardRate &&
+        config.offHoursRate === log.offHoursRate;
+      if (identic) continue;
+
+      schimbate += 1;
+      deltaEur += nou.amountEur - log.amountEur;
+
+      if (!dryRun) {
+        await prisma.workLog.update({
+          where: { id: log.id },
+          data: {
+            standardMinutes: nou.standardMinutes,
+            offHoursMinutes: nou.offHoursMinutes,
+            standardRate: config.standardRate,
+            offHoursRate: config.offHoursRate,
+            amountEur: nou.amountEur,
+          },
+        });
+      }
+    }
+
+    res.json({ checked: logs.length, affected: schimbate, deltaEur: round2(deltaEur) });
+  }),
+);
+
 workLogsRouter.post(
   '/bulk',
   asyncHandler(async (req, res) => {

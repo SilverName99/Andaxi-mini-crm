@@ -211,7 +211,15 @@ function PortalContinut() {
               size="lg"
             />
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Portal client</p>
+              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Portal client
+                <span
+                  className="rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-white shadow-sm"
+                  title="Portalul e încă în dezvoltare — pot apărea mici erori"
+                >
+                  BETA
+                </span>
+              </p>
               <h1 className="text-lg font-extrabold text-slate-900">{me.client.company || me.client.name}</h1>
             </div>
           </div>
@@ -286,6 +294,9 @@ function PortalContinut() {
 
         <p className="py-6 text-center text-xs text-slate-400">
           Datele se actualizează în timp real. Pentru orice nelămurire, scrie-ne.
+          <br />
+          <span className="font-semibold text-amber-600">Portalul e în versiune beta</span> — încă îl
+          dezvoltăm, așa că pot apărea mici erori. Dacă vezi ceva ciudat, spune-ne.
         </p>
       </main>
     </div>
