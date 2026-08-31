@@ -211,6 +211,8 @@ function PortalContinut() {
     `${anCurent}-01`,
     `${anCurent}-12`,
     ...me.billing.map((item) => item.dueDate.slice(0, 7)),
+    // pana la urmatoarea reinnoire a fiecarui abonament, ca sa se vada si ea
+    ...me.subscriptions.filter((sub) => sub.status === 'ACTIVE').map((sub) => sub.nextDueDate.slice(0, 7)),
   ];
   const primaLuna = reper.reduce((a, b) => (a < b ? a : b));
   const ultimaLuna = reper.reduce((a, b) => (a > b ? a : b));

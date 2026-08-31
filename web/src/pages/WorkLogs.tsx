@@ -26,8 +26,13 @@ import type { AccentColor, Attachment, RateSplit, WorkLog, WorkStatus } from '..
 interface FormState {
   clientId: string;
   date: string;
+  /** Cum a fost notata munca: intre doua ore, sau doar ca numar de ore */
+  mod: 'interval' | 'durata';
   start: string;
   end: string;
+  /** Orele, cand se noteaza pe durata (text, ca sa se poata scrie „1,5") */
+  hours: string;
+  rateType: 'STANDARD' | 'OFF_HOURS';
   description: string;
   category: WorkLog['category'];
   projectTag: string;
@@ -39,11 +44,18 @@ interface FormState {
 }
 
 function toForm(log?: WorkLog | null, defaultClientId?: string): FormState {
+  const peDurata = log?.entryMode === 'DURATION';
+  const minute = log ? log.standardMinutes + log.offHoursMinutes : 0;
   return {
     clientId: log?.clientId ?? defaultClientId ?? '',
     date: log?.date ?? todayIso(),
-    start: log ? minutesToHhMm(log.startMinutes) : '09:00',
-    end: log ? minutesToHhMm(log.endMinutes) : '11:00',
+    mod: peDurata ? 'durata' : 'interval',
+    // la intrarile pe durata nu exista interval; punem valorile implicite,
+    // ca sa nu iasa 00:00–00:00, adica 24 de ore
+    start: log && !peDurata ? minutesToHhMm(log.startMinutes) : '09:00',
+    end: log && !peDurata ? minutesToHhMm(log.endMinutes) : '11:00',
+    hours: peDurata ? String(Math.round((minute / 60) * 100) / 100) : '',
+    rateType: log && log.offHoursMinutes > 0 && log.standardMinutes === 0 ? 'OFF_HOURS' : 'STANDARD',
     description: log?.description ?? '',
     category: log?.category ?? 'SUPORT',
     projectTag: log?.projectTag ?? '',
@@ -93,28 +105,42 @@ export function WorkLogForm({
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  // estimare live a costului, calculata pe server cu tarifele curente
+  // estimare live a costului, calculata pe server cu tarifele clientului
+  const orePeDurata = Number(form.hours.replace(',', '.'));
   useEffect(() => {
-    if (!/^\d{1,2}:\d{2}$/.test(form.start) || !/^\d{1,2}:\d{2}$/.test(form.end)) return;
+    const peDurata = form.mod === 'durata';
+    if (peDurata ? !(orePeDurata > 0) : !/^\d{1,2}:\d{2}$/.test(form.start) || !/^\d{1,2}:\d{2}$/.test(form.end)) {
+      setPreview(null);
+      return;
+    }
     let cancelled = false;
     api
-      .post<RateSplit>('/worklogs/preview', { date: form.date, start: form.start, end: form.end })
+      .post<RateSplit>('/worklogs/preview', {
+        date: form.date,
+        clientId: form.clientId || undefined,
+        ...(peDurata
+          ? { hours: orePeDurata, rateType: form.rateType }
+          : { start: form.start, end: form.end }),
+      })
       .then((data) => !cancelled && setPreview(data))
       .catch(() => !cancelled && setPreview(null));
     return () => {
       cancelled = true;
     };
-  }, [form.date, form.start, form.end]);
+  }, [form.date, form.start, form.end, form.mod, orePeDurata, form.rateType, form.clientId]);
 
   async function submit() {
     setError('');
     if (!form.clientId) return setError('Selectează clientul');
+    if (form.mod === 'durata' && !(orePeDurata > 0)) return setError('Scrie numărul de ore');
     try {
       await mutation.mutateAsync({
         clientId: form.clientId,
         date: form.date,
-        start: form.start,
-        end: form.end,
+        // ori intervalul orar, ori doar durata — niciodată amândouă
+        ...(form.mod === 'durata'
+          ? { hours: orePeDurata, rateType: form.rateType }
+          : { start: form.start, end: form.end }),
         description: form.description,
         category: form.category,
         projectTag: form.projectTag,
@@ -152,14 +178,49 @@ export function WorkLogForm({
         <Field label="Data">
           <DateField value={form.date} onChange={(iso) => set('date', iso)} allowEmpty={false} />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="De la">
-            <TimeField value={form.start} onChange={(v) => set('start', v)} />
-          </Field>
-          <Field label="Până la">
-            <TimeField value={form.end} onChange={(v) => set('end', v)} />
-          </Field>
-        </div>
+        <Field label="Cum notezi munca">
+          <Segmented
+            value={form.mod}
+            onChange={(v) => set('mod', v)}
+            options={[
+              { value: 'interval', label: 'Interval orar' },
+              { value: 'durata', label: 'Doar durata' },
+            ]}
+          />
+        </Field>
+        {form.mod === 'interval' ? (
+          <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+            <Field label="De la">
+              <TimeField value={form.start} onChange={(v) => set('start', v)} />
+            </Field>
+            <Field label="Până la">
+              <TimeField value={form.end} onChange={(v) => set('end', v)} />
+            </Field>
+          </div>
+        ) : (
+          <div className="grid grid-cols-[6rem,1fr] gap-3 sm:col-span-2">
+            <Field label="Ore">
+              <Input
+                type="number"
+                min={0}
+                step="0.25"
+                value={form.hours}
+                onChange={(e) => set('hours', e.target.value)}
+                placeholder="2"
+              />
+            </Field>
+            <Field label="Tarif">
+              <Segmented
+                value={form.rateType}
+                onChange={(v) => set('rateType', v)}
+                options={[
+                  { value: 'STANDARD', label: 'Program normal' },
+                  { value: 'OFF_HOURS', label: 'În afara programului' },
+                ]}
+              />
+            </Field>
+          </div>
+        )}
         <Field
           label="Lucrare / proiect"
           hint="Abonamentul clientului pe care se pun orele, pentru gruparea lor"

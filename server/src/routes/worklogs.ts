@@ -603,6 +603,106 @@ workLogsRouter.post(
   }),
 );
 
+/* ─────────────────────────────────────── aproximarea la ora intreaga ────── */
+
+/**
+ * Rotunjeste la ora intreaga orele dintr-o luna, la un client: 45m devine o
+ * ora, 1h45m devin doua ore. „nearest" merge la ora cea mai apropiata (dar
+ * niciodata sub o ora), „up" urca mereu la ora inceputa.
+ *
+ * La intrarile cu interval orar se muta ora de final, ca sa ramana adevarat
+ * ceasul zilei; impartirea pe program normal / majorat se reface dupa noul
+ * interval. Cele deja facturate sau incasate nu se ating.
+ */
+workLogsRouter.post(
+  '/round-hours',
+  asyncHandler(async (req, res) => {
+    const { clientId, month, mode, dryRun } = z
+      .object({
+        clientId: z.string().min(1),
+        month: z.string().regex(/^\d{4}-\d{2}$/),
+        mode: z.enum(['nearest', 'up']).default('nearest'),
+        dryRun: z.boolean().default(false),
+      })
+      .parse(req.body);
+
+    const logs = await prisma.workLog.findMany({
+      where: { clientId, date: { startsWith: month } },
+      orderBy: [{ date: 'asc' }],
+    });
+    const config = await rateConfig(clientId);
+
+    const schimbari: unknown[] = [];
+    let deFacut = 0;
+    let blocate = 0;
+    let deltaEur = 0;
+
+    for (const log of logs) {
+      const minute = log.standardMinutes + log.offHoursMinutes;
+      if (minute <= 0) continue;
+
+      const ore = mode === 'up' ? Math.ceil(minute / 60) : Math.max(1, Math.round(minute / 60));
+      const minuteNoi = ore * 60;
+      if (minuteNoi === minute) continue;
+
+      if (log.status === 'INVOICED' || log.status === 'PAID') {
+        blocate += 1;
+        continue;
+      }
+
+      // la interval mutam ora de final; la durata pastram felul tarifului
+      const endMinutes =
+        log.entryMode === 'INTERVAL' ? (log.startMinutes + minuteNoi) % 1440 : log.endMinutes;
+      const impartire =
+        log.entryMode === 'INTERVAL'
+          ? splitWorkInterval(log.date, log.startMinutes, endMinutes, config)
+          : (() => {
+              const normal = log.offHoursMinutes === 0;
+              return {
+                standardMinutes: normal ? minuteNoi : 0,
+                offHoursMinutes: normal ? 0 : minuteNoi,
+                amountEur: round2((minuteNoi / 60) * (normal ? config.standardRate : config.offHoursRate)),
+              };
+            })();
+
+      const sumaNoua = log.manualAmount ? log.amountEur : impartire.amountEur;
+      deFacut += 1;
+      if (log.billable) deltaEur += sumaNoua - log.amountEur;
+      schimbari.push({
+        id: log.id,
+        date: log.date,
+        description: log.description,
+        entryMode: log.entryMode,
+        billable: log.billable,
+        inainte: { minutes: minute, endMinutes: log.endMinutes, amountEur: log.amountEur },
+        dupa: { minutes: minuteNoi, endMinutes, amountEur: sumaNoua },
+      });
+
+      if (!dryRun) {
+        await prisma.workLog.update({
+          where: { id: log.id },
+          data: {
+            endMinutes,
+            standardMinutes: impartire.standardMinutes,
+            offHoursMinutes: impartire.offHoursMinutes,
+            standardRate: config.standardRate,
+            offHoursRate: config.offHoursRate,
+            amountEur: sumaNoua,
+          },
+        });
+      }
+    }
+
+    res.json({
+      checked: logs.length,
+      affected: deFacut,
+      blocked: blocate,
+      deltaEur: round2(deltaEur),
+      items: schimbari,
+    });
+  }),
+);
+
 workLogsRouter.post(
   '/bulk',
   asyncHandler(async (req, res) => {

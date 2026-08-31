@@ -5,6 +5,7 @@ import { CeasZi, LegendaCeas } from '../components/CeasZi';
 import { formatDate, formatEur, formatFileSize, formatMinutes, formatRon } from '../lib/format';
 import { grilaLunii, numeZi, ZILE_SCURTE } from '../lib/calendar';
 import { WORK_CATEGORY } from '../lib/labels';
+import { scadenteViitoare } from '../lib/scadente';
 import { minuteSegmente, segmenteleZilei, type FereastraProgram } from '../lib/ceas';
 import { cn } from '../lib/cn';
 import type { PortalMe, PortalMonth, PortalRow } from './api';
@@ -36,6 +37,7 @@ const STARE_ABONAMENT: Record<string, { text: string; chip: string; punct: strin
   PAID: { text: 'Achitat', chip: 'bg-emerald-100 text-emerald-700', punct: 'bg-emerald-500' },
   INVOICED: { text: 'Facturat · de plată', chip: 'bg-slate-200 text-slate-700', punct: 'bg-slate-400' },
   PENDING: { text: 'Urmează factura', chip: 'bg-indigo-100 text-indigo-700', punct: 'bg-indigo-500' },
+  VIITOR: { text: 'Urmează la reînnoire', chip: 'bg-indigo-50 text-indigo-600', punct: 'bg-indigo-300' },
 };
 
 /** Culorile zilelor din calendar, după starea plății */
@@ -176,8 +178,38 @@ export function PortalLuna({
   const t = date.totals;
   const afisate = ziSelectata ? (peZile.get(ziSelectata) ?? []) : (date.rows ?? []);
 
-  // abonamentele care se plătesc în luna asta, ca să se vadă direct în calendar
-  const scadente = me.billing.filter((item) => item.dueDate.startsWith(luna) && item.status !== 'SKIPPED');
+  /*
+   * Abonamentele care se plătesc în luna asta: pozițiile deja generate în
+   * scadențar și, pentru lunile de mai încolo, reînnoirile calculate din
+   * ciclul fiecărui abonament — ca să vadă din timp când urmează să plătească.
+   */
+  const pozitii = me.billing
+    .filter((item) => item.dueDate.startsWith(luna) && item.status !== 'SKIPPED')
+    .map((item) => ({
+      id: item.id,
+      label: item.label,
+      periodStart: item.periodStart as string | null,
+      periodEnd: item.periodEnd as string | null,
+      dueDate: item.dueDate,
+      status: item.status as string,
+      invoiceRef: item.invoiceRef,
+      amountEur: item.amountEur,
+    }));
+
+  const viitoare = scadenteViitoare(me.subscriptions, luna)
+    .filter((item) => !pozitii.some((p) => p.dueDate === item.dueDate && p.label === item.label))
+    .map((item) => ({
+      id: item.id,
+      label: item.label,
+      periodStart: null,
+      periodEnd: null,
+      dueDate: item.dueDate,
+      status: 'VIITOR',
+      invoiceRef: '',
+      amountEur: item.amountEur,
+    }));
+
+  const scadente = [...pozitii, ...viitoare].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   const totalScadent = scadente.reduce((s, item) => s + (item.amountEur ?? 0), 0);
   return (
     <div className="flex flex-col gap-4">
@@ -399,8 +431,9 @@ export function PortalLuna({
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-slate-800">{item.label || 'Abonament'}</p>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      {formatDate(item.periodStart)} – {formatDate(item.periodEnd)} · scadent{' '}
-                      {formatDate(item.dueDate)}
+                      {item.periodStart && item.periodEnd
+                        ? `${formatDate(item.periodStart)} – ${formatDate(item.periodEnd)} · scadent ${formatDate(item.dueDate)}`
+                        : `de plată pe ${formatDate(item.dueDate)}`}
                     </p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       <Badge className={stare.chip}>{stare.text}</Badge>

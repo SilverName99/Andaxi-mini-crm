@@ -1,8 +1,8 @@
 import { useMemo, useState, type MouseEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, BadgeCheck, CheckCheck, ChevronLeft, ChevronRight, Clock4, FileDown, Moon, Plus, Repeat, Sun,
-  Undo2,
+  ArrowLeft, BadgeCheck, CheckCheck, ChevronLeft, ChevronRight, Clock4, FileDown, Hourglass, Moon, Plus,
+  Repeat, Sun, Undo2,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import {
@@ -16,15 +16,19 @@ import { ImportOre } from '../components/ImportOre';
 import { ReducereLunara, calculeazaReducere } from '../components/ReducereLunara';
 import { StareConfirmare } from '../components/StareConfirmare';
 import {
-  Avatar, Badge, Button, Card, ErrorBlock, Field, Input, LoadingBlock, Segmented, Select, Textarea, useToast,
+  Avatar, Badge, Button, Card, ErrorBlock, Field, Input, LoadingBlock, Modal, Segmented, Select, Textarea,
+  useToast,
 } from '../components/ui';
 import { formatDate, formatEur, formatMinutes, minutesToHhMm, todayIso } from '../lib/format';
 import { grilaLunii, numeLuna, numeZi, schimbaLuna, ZILE_SCURTE } from '../lib/calendar';
 import { minuteSegmente, segmenteInterval, segmenteleZilei, type FereastraProgram } from '../lib/ceas';
 import { BILLING_STATUS, WORK_CATEGORY, WORK_STATUS, options } from '../lib/labels';
 import { optiuniLucrare } from '../lib/lucrari';
+import { scadenteViitoare } from '../lib/scadente';
 import { cn } from '../lib/cn';
-import type { AccentColor, Subscription, WorkCategory, WorkLog, WorkStatus } from '../lib/types';
+import type {
+  AccentColor, BillingStatus, Subscription, WorkCategory, WorkLog, WorkStatus,
+} from '../lib/types';
 
 /**
  * Cum arata o zi in ansamblu: incasata daca tot ce e facturabil in ea e
@@ -44,6 +48,7 @@ const PUNCT_ABONAMENT: Record<string, string> = {
   INVOICED: 'bg-slate-400',
   PAID: 'bg-emerald-500',
   SKIPPED: 'bg-slate-300',
+  VIITOR: 'bg-indigo-300',
 };
 
 /** Culoarea pastilei cu orele zilei, dupa starea de facturare */
@@ -103,9 +108,32 @@ export function ClientCalendar() {
     .filter((l) => l.billable)
     .reduce((s, l) => s + (l.billableEur ?? l.amountEur), 0);
 
-  // abonamentele scadente in luna afisata, ca sa se vada langa ore
+  /*
+   * Abonamentele scadente in luna afisata: pozitiile deja generate in scadentar
+   * si, pentru lunile de mai incolo, reinnoirile calculate din ciclu.
+   */
   const { data: pozitii = [] } = useBilling({ clientId: id });
-  const scadente = pozitii.filter((item) => item.dueDate.startsWith(month));
+  const scadenteReale = pozitii
+    .filter((item) => item.dueDate.startsWith(month))
+    .map((item) => ({
+      id: item.id,
+      label: item.subscription?.label ?? 'Abonament',
+      dueDate: item.dueDate,
+      status: item.status as string,
+      amountEur: item.amountEur,
+    }));
+  const scadente = [
+    ...scadenteReale,
+    ...scadenteViitoare(client?.subscriptions ?? [], month)
+      .filter((item) => !scadenteReale.some((p) => p.dueDate === item.dueDate && p.label === item.label))
+      .map((item) => ({
+        id: item.id,
+        label: item.label,
+        dueDate: item.dueDate,
+        status: 'VIITOR',
+        amountEur: item.amountEur ?? 0,
+      })),
+  ].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
   const { data: discount } = useMonthlyDiscount(id, month);
   const reducere = calculeazaReducere(valoareLuna, discount);
@@ -284,7 +312,7 @@ export function ClientCalendar() {
                               <span
                                 key={item.id}
                                 className={cn('h-2 w-2 rounded-full', PUNCT_ABONAMENT[item.status])}
-                                title={`${item.subscription?.label ?? 'Abonament'} · ${BILLING_STATUS[item.status].text}`}
+                                title={`${item.label} · ${item.status === 'VIITOR' ? 'urmează la reînnoire' : BILLING_STATUS[item.status as BillingStatus].text}`}
                               />
                             ))}
                         </span>
@@ -372,13 +400,15 @@ export function ClientCalendar() {
                   >
                     <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                       <span className={cn('h-2 w-2 shrink-0 rounded-full', PUNCT_ABONAMENT[item.status])} />
-                      <span className="font-semibold text-slate-800">
-                        {item.subscription?.label ?? 'Abonament'}
-                      </span>
+                      <span className="font-semibold text-slate-800">{item.label}</span>
                       <span className="text-xs text-slate-400">scadent {formatDate(item.dueDate)}</span>
-                      <Badge className={BILLING_STATUS[item.status].chip}>
-                        {BILLING_STATUS[item.status].text}
-                      </Badge>
+                      {item.status === 'VIITOR' ? (
+                        <Badge className="bg-indigo-50 text-indigo-600">Urmează la reînnoire</Badge>
+                      ) : (
+                        <Badge className={BILLING_STATUS[item.status as BillingStatus].chip}>
+                          {BILLING_STATUS[item.status as BillingStatus].text}
+                        </Badge>
+                      )}
                     </span>
                     <span className="font-extrabold text-slate-900">{formatEur(item.amountEur)}</span>
                   </li>
@@ -394,12 +424,15 @@ export function ClientCalendar() {
             interval de zile.
           </p>
 
-          <a
-            href={`/api/month-report?clientId=${id}&month=${month}`}
-            className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-700"
-          >
-            <FileDown className="h-4 w-4" /> Descarcă fișier explicativ (PDF)
-          </a>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <a
+              href={`/api/month-report?clientId=${id}&month=${month}`}
+              className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-700"
+            >
+              <FileDown className="h-4 w-4" /> Descarcă fișier explicativ (PDF)
+            </a>
+            <AproximeazaLaOra clientId={id} month={month} />
+          </div>
         </Card>
 
         <div className="flex flex-col gap-4">
@@ -727,3 +760,167 @@ function AdaugaOre({
     </div>
   );
 }
+
+interface SchimbareOre {
+  id: string;
+  date: string;
+  description: string;
+  entryMode: 'INTERVAL' | 'DURATION';
+  billable: boolean;
+  inainte: { minutes: number; endMinutes: number; amountEur: number };
+  dupa: { minutes: number; endMinutes: number; amountEur: number };
+}
+
+interface RezultatRotunjire {
+  checked: number;
+  affected: number;
+  blocked: number;
+  deltaEur: number;
+  items: SchimbareOre[];
+}
+
+/**
+ * Rotunjeste la ora intreaga orele lunii afisate: 45m devin o ora, 1h45m devin
+ * doua ore. Arata intai lista exacta a ce se schimba, apoi aplica.
+ */
+function AproximeazaLaOra({ clientId, month }: { clientId: string; month: string }) {
+  const toast = useToast();
+  const [fel, setFel] = useState<'nearest' | 'up'>('nearest');
+  const [rezultat, setRezultat] = useState<RezultatRotunjire | null>(null);
+  const [deschis, setDeschis] = useState(false);
+  const [error, setError] = useState('');
+
+  const rotunjeste = useCrudMutation((input: { mode: 'nearest' | 'up'; dryRun: boolean }) =>
+    api.post<RezultatRotunjire>('/worklogs/round-hours', { clientId, month, ...input }),
+  );
+
+  async function verifica(mode: 'nearest' | 'up', deschideFereastra = false) {
+    setError('');
+    try {
+      const raspuns = await rotunjeste.mutateAsync({ mode, dryRun: true });
+      setRezultat(raspuns);
+      if (deschideFereastra) setDeschis(true);
+      if (deschideFereastra && raspuns.affected === 0) {
+        setDeschis(false);
+        toast(
+          raspuns.blocked > 0
+            ? 'Orele care nu sunt rotunde sunt deja facturate — nu le ating'
+            : 'Toate orele lunii sunt deja rotunde',
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Nu am putut verifica orele');
+    }
+  }
+
+  async function aplica() {
+    setError('');
+    try {
+      const raspuns = await rotunjeste.mutateAsync({ mode: fel, dryRun: false });
+      setDeschis(false);
+      toast(`${raspuns.affected} intervenții rotunjite la oră`);
+    } catch (err) {
+      setDeschis(false);
+      setError(err instanceof Error ? err.message : 'Nu am putut rotunji orele');
+    }
+  }
+
+  const semn = (rezultat?.deltaEur ?? 0) >= 0 ? '+' : '−';
+
+  return (
+    <>
+      <button
+        onClick={() => {
+          setFel('nearest');
+          void verifica('nearest', true);
+        }}
+        disabled={rotunjeste.isPending}
+        className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-700 disabled:opacity-50"
+      >
+        <Hourglass className="h-4 w-4" /> Aproximează la oră
+      </button>
+
+      {error && <div className="sm:col-span-2"><ErrorBlock message={error} /></div>}
+
+      <Modal
+        open={deschis && rezultat !== null}
+        onClose={() => setDeschis(false)}
+        size="lg"
+        title="Aproximează la oră"
+        subtitle={`Orele din ${numeLuna(month)}, rotunjite la ora întreagă`}
+      >
+        {rezultat && (
+          <div className="flex flex-col gap-4">
+            <Field label="Cum rotunjesc">
+              <Segmented
+                value={fel}
+                onChange={(v) => {
+                  setFel(v);
+                  void verifica(v);
+                }}
+                options={[
+                  { value: 'nearest', label: 'La ora cea mai apropiată' },
+                  { value: 'up', label: 'În sus, la ora începută' },
+                ]}
+              />
+            </Field>
+
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm">
+              <span className="font-semibold text-slate-700">
+                {rezultat.affected} din {rezultat.checked} intervenții · total{' '}
+                <span className={rezultat.deltaEur >= 0 ? 'text-emerald-700' : 'text-red-600'}>
+                  {semn}
+                  {Math.abs(rezultat.deltaEur).toFixed(2)} €
+                </span>
+              </span>
+              {rezultat.blocked > 0 && (
+                <span className="text-xs text-slate-500">
+                  · {rezultat.blocked} deja facturate sau încasate, rămân neatinse
+                </span>
+              )}
+            </div>
+
+            <ul className="flex max-h-[22rem] flex-col gap-2 overflow-y-auto pr-1">
+              {rezultat.items.map((schimbare) => (
+                <li key={schimbare.id} className="rounded-2xl border border-slate-200 p-3 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-bold text-slate-800">{formatDate(schimbare.date)}</span>
+                    <span className="flex items-center gap-2 text-xs">
+                      <span className="text-slate-400">
+                        {formatMinutes(schimbare.inainte.minutes)}
+                        {schimbare.billable && ` · ${schimbare.inainte.amountEur.toFixed(2)} €`}
+                      </span>
+                      <span className="text-slate-300">→</span>
+                      <span className="font-semibold text-slate-700">
+                        {formatMinutes(schimbare.dupa.minutes)}
+                        {schimbare.billable && ` · ${schimbare.dupa.amountEur.toFixed(2)} €`}
+                      </span>
+                    </span>
+                  </div>
+                  {schimbare.description && (
+                    <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{schimbare.description}</p>
+                  )}
+                  {schimbare.entryMode === 'INTERVAL' && (
+                    <p className="mt-0.5 text-xs text-slate-400">
+                      ora de final se mută la {minutesToHhMm(schimbare.dupa.endMinutes)}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="mt-6 flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setDeschis(false)}>
+            Anulează
+          </Button>
+          <Button loading={rotunjeste.isPending} onClick={aplica}>
+            Rotunjește
+          </Button>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
