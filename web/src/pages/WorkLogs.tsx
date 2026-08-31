@@ -443,7 +443,7 @@ export function WorkLogs() {
                             <Badge className="bg-indigo-50 text-indigo-600">{log.projectTag}</Badge>
                           )}
                         </div>
-                        <p className="mt-1 text-sm text-slate-600">{log.description || '—'}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{log.description || '—'}</p>
                         <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
                           <span className="flex items-center gap-1">
                             <Clock4 className="h-3 w-3" />
@@ -608,7 +608,7 @@ export function WorkLogDetail({ logId, onClose }: { logId: string; onClose: () =
 
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Descriere</p>
-            <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{log.description || '—'}</p>
+            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{log.description || '—'}</p>
           </div>
 
           <div className="rounded-3xl border border-indigo-200 bg-indigo-50 p-5">

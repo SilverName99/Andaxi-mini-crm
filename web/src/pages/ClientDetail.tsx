@@ -290,7 +290,7 @@ export function ClientDetail() {
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-sm text-slate-600">{log.description || '—'}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{log.description || '—'}</p>
                 </div>
                 <div className="text-right">
                   <p className="font-extrabold text-slate-900">{formatEur(log.amountEur)}</p>

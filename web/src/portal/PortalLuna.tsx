@@ -316,7 +316,7 @@ export function PortalLuna({
                           <span className="text-sm font-extrabold text-emerald-600">inclus</span>
                         ))}
                     </div>
-                    <p className="mt-1 text-sm text-slate-600">{row.description || '—'}</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{row.description || '—'}</p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       <Badge className={WORK_CATEGORY[row.category].chip}>{WORK_CATEGORY[row.category].text}</Badge>
                       {row.projectTag && (

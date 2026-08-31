@@ -412,7 +412,7 @@ export function ClientCalendar() {
                           {formatEur(log.billableEur ?? log.amountEur)}
                         </span>
                       </div>
-                      <p className="mt-1 text-sm text-slate-600">{log.description || '—'}</p>
+                      <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{log.description || '—'}</p>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
                         {log.projectTag && (
                           <Badge className="bg-indigo-50 text-indigo-600">{log.projectTag}</Badge>

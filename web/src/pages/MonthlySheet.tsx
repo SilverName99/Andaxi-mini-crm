@@ -190,7 +190,7 @@ export function MonthlySheet() {
                           <tr key={row.id} className="align-top">
                             <td className="py-2.5 pr-3 whitespace-nowrap text-slate-600">{formatDate(row.date)}</td>
                             <td className="py-2.5 pr-3">
-                              <p className="font-medium text-slate-800">{row.description || '—'}</p>
+                              <p className="whitespace-pre-wrap font-medium leading-relaxed text-slate-800">{row.description || '—'}</p>
                               <p className="text-xs text-slate-400">
                                 {WORK_CATEGORY[row.category].text}
                                 {row.timeLabel && ` · ${row.timeLabel}`}
