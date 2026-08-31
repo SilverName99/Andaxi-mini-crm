@@ -147,6 +147,9 @@ model ClientPortal {
   token   String  @unique
   /// Hash-ul PIN-ului de 6 cifre; gol = intrare doar cu linkul
   pinHash String  @default("")
+  /// PIN-ul asa cum i l-ai dat clientului, ca sa-l poti reciti oricand.
+  /// Nu pleaca niciodata catre portal, doar catre interfata ta.
+  pin     String  @default("")
   enabled Boolean @default(true)
 
   /// Ce vede clientul

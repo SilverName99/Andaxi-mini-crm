@@ -234,6 +234,7 @@ clientsRouter.delete(
 function portalPublic(portal: {
   token: string;
   pinHash: string;
+  pin: string;
   enabled: boolean;
   showMoney: boolean;
   showVat: boolean;
@@ -244,6 +245,8 @@ function portalPublic(portal: {
   return {
     token: portal.token,
     hasPin: Boolean(portal.pinHash),
+    /** PIN-ul in clar, ca sa-l poti reciti; pleaca doar catre interfata ta */
+    pin: portal.pin,
     enabled: portal.enabled,
     showMoney: portal.showMoney,
     showVat: portal.showVat,
@@ -283,7 +286,9 @@ clientsRouter.post(
       enabled: true,
       ...setari,
       // withPin spus explicit decide si stergerea: "doar link" inseamna fara PIN
-      ...(withPin === undefined ? {} : { pinHash: pin ? await bcrypt.hash(pin, 10) : '' }),
+      ...(withPin === undefined
+        ? {}
+        : { pinHash: pin ? await bcrypt.hash(pin, 10) : '', pin: pin ?? '' }),
     };
 
     const portal = await prisma.clientPortal.upsert({
@@ -291,8 +296,7 @@ clientsRouter.post(
       create: { clientId: client.id, ...date },
       update: date,
     });
-    // PIN-ul pleaca o singura data, la generare; in baza ramane doar hash-ul
-    res.status(201).json({ ...portalPublic(portal), pin });
+    res.status(201).json(portalPublic(portal));
   }),
 );
 
@@ -319,9 +323,9 @@ clientsRouter.post(
     const pin = ales ?? genereazaPin();
     const portal = await prisma.clientPortal.update({
       where: { clientId: req.params.id },
-      data: { pinHash: await bcrypt.hash(pin, 10) },
+      data: { pinHash: await bcrypt.hash(pin, 10), pin },
     });
-    res.json({ ...portalPublic(portal), pin });
+    res.json(portalPublic(portal));
   }),
 );
 
@@ -330,7 +334,7 @@ clientsRouter.delete(
   asyncHandler(async (req, res) => {
     const portal = await prisma.clientPortal.update({
       where: { clientId: req.params.id },
-      data: { pinHash: '' },
+      data: { pinHash: '', pin: '' },
     });
     res.json(portalPublic(portal));
   }),

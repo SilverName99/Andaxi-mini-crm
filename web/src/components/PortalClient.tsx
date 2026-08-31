@@ -25,7 +25,6 @@ export function PortalClient({ clientId, clientName }: { clientId: string; clien
   const { data: portal, isLoading } = useClientPortal(clientId);
   const { data: settings } = useSettings();
   const [error, setError] = useState('');
-  const [pinNou, setPinNou] = useState<string | null>(null);
   const [copiat, setCopiat] = useState<'link' | 'pin' | null>(null);
   const [confirmRegenerare, setConfirmRegenerare] = useState(false);
   const [confirmOprire, setConfirmOprire] = useState(false);
@@ -53,8 +52,7 @@ export function PortalClient({ clientId, clientName }: { clientId: string; clien
   async function ruleaza(actiune: () => Promise<unknown>, mesaj: string) {
     setError('');
     try {
-      const rezultat = (await actiune()) as ClientPortal | undefined;
-      if (rezultat?.pin) setPinNou(rezultat.pin);
+      await actiune();
       toast(mesaj);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Eroare la salvare');
@@ -118,29 +116,36 @@ export function PortalClient({ clientId, clientName }: { clientId: string; clien
             </div>
           </div>
 
-          {pinNou && (
-            <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
+          {portal.pin ? (
+            <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">
-                PIN nou — se arată o singură dată
+                PIN-ul clientului
               </p>
               <div className="mt-1.5 flex flex-wrap items-center gap-3">
-                <span className="text-2xl font-extrabold tracking-[0.3em] text-indigo-700">{pinNou}</span>
+                <span className="text-2xl font-extrabold tracking-[0.3em] text-indigo-700">{portal.pin}</span>
                 <Button
                   size="sm"
                   variant="secondary"
                   icon={copiat === 'pin' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  onClick={() => copiaza(pinNou, 'pin')}
+                  onClick={() => copiaza(portal.pin!, 'pin')}
                 >
                   {copiat === 'pin' ? 'Copiat' : 'Copiază'}
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setPinNou(null)}>
-                  Am notat
                 </Button>
               </div>
               <p className="mt-2 text-xs text-slate-500">
                 Trimite-l separat de link (telefon, SMS) — altfel PIN-ul nu mai protejează nimic.
               </p>
             </div>
+          ) : (
+            portal.hasPin && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">PIN activ</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  A fost generat înainte ca PIN-urile să fie păstrate, așa că nu ți-l mai pot arăta.
+                  Generează altul mai jos și de atunci încolo îl vezi oricând aici.
+                </p>
+              </div>
+            )
           )}
 
           <div className="flex flex-col gap-3">

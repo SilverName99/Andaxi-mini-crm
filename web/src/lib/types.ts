@@ -515,6 +515,6 @@ export interface ClientPortal {
   allowRequests: boolean;
   lastSeenAt: string | null;
   updatedAt: string;
-  /** Doar la generare: PIN-ul se arata o singura data */
+  /** PIN-ul în clar, ca să-l poți reciti oricând (doar în interfața ta) */
   pin?: string | null;
 }
