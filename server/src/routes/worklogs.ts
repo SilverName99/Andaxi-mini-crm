@@ -489,8 +489,16 @@ workLogsRouter.patch(
  * facturate cand schimbi programul sau tarifele. Cand vrei ca schimbarea sa
  * prinda si orele inca nefacturate, le treci prin calcul din nou de aici.
  *
- * Nu se ating: orele facturate, incasate sau nefacturabile, si nici cele cu
- * suma scrisa de mana.
+ * Se schimba doar ce iese altfel la recalculare:
+ * - interventiile notate cu interval orar isi refac impartirea pe program
+ *   normal / majorat (deci si suma);
+ * - cele notate doar ca durata pastreaza felul tarifului ales de tine si se
+ *   schimba doar daca s-au schimbat tarifele.
+ *
+ * Interventiile deja facturate sau incasate nu se ating niciodata; sunt
+ * numarate separat, ca sa stii daca schimbarea le-ar fi privit si pe ele.
+ * Sumele scrise de mana raman cum le-ai scris, dar impartirea orelor se reface
+ * si la ele, fiindca de ea depinde consumul din orele platite prin abonament.
  */
 workLogsRouter.post(
   '/recalculate',
@@ -498,12 +506,15 @@ workLogsRouter.post(
     const { dryRun = false } = z.object({ dryRun: z.boolean().default(false) }).parse(req.body ?? {});
 
     const logs = await prisma.workLog.findMany({
-      where: { status: 'PENDING', manualAmount: false },
+      orderBy: [{ date: 'desc' }],
+      include: { client: { select: CLIENT_REF } },
     });
 
     // tarifele tin de client (pachetul lui de ore), deci le luam o data pe client
     const configuri = new Map<string, RateConfig>();
-    let schimbate = 0;
+    const schimbari: unknown[] = [];
+    let deFacut = 0;
+    let blocate = 0;
     let deltaEur = 0;
 
     for (const log of logs) {
@@ -527,16 +538,46 @@ workLogsRouter.post(
               };
             })();
 
+      // suma scrisa de mana ramane a ta; se reface doar impartirea orelor
+      const sumaNoua = log.manualAmount ? log.amountEur : nou.amountEur;
       const identic =
         nou.standardMinutes === log.standardMinutes &&
         nou.offHoursMinutes === log.offHoursMinutes &&
-        nou.amountEur === log.amountEur &&
+        sumaNoua === log.amountEur &&
         config.standardRate === log.standardRate &&
         config.offHoursRate === log.offHoursRate;
       if (identic) continue;
 
-      schimbate += 1;
-      deltaEur += nou.amountEur - log.amountEur;
+      // ce e deja facturat sau incasat ramane cum a plecat la client
+      if (log.status === 'INVOICED' || log.status === 'PAID') {
+        blocate += 1;
+        continue;
+      }
+
+      deFacut += 1;
+      if (log.billable) deltaEur += sumaNoua - log.amountEur;
+      if (schimbari.length < 100) {
+        schimbari.push({
+          id: log.id,
+          date: log.date,
+          client: log.client,
+          entryMode: log.entryMode,
+          startMinutes: log.startMinutes,
+          endMinutes: log.endMinutes,
+          description: log.description,
+          billable: log.billable,
+          inainte: {
+            standardMinutes: log.standardMinutes,
+            offHoursMinutes: log.offHoursMinutes,
+            amountEur: log.amountEur,
+          },
+          dupa: {
+            standardMinutes: nou.standardMinutes,
+            offHoursMinutes: nou.offHoursMinutes,
+            amountEur: sumaNoua,
+          },
+        });
+      }
 
       if (!dryRun) {
         await prisma.workLog.update({
@@ -546,13 +587,19 @@ workLogsRouter.post(
             offHoursMinutes: nou.offHoursMinutes,
             standardRate: config.standardRate,
             offHoursRate: config.offHoursRate,
-            amountEur: nou.amountEur,
+            amountEur: sumaNoua,
           },
         });
       }
     }
 
-    res.json({ checked: logs.length, affected: schimbate, deltaEur: round2(deltaEur) });
+    res.json({
+      checked: logs.length,
+      affected: deFacut,
+      blocked: blocate,
+      deltaEur: round2(deltaEur),
+      items: schimbari,
+    });
   }),
 );
 

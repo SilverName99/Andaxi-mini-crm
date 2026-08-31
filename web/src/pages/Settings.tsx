@@ -8,9 +8,9 @@ import { useAuth } from '../lib/auth';
 import { PageHeader } from '../components/Layout';
 import { TimeField } from '../components/TimeField';
 import {
-  Button, Card, CardTitle, ConfirmDialog, ErrorBlock, Field, Input, LoadingBlock, Toggle, useToast,
+  Button, Card, CardTitle, ErrorBlock, Field, Input, LoadingBlock, Modal, Toggle, useToast,
 } from '../components/ui';
-import { minutesToHhMm } from '../lib/format';
+import { formatDate, formatMinutes, minutesToHhMm } from '../lib/format';
 import { citesteImagine, TIPURI_IMAGINE } from '../lib/files';
 import type { HourPackage, Settings } from '../lib/types';
 
@@ -208,19 +208,40 @@ export function SettingsPage() {
   );
 }
 
+interface SchimbareOre {
+  id: string;
+  date: string;
+  client?: { name: string; company: string } | null;
+  entryMode: 'INTERVAL' | 'DURATION';
+  startMinutes: number;
+  endMinutes: number;
+  description: string;
+  billable: boolean;
+  inainte: { standardMinutes: number; offHoursMinutes: number; amountEur: number };
+  dupa: { standardMinutes: number; offHoursMinutes: number; amountEur: number };
+}
+
+interface RezultatRecalculare {
+  checked: number;
+  affected: number;
+  blocked: number;
+  deltaEur: number;
+  items: SchimbareOre[];
+}
+
 /**
  * Fiecare interventie retine tarifele si programul de la momentul notarii, ca
  * lunile deja facturate sa nu se schimbe sub tine. De aici treci prin calcul
  * din nou orele care inca n-au fost facturate, dupa ce ai schimbat programul
- * sau tarifele.
+ * sau tarifele — cu lista exacta a ce se schimba, inainte sa apesi.
  */
 function RecalculareCard() {
   const toast = useToast();
-  const [previzualizare, setPrevizualizare] = useState<{ affected: number; deltaEur: number } | null>(null);
+  const [previzualizare, setPrevizualizare] = useState<RezultatRecalculare | null>(null);
   const [error, setError] = useState('');
 
   const recalculeaza = useCrudMutation((dryRun: boolean) =>
-    api.post<{ checked: number; affected: number; deltaEur: number }>('/worklogs/recalculate', { dryRun }),
+    api.post<RezultatRecalculare>('/worklogs/recalculate', { dryRun }),
   );
 
   async function verifica() {
@@ -228,7 +249,11 @@ function RecalculareCard() {
     try {
       const rezultat = await recalculeaza.mutateAsync(true);
       if (rezultat.affected === 0) {
-        toast('Nu e nimic de recalculat — orele nefacturate sunt deja la zi');
+        toast(
+          rezultat.blocked > 0
+            ? `Nimic de recalculat: singurele ${rezultat.blocked} intervenții care ar ieși altfel sunt deja facturate.`
+            : 'Nu e nimic de recalculat — orele nefacturate sunt deja la zi',
+        );
         return;
       }
       setPrevizualizare(rezultat);
@@ -249,9 +274,6 @@ function RecalculareCard() {
     }
   }
 
-  const semn = (previzualizare?.deltaEur ?? 0) >= 0 ? '+' : '−';
-  const diferenta = Math.abs(previzualizare?.deltaEur ?? 0).toFixed(2);
-
   return (
     <Card>
       <CardTitle
@@ -264,9 +286,17 @@ function RecalculareCard() {
         facturate să rămână așa cum le-ai trimis. Apasă aici ca să treci prin calcul din nou doar orele care
         încă n-au fost facturate.
       </p>
-      <p className="mt-2 text-xs text-slate-400">
-        Nu se ating orele facturate, încasate, nefacturabile sau cele cu suma scrisă de mână.
-      </p>
+      <ul className="mt-3 flex list-disc flex-col gap-1 pl-5 text-xs text-slate-400">
+        <li>
+          Orele notate cu <span className="font-semibold text-slate-500">interval orar</span> își refac
+          împărțirea între program normal și majorat — doar cele care chiar cad altfel se schimbă.
+        </li>
+        <li>
+          Orele notate <span className="font-semibold text-slate-500">doar ca durată</span> păstrează tariful
+          ales de tine, deci se schimbă numai dacă ai modificat tarifele.
+        </li>
+        <li>Cele facturate sau încasate nu se ating; sumele scrise de mână rămân cum le-ai scris.</li>
+      </ul>
       <div className="mt-4">
         <Button
           variant="secondary"
@@ -280,20 +310,113 @@ function RecalculareCard() {
 
       {error && <div className="mt-4"><ErrorBlock message={error} /></div>}
 
-      <ConfirmDialog
-        open={previzualizare !== null}
-        title="Recalculez orele nefacturate?"
-        message={
-          previzualizare
-            ? `${previzualizare.affected} ${previzualizare.affected === 1 ? 'intervenție se schimbă' : 'intervenții se schimbă'}, iar totalul de facturat se modifică cu ${semn}${diferenta} €. Orele facturate sau încasate rămân neatinse.`
-            : ''
-        }
-        confirmLabel="Recalculează"
-        loading={recalculeaza.isPending}
+      <ModalSchimbari
+        rezultat={previzualizare}
+        seAplica={recalculeaza.isPending}
         onConfirm={aplica}
-        onCancel={() => setPrevizualizare(null)}
+        onClose={() => setPrevizualizare(null)}
       />
     </Card>
+  );
+}
+
+/** Lista exactă a intervențiilor care se schimbă, înainte și după */
+function ModalSchimbari({
+  rezultat,
+  seAplica,
+  onConfirm,
+  onClose,
+}: {
+  rezultat: RezultatRecalculare | null;
+  seAplica: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  if (!rezultat) return null;
+  const semn = rezultat.deltaEur >= 0 ? '+' : '−';
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="lg"
+      title="Ce se schimbă la recalculare"
+      subtitle={`${rezultat.affected} din ${rezultat.checked} intervenții verificate`}
+    >
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm">
+          <span className="font-semibold text-slate-700">
+            Total de facturat:{' '}
+            <span className={rezultat.deltaEur >= 0 ? 'text-emerald-700' : 'text-red-600'}>
+              {semn}
+              {Math.abs(rezultat.deltaEur).toFixed(2)} €
+            </span>
+          </span>
+          {rezultat.blocked > 0 && (
+            <span className="text-xs text-slate-500">
+              {rezultat.blocked === 1
+                ? '· încă o intervenție ar fi ieșit altfel, dar e deja facturată sau încasată și rămâne neatinsă'
+                : `· încă ${rezultat.blocked} intervenții ar fi ieșit altfel, dar sunt deja facturate sau încasate și rămân neatinse`}
+            </span>
+          )}
+        </div>
+
+        <ul className="flex max-h-[24rem] flex-col gap-2 overflow-y-auto pr-1">
+          {rezultat.items.map((schimbare) => (
+            <li key={schimbare.id} className="rounded-2xl border border-slate-200 p-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-bold text-slate-800">
+                  {formatDate(schimbare.date)}
+                  {schimbare.entryMode === 'INTERVAL' && (
+                    <span className="ml-2 text-xs font-medium text-slate-400">
+                      {minutesToHhMm(schimbare.startMinutes)}–{minutesToHhMm(schimbare.endMinutes)}
+                    </span>
+                  )}
+                </span>
+                <span className="text-xs font-semibold text-slate-500">
+                  {schimbare.client?.company || schimbare.client?.name}
+                </span>
+              </div>
+              {schimbare.description && (
+                <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">{schimbare.description}</p>
+              )}
+              <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-slate-400">
+                  {formatMinutes(schimbare.inainte.standardMinutes)} normal +{' '}
+                  {formatMinutes(schimbare.inainte.offHoursMinutes)} majorat
+                  {schimbare.billable && ` = ${schimbare.inainte.amountEur.toFixed(2)} €`}
+                </span>
+                <span className="text-slate-300">→</span>
+                <span className="font-semibold text-slate-700">
+                  {formatMinutes(schimbare.dupa.standardMinutes)} normal +{' '}
+                  {formatMinutes(schimbare.dupa.offHoursMinutes)} majorat
+                  {schimbare.billable && ` = ${schimbare.dupa.amountEur.toFixed(2)} €`}
+                </span>
+              </p>
+            </li>
+          ))}
+          {rezultat.affected > rezultat.items.length && (
+            <li className="py-2 text-center text-xs text-slate-400">
+              … și încă {rezultat.affected - rezultat.items.length} intervenții
+            </li>
+          )}
+        </ul>
+
+        <p className="text-xs text-slate-400">
+          Restul intervențiilor ies la fel ca înainte: cele notate doar ca durată păstrează tariful ales de
+          tine, iar dintre cele cu interval orar se schimbă numai acelea care ating fereastra modificată.
+        </p>
+      </div>
+
+      <div className="mt-6 flex justify-end gap-2">
+        <Button variant="secondary" onClick={onClose}>
+          Anulează
+        </Button>
+        <Button loading={seAplica} onClick={onConfirm}>
+          Recalculează
+        </Button>
+      </div>
+    </Modal>
   );
 }
 
