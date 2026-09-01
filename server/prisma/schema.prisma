@@ -92,6 +92,8 @@ model Settings {
   smtpPass     String  @default("")
   /// Adresa care apare ca expeditor; gol = smtpUser
   smtpFrom     String  @default("")
+  /// Numele care apare la "De la"; gol = denumirea firmei
+  smtpFromName String  @default("")
   /// Unde ajung anuntarile despre cererile din portal; gol = companyEmail
   notifyEmail  String  @default("")
 

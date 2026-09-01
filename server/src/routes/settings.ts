@@ -50,6 +50,7 @@ const settingsSchema = z.object({
   /** Gol inseamna "lasa parola de acum neschimbata" */
   smtpPass: z.string().optional(),
   smtpFrom: z.string().email().or(z.literal('')).optional(),
+  smtpFromName: z.string().max(80).optional(),
   notifyEmail: z.string().email().or(z.literal('')).optional(),
 });
 
@@ -94,6 +95,7 @@ const testSchema = z.object({
   smtpUser: z.string().optional(),
   smtpPass: z.string().optional(),
   smtpFrom: z.string().optional(),
+  smtpFromName: z.string().optional(),
 });
 
 settingsRouter.post(
@@ -110,6 +112,7 @@ settingsRouter.post(
       // daca nu scrii parola in formular, incercam cu cea salvata
       smtpPass: date.smtpPass || salvate.smtpPass,
       smtpFrom: date.smtpFrom ?? salvate.smtpFrom,
+      smtpFromName: date.smtpFromName ?? salvate.smtpFromName,
       companyName: salvate.companyName,
     };
 

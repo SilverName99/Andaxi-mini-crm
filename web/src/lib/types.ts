@@ -31,6 +31,8 @@ export interface Settings {
   smtpSecure: boolean;
   smtpUser: string;
   smtpFrom: string;
+  /** Numele care apare la „De la"; gol = denumirea firmei */
+  smtpFromName: string;
   /** Unde ajung anunțurile despre cererile din portal; gol = emailul firmei */
   notifyEmail: string;
   /** Serverul nu trimite niciodată parola înapoi; doar dacă există una salvată */

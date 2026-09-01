@@ -10,6 +10,23 @@ export interface Email {
   replyTo?: string;
 }
 
+/**
+ * Adresa de la care pleaca emailul, cu numele in fata: „Andaxi Web Solutions
+ * <contact@andaxi.ro>". Fara nume, clientii de email arata doar partea din
+ * fata adresei („contact"), care nu spune nimanui cine scrie.
+ */
+function expeditor(settings: {
+  smtpUser: string;
+  smtpFrom: string;
+  smtpFromName?: string;
+  companyName?: string;
+}): string {
+  const adresa = settings.smtpFrom || settings.smtpUser;
+  const nume = (settings.smtpFromName || settings.companyName || '').trim();
+  // JSON.stringify pune ghilimelele si scapa ce trebuie (virgule, ghilimele)
+  return nume ? `${JSON.stringify(nume)} <${adresa}>` : adresa;
+}
+
 /** Setarile SMTP sunt complete? Fara ele nu incercam sa trimitem nimic. */
 export function poateTrimite(settings: { smtpHost: string; smtpUser: string; smtpPass: string }): boolean {
   return Boolean(settings.smtpHost && settings.smtpUser && settings.smtpPass);
@@ -41,7 +58,7 @@ export async function trimiteEmail(email: Email): Promise<{ trimis: boolean; ero
 
   try {
     await transport(settings).sendMail({
-      from: settings.smtpFrom || settings.smtpUser,
+      from: expeditor(settings),
       to: email.to,
       subject: email.subject,
       text: email.text,
@@ -65,12 +82,13 @@ export async function trimiteTest(
     smtpUser: string;
     smtpPass: string;
     smtpFrom: string;
+    smtpFromName: string;
     companyName: string;
   },
   catre: string,
 ): Promise<void> {
   await transport(settings).sendMail({
-    from: settings.smtpFrom || settings.smtpUser,
+    from: expeditor(settings),
     to: catre,
     subject: `Test SMTP — ${settings.companyName}`,
     text: 'Dacă ai primit acest mesaj, setările SMTP din mini-CRM funcționează.',

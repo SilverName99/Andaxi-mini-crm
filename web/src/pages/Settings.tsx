@@ -609,6 +609,7 @@ function SmtpCard({
         smtpSecure: form.smtpSecure,
         smtpUser: form.smtpUser,
         smtpFrom: form.smtpFrom,
+        smtpFromName: form.smtpFromName,
         ...(parola ? { smtpPass: parola } : {}),
       });
       toast('Emailul de test a plecat');
@@ -649,6 +650,16 @@ function SmtpCard({
         </Field>
         <Field label="Expeditor" hint="Adresa care apare ca expeditor; gol = utilizatorul">
           <Input type="email" value={form.smtpFrom} onChange={(e) => set('smtpFrom', e.target.value)} placeholder="contact@andaxi.ro" />
+        </Field>
+        <Field
+          label="Nume expeditor"
+          hint="Cum apare numele tău în inboxul clientului; gol = denumirea firmei"
+        >
+          <Input
+            value={form.smtpFromName}
+            onChange={(e) => set('smtpFromName', e.target.value)}
+            placeholder={form.companyName || 'Andaxi Web Solutions'}
+          />
         </Field>
         <Field label="Primesc anunțurile pe" hint="Gol = emailul firmei">
           <Input type="email" value={form.notifyEmail} onChange={(e) => set('notifyEmail', e.target.value)} placeholder="contact@andaxi.ro" />
