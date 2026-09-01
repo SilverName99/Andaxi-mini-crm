@@ -51,10 +51,14 @@ function taieLaFata(s: SegmentCeas, fata: FataCeas): SegmentCeas | null {
   return to > from ? { ...s, from, to } : null;
 }
 
-/** Ora afișată pe cadran: 0 și 12 se scriu amândouă „12", ca la un ceas obișnuit */
-function etichetaOra(ora: number): string {
-  const h = ora % 12;
-  return String(h === 0 ? 12 : h);
+/**
+ * Ora scrisă pe cadran. Pe fața de zi (12:00–24:00) scriem orele așa cum le
+ * spui — 12, 13, 14 … 23 — ca să nu fie nevoie să le traduci în cap. Pe fața
+ * de noapte (00:00–12:00) rămâne cadranul obișnuit, cu 12 sus.
+ */
+function etichetaOra(index: number, fata: FataCeas): string {
+  if (fata === 'soare') return String(12 + index);
+  return String(index === 0 ? 12 : index);
 }
 
 /**
@@ -268,7 +272,7 @@ export function CeasZi({
                 fontWeight="700"
                 fill="#94a3b8"
               >
-                {fata === 'toata' ? ora : etichetaOra(index)}
+                {fata === 'toata' ? ora : etichetaOra(index, fata)}
               </text>
             );
           })}
