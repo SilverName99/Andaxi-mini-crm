@@ -6,6 +6,7 @@ import { addDays, addMonths, endOfMonth, monthRange, startOfMonth, today } from 
 import { isCycle, monthlyEquivalent } from '../lib/cycles.js';
 import { round2 } from '../lib/rates.js';
 import { allocateByClientMonth } from '../lib/hours.js';
+import { factorReducere } from '../lib/monthly-discounts.js';
 import { CLIENT_REF } from '../lib/selects.js';
 
 export const dashboardRouter = Router();
@@ -41,6 +42,7 @@ dashboardRouter.get(
         include: { client: { select: CLIENT_REF } },
       }),
     ]);
+    const reduceri = await prisma.monthlyDiscount.findMany();
 
     /*
      * Orele se factureaza dupa ce se scad cele incluse in abonament, iar acelea
@@ -48,8 +50,11 @@ dashboardRouter.get(
      * nu poate fi luata direct din inregistrare, ci din alocarea pe luna.
      */
     const alocari = allocateByClientMonth(workLogs, subscriptions);
-    const facturabil = (log: { id: string; amountEur: number }) =>
+    const brut = (log: { id: string; amountEur: number }) =>
       alocari.get(log.id)?.billableEur ?? log.amountEur;
+    // …iar peste ele se scade reducerea lunii, impartita proportional
+    const factor = factorReducere(workLogs, brut, reduceri);
+    const facturabil = (log: (typeof workLogs)[number]) => brut(log) * factor(log);
 
     const activeSubs = subscriptions.filter((s) => s.status === 'ACTIVE');
     const mrr = round2(
@@ -145,17 +150,21 @@ dashboardRouter.get(
     const { from = startOfMonth(addMonths(now, -5)), to = endOfMonth(now) } = req.query as Record<string, string>;
     const settings = await getSettings();
 
-    const [items, logs, clients, subscriptions] = await Promise.all([
+    const [items, logs, clients, subscriptions, reduceri] = await Promise.all([
       prisma.billingItem.findMany({ where: { dueDate: { gte: from, lte: to } } }),
       prisma.workLog.findMany({ where: { date: { gte: from, lte: to } } }),
       prisma.client.findMany({ select: CLIENT_REF }),
       prisma.subscription.findMany({ include: { hourPackage: true } }),
+      prisma.monthlyDiscount.findMany(),
     ]);
 
-    // aceeasi regula ca pe panoul de control: orele incluse se scad pe luna
+    // aceeasi regula ca pe panoul de control: orele incluse se scad pe luna…
     const alocari = allocateByClientMonth(logs, subscriptions);
-    const facturabil = (log: { id: string; amountEur: number }) =>
+    const brut = (log: { id: string; amountEur: number }) =>
       alocari.get(log.id)?.billableEur ?? log.amountEur;
+    // …iar peste ele se scade reducerea lunii, impartita proportional pe ore
+    const factor = factorReducere(logs, brut, reduceri);
+    const facturabil = (log: (typeof logs)[number]) => brut(log) * factor(log);
 
     const vat = (net: number) => round2((net * settings.vatRate) / 100);
 
@@ -165,12 +174,16 @@ dashboardRouter.get(
         const clientLogs = logs.filter((l) => l.clientId === c.id && l.billable);
         const minutes = clientLogs.reduce((s, l) => s + l.standardMinutes + l.offHoursMinutes, 0);
         const recurent = round2(clientItems.reduce((s, i) => s + i.amountEur, 0));
+        // orele se arata intregi, iar reducerea lunii se scade separat, ca pe factura
+        const oreBrut = round2(clientLogs.reduce((s, l) => s + brut(l), 0));
         const ore = round2(clientLogs.reduce((s, l) => s + facturabil(l), 0));
+        const reducere = round2(oreBrut - ore);
         const total = round2(recurent + ore);
         return {
           ...c,
           recurent,
-          ore,
+          ore: oreBrut,
+          reducere,
           minutes,
           total,
           tva: vat(total),
@@ -213,6 +226,7 @@ dashboardRouter.get(
       totals: {
         recurent: round2(rows.reduce((s, r) => s + r.recurent, 0)),
         ore: round2(rows.reduce((s, r) => s + r.ore, 0)),
+        reducere: round2(rows.reduce((s, r) => s + r.reducere, 0)),
         total: totalNet,
         // TVA-ul se calculeaza pe totalul general, nu ca suma rotunjirilor per client
         tva: vat(totalNet),

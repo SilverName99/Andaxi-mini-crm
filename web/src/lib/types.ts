@@ -346,7 +346,10 @@ export interface Dashboard {
 
 export interface ReportRow extends ClientRef {
   recurent: number;
+  /** Orele întregi, înainte de reducerile lunare */
   ore: number;
+  /** Cât s-a scăzut din reducerile lunare */
+  reducere: number;
   minutes: number;
   /** Fără TVA */
   total: number;
@@ -365,6 +368,7 @@ export interface ReportData {
   totals: {
     recurent: number;
     ore: number;
+    reducere: number;
     /** Fără TVA */
     total: number;
     tva: number;

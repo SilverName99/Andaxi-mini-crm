@@ -38,15 +38,15 @@ export function Reports() {
             onClick={() =>
               downloadCsv(`raport-andaxi-${from}_${to}.csv`, [
                 [
-                  'Client', 'Recurent EUR', 'Ore EUR', 'Minute lucrate', 'Total fara TVA EUR',
+                  'Client', 'Recurent EUR', 'Ore EUR', 'Reducere EUR', 'Minute lucrate', 'Total fara TVA EUR',
                   `TVA ${data.settings.vatRate}% EUR`, 'Total cu TVA EUR', 'Incasat EUR', 'De facturat EUR',
                 ],
                 ...data.rows.map((row) => [
-                  row.company || row.name, row.recurent, row.ore, row.minutes, row.total,
+                  row.company || row.name, row.recurent, row.ore, row.reducere, row.minutes, row.total,
                   row.tva, row.totalCuTva, row.incasat, row.deFacturat,
                 ]),
                 [
-                  'TOTAL', data.totals.recurent, data.totals.ore,
+                  'TOTAL', data.totals.recurent, data.totals.ore, data.totals.reducere,
                   data.totals.standardMinutes + data.totals.offHoursMinutes, data.totals.total,
                   data.totals.tva, data.totals.totalCuTva, data.totals.incasat, data.totals.deFacturat,
                 ],
@@ -107,8 +107,12 @@ export function Reports() {
             />
             <StatCard
               label="Din ore"
-              value={formatEur(data.totals.ore)}
-              hint={formatRon(data.totals.ore, data.settings.eurRon)}
+              value={formatEur(data.totals.ore - data.totals.reducere)}
+              hint={
+                data.totals.reducere > 0
+                  ? `${formatEur(data.totals.ore)} − ${formatEur(data.totals.reducere)} reducere`
+                  : formatRon(data.totals.ore, data.settings.eurRon)
+              }
               icon={<Clock4 className="h-5 w-5" />}
             />
             <StatCard
@@ -173,6 +177,7 @@ export function Reports() {
                       <th className="px-4 py-3 font-semibold">Client</th>
                       <th className="px-4 py-3 text-right font-semibold">Recurent</th>
                       <th className="px-4 py-3 text-right font-semibold">Ore</th>
+                      <th className="px-4 py-3 text-right font-semibold">Reducere</th>
                       <th className="px-4 py-3 text-right font-semibold">Timp</th>
                       <th className="px-4 py-3 text-right font-semibold">Total fără TVA</th>
                       <th className="px-4 py-3 text-right font-semibold">TVA {data.settings.vatRate}%</th>
@@ -192,6 +197,9 @@ export function Reports() {
                         </td>
                         <td className="px-4 py-3 text-right text-slate-600">{formatEur(row.recurent)}</td>
                         <td className="px-4 py-3 text-right text-slate-600">{formatEur(row.ore)}</td>
+                        <td className="px-4 py-3 text-right text-emerald-600">
+                          {row.reducere > 0 ? `−${formatEur(row.reducere)}` : '—'}
+                        </td>
                         <td className="px-4 py-3 text-right text-slate-500">{formatMinutes(row.minutes)}</td>
                         <td className="px-4 py-3 text-right font-bold text-slate-900">{formatEur(row.total)}</td>
                         <td className="px-4 py-3 text-right text-slate-500">{formatEur(row.tva)}</td>
@@ -206,6 +214,9 @@ export function Reports() {
                       <td className="px-4 py-3">Total</td>
                       <td className="px-4 py-3 text-right">{formatEur(data.totals.recurent)}</td>
                       <td className="px-4 py-3 text-right">{formatEur(data.totals.ore)}</td>
+                      <td className="px-4 py-3 text-right text-emerald-700">
+                        {data.totals.reducere > 0 ? `−${formatEur(data.totals.reducere)}` : '—'}
+                      </td>
                       <td className="px-4 py-3 text-right">{formatMinutes(data.totals.standardMinutes + data.totals.offHoursMinutes)}</td>
                       <td className="px-4 py-3 text-right">{formatEur(data.totals.total)}</td>
                       <td className="px-4 py-3 text-right text-slate-600">{formatEur(data.totals.tva)}</td>
