@@ -280,47 +280,60 @@ function Discutie({ cerereId, onClose }: { cerereId: string; onClose: () => void
 
   const fel = data ? felDiscutie(data) : FELURI.NORMAL;
 
+  /*
+   * Textul cu care s-a deschis discuția intră ca primul mesaj, de la cine a
+   * deschis-o, ca să se citească tot ca o conversație.
+   */
+  const toateMesajele = data
+    ? [
+        ...(data.details.trim()
+          ? [
+              {
+                id: 'cerere',
+                author: data.openedBy,
+                authorName: '',
+                body: data.details,
+                createdAt: data.createdAt,
+              },
+            ]
+          : []),
+        ...data.messages,
+      ]
+    : [];
+
   return (
     <Modal open onClose={onClose} size="lg" title={data?.title ?? 'Discuție'} subtitle="Discuția pe marginea acestei cereri">
       {isLoading || !data ? (
         <LoadingBlock />
       ) : (
         <div className="flex flex-col gap-4">
-          <div className="rounded-2xl bg-slate-50 p-4">
-            <div className="mb-2 flex flex-wrap items-center gap-1.5">
-              <Badge className={fel.chip}>
-                <fel.Icon className="h-3.5 w-3.5" /> {fel.titlu}
-              </Badge>
-              {data.dueAt && !data.done && (
-                <span className="text-xs text-slate-500">răspuns până pe {formatDateTime(data.dueAt)}</span>
-              )}
-            </div>
-            <p className="whitespace-pre-wrap text-sm text-slate-700">{data.details || '—'}</p>
-            <p className="mt-1 text-xs text-slate-400">
-              {data.openedBy === 'ADMIN' ? 'Deschisă' : 'Trimisă'} {formatDateTime(data.createdAt)}
-            </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge className={fel.chip}>
+              <fel.Icon className="h-3.5 w-3.5" /> {fel.titlu}
+            </Badge>
+            {data.dueAt && !data.done && (
+              <span className="text-xs text-slate-500">răspuns până pe {formatDateTime(data.dueAt)}</span>
+            )}
           </div>
 
-          {data.messages.length > 0 && (
-            <ul className="flex max-h-[22rem] flex-col gap-2 overflow-y-auto pr-1">
-              {data.messages.map((m) => (
-                <li
-                  key={m.id}
-                  className={cn(
-                    'max-w-[85%] rounded-2xl px-4 py-2.5 text-sm',
-                    m.author === 'CLIENT'
-                      ? 'ml-auto bg-indigo-600 text-white'
-                      : 'mr-auto bg-slate-100 text-slate-700',
-                  )}
-                >
-                  <p className="whitespace-pre-wrap">{m.body}</p>
-                  <p className={cn('mt-1 text-[11px]', m.author === 'CLIENT' ? 'text-indigo-200' : 'text-slate-400')}>
-                    {m.author === 'CLIENT' ? m.authorName || 'Tu' : 'Andaxi'} · {formatDateTime(m.createdAt)}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
+          <ul className="flex max-h-[26rem] flex-col gap-2 overflow-y-auto pr-1">
+            {toateMesajele.map((m) => (
+              <li
+                key={m.id}
+                className={cn(
+                  'max-w-[85%] rounded-2xl px-4 py-2.5 text-sm',
+                  m.author === 'CLIENT'
+                    ? 'ml-auto bg-indigo-600 text-white'
+                    : 'mr-auto bg-slate-100 text-slate-700',
+                )}
+              >
+                <p className="whitespace-pre-wrap leading-relaxed">{m.body}</p>
+                <p className={cn('mt-1 text-[11px]', m.author === 'CLIENT' ? 'text-indigo-200' : 'text-slate-400')}>
+                  {m.author === 'CLIENT' ? m.authorName || 'Tu' : 'Andaxi'} · {formatDateTime(m.createdAt)}
+                </p>
+              </li>
+            ))}
+          </ul>
 
           {data.chatClosed ? (
             <p className="flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">

@@ -147,6 +147,8 @@ tasksRouter.get(
       title: task.title,
       details: task.details,
       kind: task.requestKind || '',
+      /** CLIENT (cerere din portal) sau ADMIN (discutie deschisa de tine) */
+      openedBy: task.fromPortal ? 'CLIENT' : 'ADMIN',
       dueAt: task.dueAt,
       chatClosed: task.chatClosed,
       done: task.done,

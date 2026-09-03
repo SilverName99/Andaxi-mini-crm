@@ -296,6 +296,8 @@ export interface RequestThread {
   title: string;
   details: string;
   kind: string;
+  /** Cine a deschis discuția: clientul (cerere din portal) sau tu */
+  openedBy: 'CLIENT' | 'ADMIN';
   dueAt: string | null;
   chatClosed: boolean;
   done: boolean;
