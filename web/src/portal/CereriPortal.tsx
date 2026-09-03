@@ -24,6 +24,13 @@ const FELURI = {
   },
 } as const;
 
+/**
+ * Cât text încape într-o cerere sau într-un mesaj. Limita e mare dinadins:
+ * clienții trimit uneori liste lungi, iar un text tăiat pe tăcute de browser
+ * e mai rău decât un mesaj că e prea lung.
+ */
+const LIMITA_TEXT = 20000;
+
 /** Discuțiile deschise de noi n-au termen promis — le arătăm ca atare */
 const DESCHISA_DE_NOI = {
   titlu: 'Deschisă de noi',
@@ -159,12 +166,20 @@ export function CereriPortal({ me }: { me: PortalMe }) {
               placeholder="Ex. Nu se trimit emailurile de comandă"
             />
           </Field>
-          <Field label="Detalii" hint="Opțional — orice ne ajută să înțelegem mai repede">
+          <Field
+            label="Detalii"
+            hint={
+              detalii.length > LIMITA_TEXT - 1000
+                ? `Au mai rămas ${LIMITA_TEXT - detalii.length} caractere`
+                : 'Opțional — orice ne ajută să înțelegem mai repede'
+            }
+          >
             <Textarea
               value={detalii}
               onChange={(e) => setDetalii(e.target.value)}
-              maxLength={2000}
+              maxLength={LIMITA_TEXT}
               placeholder="De când se întâmplă, ce ai încercat, un exemplu…"
+              className="min-h-[140px]"
             />
           </Field>
           {error && <ErrorBlock message={error} />}
@@ -317,6 +332,7 @@ function Discutie({ cerereId, onClose }: { cerereId: string; onClose: () => void
                 value={mesaj}
                 onChange={(e) => setMesaj(e.target.value)}
                 placeholder="Scrie un mesaj…"
+                maxLength={LIMITA_TEXT}
                 className="min-h-[80px]"
               />
               <div className="flex flex-wrap items-center gap-2">

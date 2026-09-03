@@ -375,7 +375,7 @@ portalRouter.delete(
 
 const cerereSchema = z.object({
   title: z.string().trim().min(3, 'Scrie pe scurt ce ai nevoie').max(120),
-  details: z.string().trim().max(2000).default(''),
+  details: z.string().trim().max(20000).default(''),
   /** NORMAL = raspuns in 24 de ore de lucru · URGENT = in 12 */
   kind: z.enum(['NORMAL', 'URGENT']).default('NORMAL'),
 });
@@ -494,7 +494,7 @@ portalRouter.get(
 );
 
 const mesajSchema = z.object({
-  body: z.string().trim().min(1, 'Scrie un mesaj').max(4000),
+  body: z.string().trim().min(1, 'Scrie un mesaj').max(20000),
   authorName: z.string().trim().max(80).default(''),
 });
 

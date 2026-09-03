@@ -157,7 +157,7 @@ tasksRouter.get(
   }),
 );
 
-const mesajSchema = z.object({ body: z.string().trim().min(1, 'Scrie un mesaj').max(4000) });
+const mesajSchema = z.object({ body: z.string().trim().min(1, 'Scrie un mesaj').max(20000) });
 
 /** Raspunsul tau ajunge in portal si, daca are email, si la client */
 tasksRouter.post(
