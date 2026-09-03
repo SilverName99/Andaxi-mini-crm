@@ -206,7 +206,11 @@ export function Tasks() {
                       </button>
                     )}
                   </div>
-                  {task.details && <p className="mt-1 text-sm text-slate-500">{task.details}</p>}
+                  {task.details && (
+                    <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-500">
+                      {task.details}
+                    </p>
+                  )}
                   {task.dueDate && (
                     <p className={cn('mt-1 flex items-center gap-1.5 text-xs font-medium', late ? 'text-red-600' : 'text-slate-400')}>
                       <CalendarDays className="h-3.5 w-3.5" /> {formatDate(task.dueDate)}
