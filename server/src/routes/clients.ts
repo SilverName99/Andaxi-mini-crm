@@ -10,6 +10,7 @@ import { soldurileClientului } from '../lib/paid-hours.js';
 import { includedStorageGb, isPerUserProduct } from '../lib/pricing.js';
 import { getSettings } from '../prisma.js';
 import { allocateTimeline, monthOf } from '../lib/hours.js';
+import { endOfMonth, today } from '../lib/dates.js';
 import { round2 } from '../lib/rates.js';
 import { applyDiscount, type DiscountType } from '../lib/discount.js';
 
@@ -74,7 +75,14 @@ async function statisticiClient(clientId: string) {
       orderBy: [{ date: 'asc' }, { startMinutes: 'asc' }],
     }),
     prisma.subscription.findMany({ where: { clientId }, include: { hourPackage: true } }),
-    prisma.billingItem.findMany({ where: { clientId, status: 'PENDING' } }),
+    /*
+     * Doar pozitiile ajunse la rand: scadentarul genereaza reinnoirile cu doua
+     * luni inainte, dar un abonament scadent in noiembrie nu e "de facturat"
+     * inca din septembrie.
+     */
+    prisma.billingItem.findMany({
+      where: { clientId, status: 'PENDING', dueDate: { lte: endOfMonth(today()) } },
+    }),
     prisma.monthlyDiscount.findMany({ where: { clientId } }),
   ]);
 
@@ -134,7 +142,16 @@ clientsRouter.get(
           take: 500,
           include: { attachments: { orderBy: { createdAt: 'asc' } } },
         },
-        billingItems: { orderBy: { dueDate: 'desc' }, take: 100, include: { subscription: true } },
+        billingItems: {
+          // istoricul ramane intreg; din cele nefacturate aratam doar pe cele
+          // ajunse la scadenta in luna curenta sau mai devreme
+          where: {
+            OR: [{ status: { not: 'PENDING' } }, { dueDate: { lte: endOfMonth(today()) } }],
+          },
+          orderBy: { dueDate: 'desc' },
+          take: 100,
+          include: { subscription: true },
+        },
         tasks: { orderBy: [{ done: 'asc' }, { dueDate: 'asc' }] },
       },
     });
