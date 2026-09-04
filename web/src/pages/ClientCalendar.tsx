@@ -23,7 +23,8 @@ import { formatDate, formatEur, formatMinutes, minutesToHhMm, todayIso } from '.
 import { grilaLunii, numeLuna, numeZi, schimbaLuna, ZILE_SCURTE } from '../lib/calendar';
 import { minuteSegmente, segmenteInterval, segmenteleZilei, type FereastraProgram } from '../lib/ceas';
 import { BILLING_STATUS, WORK_CATEGORY, WORK_STATUS, options } from '../lib/labels';
-import { optiuniLucrare } from '../lib/lucrari';
+import { etichete as lucrariDin } from '../lib/lucrari';
+import { SelectorLucrari } from '../components/SelectorLucrari';
 import { scadenteViitoare } from '../lib/scadente';
 import { cn } from '../lib/cn';
 import type {
@@ -98,7 +99,7 @@ export function ClientCalendar() {
   }, [logs]);
 
   const etichete = useMemo(
-    () => [...new Set(logs.map((l) => l.projectTag).filter(Boolean))].sort(),
+    () => [...new Set(logs.flatMap((l) => lucrariDin(l.projectTag)))].sort(),
     [logs],
   );
 
@@ -503,9 +504,9 @@ export function ClientCalendar() {
                       </div>
                       <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{log.description || '—'}</p>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {log.projectTag && (
-                          <Badge className="bg-indigo-50 text-indigo-600">{log.projectTag}</Badge>
-                        )}
+                        {lucrariDin(log.projectTag).map((lucrare) => (
+                          <Badge key={lucrare} className="bg-indigo-50 text-indigo-600">{lucrare}</Badge>
+                        ))}
                         {log.includedInPackage && (
                           <Badge className="bg-emerald-50 text-emerald-700">Inclus în pachet</Badge>
                         )}
@@ -704,15 +705,16 @@ function AdaugaOre({
           />
         </Field>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field
             label="Lucrare / proiect"
-            hint={abonamente.length ? undefined : 'Clientul nu are abonamente'}
+            hint={abonamente.length ? 'Poți alege mai multe' : 'Clientul nu are abonamente'}
           >
-            <Select
+            <SelectorLucrari
               value={projectTag}
-              onChange={(e) => setProjectTag(e.target.value)}
-              options={optiuniLucrare(abonamente, etichete, projectTag)}
+              onChange={setProjectTag}
+              abonamente={abonamente}
+              etichete={etichete}
             />
           </Field>
           <Field label="Categorie">

@@ -397,3 +397,35 @@ test('rezervorul nu se reincarca: se consuma peste luni, in ordine', () => {
   assert.equal(rezultat.byLog.get('august')!.billableEur, 45, 'ora ramasa se factureaza');
   assert.equal(rezultat.paidPools.get('c1')!.get('site.ro')!.remainingMinutes, 0);
 });
+
+test('orele platite se scad din mai multe abonamente, in ordinea alegerii', () => {
+  const abonament = (label: string, paidHours: number) => ({
+    clientId: 'c1',
+    label,
+    status: 'ACTIVE',
+    startDate: '2026-01-01',
+    endDate: null,
+    includedHoursPerMonth: 0,
+    paidHours,
+  });
+
+  const rezultat = allocateTimeline(
+    [
+      {
+        ...log({ id: 'a', date: '2026-09-04', standardMinutes: 360, amountEur: 270 }),
+        clientId: 'c1',
+        // doua lucrari pe aceeasi interventie, in ordinea in care au fost alese
+        projectTag: 'Gazduire\nMentenanta',
+      },
+    ],
+    [abonament('Gazduire', 2), abonament('Mentenanta', 3)],
+  );
+
+  const alocare = rezultat.byLog.get('a')!;
+  // primele doua ore din primul rezervor, urmatoarele trei din al doilea
+  assert.equal(alocare.paidStandardMinutes, 300);
+  assert.equal(alocare.billableStandardMinutes, 60);
+  assert.equal(alocare.billableEur, 45, 'ora ramasa se factureaza normal');
+  assert.equal(rezultat.paidPools.get('c1')!.get('Gazduire')!.remainingMinutes, 0);
+  assert.equal(rezultat.paidPools.get('c1')!.get('Mentenanta')!.remainingMinutes, 0);
+});

@@ -1,6 +1,23 @@
 import { PRODUCT } from './labels';
 import type { Subscription } from './types';
 
+/**
+ * O intervenție poate intra pe mai multe lucrări. Le ținem în același câmp,
+ * despărțite prin linie nouă — separator care nu apare în denumirile
+ * abonamentelor, scrise mereu pe un singur rând.
+ */
+export function etichete(valoare: string | null | undefined): string[] {
+  return (valoare ?? '')
+    .split('\n')
+    .map((e) => e.trim())
+    .filter(Boolean);
+}
+
+/** Forma în care se salvează: fără duplicate, fără spații de prisos */
+export function laEticheta(lista: string[]): string {
+  return [...new Set(lista.map((e) => e.trim()).filter(Boolean))].join('\n');
+}
+
 /** Numele sub care apare un abonament in campul "Lucrare / proiect" */
 export function numeAbonament(sub: Subscription): string {
   return (sub.label || PRODUCT[sub.product]?.text || '').trim();
@@ -13,7 +30,7 @@ export function numeAbonament(sub: Subscription): string {
  */
 export function optiuniLucrare(
   abonamente: Subscription[] = [],
-  etichete: string[] = [],
+  etichetele: string[] = [],
   valoareCurenta = '',
 ): { value: string; label: string }[] {
   const ordine: Record<string, number> = { ACTIVE: 0, PAUSED: 1, CANCELLED: 2 };
@@ -34,7 +51,7 @@ export function optiuniLucrare(
     });
   }
 
-  for (const eticheta of [...etichete, valoareCurenta]) {
+  for (const eticheta of [...etichetele, ...etichete(valoareCurenta)]) {
     const nume = (eticheta ?? '').trim();
     if (!nume || vazute.has(nume)) continue;
     vazute.add(nume);

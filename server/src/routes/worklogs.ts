@@ -5,6 +5,7 @@ import { asyncHandler } from '../middleware/errors.js';
 import { isoDate, WORK_CATEGORIES, WORK_STATUSES } from '../lib/validation.js';
 import { hhMmToMinutes } from '../lib/dates.js';
 import { round2, splitWorkInterval, type RateConfig } from '../lib/rates.js';
+import { areEticheta, laEticheta, etichete } from '../lib/etichete.js';
 import { allocateByClientMonth } from '../lib/hours.js';
 import { ALLOWED_DOC_TYPES, deleteAttachment, resolveUploadPath, saveAttachment } from '../lib/uploads.js';
 import { normalizeaza, parseCsv, parseData, parseNumar, parseOra } from '../lib/csv.js';
@@ -27,8 +28,8 @@ const workLogSchema = z.object({
   rateType: z.enum(['STANDARD', 'OFF_HOURS']).default('STANDARD'),
   description: z.string().default(''),
   category: z.enum(WORK_CATEGORIES).default('SUPORT'),
-  /** Eticheta libera pentru gruparea orelor pe lucrari */
-  projectTag: z.string().max(60).default(''),
+  /** Lucrarile pe care intra orele; mai multe se despart prin linie noua */
+  projectTag: z.string().max(600).default(''),
   billable: z.boolean().default(true),
   /** Ore acoperite de abonament / pachet: nu se factureaza, dar consuma credit */
   includedInPackage: z.boolean().default(false),
@@ -93,7 +94,7 @@ function buildData(input: z.infer<typeof workLogSchema>, config: RateConfig) {
     endMinutes,
     description: input.description,
     category: input.category,
-    projectTag: input.projectTag.trim(),
+    projectTag: laEticheta(etichete(input.projectTag)),
     standardMinutes: split.standardMinutes,
     offHoursMinutes: split.offHoursMinutes,
     standardRate: config.standardRate,
@@ -117,7 +118,9 @@ workLogsRouter.get(
         ...(clientId ? { clientId } : {}),
         ...(status && status !== 'ALL' ? { status } : {}),
         ...(category && category !== 'ALL' ? { category } : {}),
-        ...(projectTag ? { projectTag } : {}),
+        // filtrul pe lucrare: interventia poate avea mai multe, deci cautam
+        // dupa continut si rafinam mai jos, ca sa nu prindem etichete asemanatoare
+        ...(projectTag ? { projectTag: { contains: projectTag } } : {}),
         ...(from || to ? { date: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),
       },
       orderBy: [{ date: 'desc' }, { startMinutes: 'desc' }],
@@ -144,8 +147,11 @@ workLogsRouter.get(
     ]);
     const alocari = allocateByClientMonth(toateLunii, subscriptions);
 
+    // „contains" din interogare poate prinde si etichete asemanatoare
+    const rezultate = projectTag ? logs.filter((l) => areEticheta(l.projectTag, projectTag)) : logs;
+
     res.json(
-      logs.map((log) => {
+      rezultate.map((log) => {
         const a = alocari.get(log.id);
         return {
           ...log,

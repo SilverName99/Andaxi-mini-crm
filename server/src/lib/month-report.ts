@@ -6,6 +6,7 @@ import { buildMonthlySheet } from './monthly-sheet.js';
 import { minutesToHhMm } from './dates.js';
 import { isWeekend } from './dates.js';
 import { env } from '../env.js';
+import { etichete } from './etichete.js';
 
 /** Fonturile standard din PDF nu au diacritice romanesti, deci le aducem pe ale noastre */
 const FONTURI = fileURLToPath(new URL('../../assets/fonts', import.meta.url));
@@ -306,7 +307,8 @@ export async function buildMonthReportPdf(clientId: string, month: string): Prom
       scrieAntetTabel();
     }
 
-    const descriere = [row.description || '—', row.projectTag ? `· ${row.projectTag}` : '']
+    const lucrari = etichete(row.projectTag).join(' · ');
+    const descriere = [row.description || '—', lucrari ? `· ${lucrari}` : '']
       .filter(Boolean)
       .join(' ');
     const inaltimeText = doc.font('normal').fontSize(8.5).heightOfString(descriere, { width: coloane[2].latime });

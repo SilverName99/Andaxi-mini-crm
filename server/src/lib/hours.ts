@@ -1,4 +1,5 @@
 import { round2 } from './rates.js';
+import { etichete } from './etichete.js';
 
 /**
  * Cat consuma din orele incluse o ora lucrata in afara programului.
@@ -129,18 +130,29 @@ export function allocateMonth(
     }
 
     /*
-     * 1. rezervorul abonamentului ales la lucrare — e cel mai specific, deci
-     * se consuma primul (orele din afara programului scad dublu din el)
+     * 1. rezervoarele abonamentelor alese la lucrare — sunt cele mai specifice,
+     * deci se consuma primele (orele din afara programului scad dublu din ele).
+     * Cand interventia e trecuta pe mai multe lucrari, se consuma in ordinea in
+     * care le-ai ales: se ia din primul rezervor cat incape, restul din urmatorul.
      */
-    const eticheta = (log.projectTag ?? '').trim();
-    const rezervor = eticheta && paidPools.has(eticheta) ? paidPools.get(eticheta)! : 0;
-    const platStandard = acopera(log.standardMinutes, rezervor, 1);
-    const platOffHours = acopera(log.offHoursMinutes, platStandard.ramas, OFF_HOURS_FACTOR);
-    if (eticheta && paidPools.has(eticheta)) {
-      paidPools.set(eticheta, platOffHours.ramas);
-      const consumat = rezervor - platOffHours.ramas;
+    let platStandardMinute = 0;
+    let platOffHoursMinute = 0;
+    for (const eticheta of etichete(log.projectTag)) {
+      const rezervor = paidPools.get(eticheta);
+      if (rezervor === undefined || rezervor <= 0) continue;
+
+      const s = acopera(log.standardMinutes - platStandardMinute, rezervor, 1);
+      const o = acopera(log.offHoursMinutes - platOffHoursMinute, s.ramas, OFF_HOURS_FACTOR);
+      platStandardMinute += s.acoperite;
+      platOffHoursMinute += o.acoperite;
+
+      paidPools.set(eticheta, o.ramas);
+      const consumat = rezervor - o.ramas;
       if (consumat > 0) paidUsedByTag.set(eticheta, (paidUsedByTag.get(eticheta) ?? 0) + consumat);
+      if (platStandardMinute >= log.standardMinutes && platOffHoursMinute >= log.offHoursMinutes) break;
     }
+    const platStandard = { acoperite: platStandardMinute };
+    const platOffHours = { acoperite: platOffHoursMinute };
 
     // 2. orele incluse in abonament
     const incStandard = acopera(log.standardMinutes - platStandard.acoperite, credit, 1);

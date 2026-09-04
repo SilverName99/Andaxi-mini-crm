@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, FileSpreadsheet, Printer } from 'lucide-react';
 import { useClients, useMonthlySheet } from '../lib/queries';
+import { etichete as lucrariDin } from '../lib/lucrari';
 import { PageHeader } from '../components/Layout';
 import { Badge, Card, EmptyState, ErrorBlock, Field, LoadingBlock, Select } from '../components/ui';
 import { formatDate, formatEur, formatMinutes, formatRon, todayIso } from '../lib/format';
@@ -180,7 +181,7 @@ export function MonthlySheet() {
                       {peEtichete.length > 1 && (
                         <tr>
                           <td colSpan={5} className="pt-4 text-xs font-bold uppercase tracking-wide text-indigo-500">
-                            {eticheta || 'Fără etichetă'}
+                            {lucrariDin(eticheta).join(' · ') || 'Fără etichetă'}
                           </td>
                         </tr>
                       )}

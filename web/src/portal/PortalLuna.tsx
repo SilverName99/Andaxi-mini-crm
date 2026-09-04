@@ -6,6 +6,7 @@ import { formatDate, formatEur, formatFileSize, formatMinutes, formatRon } from 
 import { grilaLunii, numeZi, ZILE_SCURTE } from '../lib/calendar';
 import { WORK_CATEGORY } from '../lib/labels';
 import { scadenteViitoare } from '../lib/scadente';
+import { etichete as lucrariDin } from '../lib/lucrari';
 import { minuteSegmente, segmenteleZilei, type FereastraProgram } from '../lib/ceas';
 import { cn } from '../lib/cn';
 import type { PortalMe, PortalMonth, PortalRow } from './api';
@@ -380,9 +381,9 @@ export function PortalLuna({
                     <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{row.description || '—'}</p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       <Badge className={WORK_CATEGORY[row.category].chip}>{WORK_CATEGORY[row.category].text}</Badge>
-                      {row.projectTag && (
-                        <Badge className="bg-slate-100 text-slate-600">{row.projectTag}</Badge>
-                      )}
+                      {lucrariDin(row.projectTag).map((lucrare) => (
+                        <Badge key={lucrare} className="bg-slate-100 text-slate-600">{lucrare}</Badge>
+                      ))}
                       {eticheta && <Badge className={eticheta.chip}>{eticheta.text}</Badge>}
                       {stare === 'platit' && (
                         <Badge className="bg-emerald-100 text-emerald-700">Plătit</Badge>

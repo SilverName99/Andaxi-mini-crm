@@ -19,7 +19,8 @@ import {
   todayIso,
 } from '../lib/format';
 import { WORK_CATEGORY, WORK_STATUS, options } from '../lib/labels';
-import { optiuniLucrare } from '../lib/lucrari';
+import { etichete as lucrariDin } from '../lib/lucrari';
+import { SelectorLucrari } from '../components/SelectorLucrari';
 import { cn } from '../lib/cn';
 import type { AccentColor, Attachment, RateSplit, WorkLog, WorkStatus } from '../lib/types';
 
@@ -92,7 +93,7 @@ export function WorkLogForm({
   const etichete = useMemo(
     () => [
       ...new Set(
-        toateLogurile.filter((l) => l.clientId === form.clientId).map((l) => l.projectTag).filter(Boolean),
+        toateLogurile.filter((l) => l.clientId === form.clientId).flatMap((l) => lucrariDin(l.projectTag)),
       ),
     ].sort(),
     [toateLogurile, form.clientId],
@@ -226,10 +227,11 @@ export function WorkLogForm({
           hint="Abonamentul clientului pe care se pun orele, pentru gruparea lor"
           className="sm:col-span-2"
         >
-          <Select
+          <SelectorLucrari
             value={form.projectTag}
-            onChange={(e) => set('projectTag', e.target.value)}
-            options={optiuniLucrare(abonamente, etichete, form.projectTag)}
+            onChange={(v) => set('projectTag', v)}
+            abonamente={abonamente}
+            etichete={etichete}
           />
         </Field>
         <Field label="Descriere" className="sm:col-span-2">
@@ -500,9 +502,9 @@ export function WorkLogs() {
                           ) : (
                             <Badge className={WORK_STATUS[log.status].chip}>{WORK_STATUS[log.status].text}</Badge>
                           )}
-                          {log.projectTag && (
-                            <Badge className="bg-indigo-50 text-indigo-600">{log.projectTag}</Badge>
-                          )}
+                          {lucrariDin(log.projectTag).map((lucrare) => (
+                            <Badge key={lucrare} className="bg-indigo-50 text-indigo-600">{lucrare}</Badge>
+                          ))}
                         </div>
                         <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{log.description || '—'}</p>
                         <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
