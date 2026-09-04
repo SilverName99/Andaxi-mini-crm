@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
-  AlertTriangle, ArrowLeft, Building2, CalendarClock, Clock4, Database, Globe, Mail, MapPin, Paperclip, Pencil,
-  Phone, Plus, Repeat, StickyNote, Trash2, Users, Wallet,
+  AlertTriangle, ArrowLeft, Building2, CalendarClock, Check, Clock4, Database, Globe, Mail, MapPin,
+  MessagesSquare, Paperclip, Pencil, Phone, Plus, Repeat, StickyNote, Trash2, Users, Wallet,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useClient, useCrudMutation, useSettings } from '../lib/queries';
@@ -15,14 +15,16 @@ import { WorkLogDetail } from './WorkLogs';
 import { PortalClient } from '../components/PortalClient';
 import { OreAbonament } from '../components/OreAbonament';
 import { Paginare } from '../components/Paginare';
-import { formatDate, formatEur, formatMinutes, formatRon, minutesToHhMm } from '../lib/format';
+import { DiscutieCerere } from '../components/DiscutieCerere';
+import { formatDate, formatDateTime, formatEur, formatMinutes, formatRon, minutesToHhMm } from '../lib/format';
 import {
-  BILLING_STATUS, CLIENT_STATUS, CYCLE, PRODUCT, SUBSCRIPTION_KIND, SUBSCRIPTION_STATUS, WORK_CATEGORY, WORK_STATUS,
+  BILLING_STATUS, CLIENT_STATUS, CYCLE, PRIORITY, PRODUCT, SUBSCRIPTION_KIND, SUBSCRIPTION_STATUS, WORK_CATEGORY,
+  WORK_STATUS,
 } from '../lib/labels';
 import { cn } from '../lib/cn';
 import type { AccentColor, Subscription } from '../lib/types';
 
-type Tab = 'abonamente' | 'ore' | 'scadentar' | 'detalii';
+type Tab = 'abonamente' | 'ore' | 'scadentar' | 'discutii' | 'detalii';
 
 export function ClientDetail() {
   const { id = '' } = useParams();
@@ -37,7 +39,11 @@ export function ClientDetail() {
   const [editingSub, setEditingSub] = useState<Subscription | null>(null);
   const [deletingSub, setDeletingSub] = useState<Subscription | null>(null);
   const [detaliiLog, setDetaliiLog] = useState<string | null>(null);
+  const [discutie, setDiscutie] = useState<string | null>(null);
   const [paginaOre, setPaginaOre] = useState(1);
+  const schimbaTask = useCrudMutation((input: { id: string; done: boolean }) =>
+    api.put(`/tasks/${input.id}`, { done: input.done }),
+  );
 
   if (isLoading) return <LoadingBlock />;
   if (error || !client) return <ErrorBlock message={error instanceof Error ? error.message : 'Client inexistent'} />;
@@ -45,6 +51,7 @@ export function ClientDetail() {
   const subscriptions = client.subscriptions ?? [];
   const workLogs = client.workLogs ?? [];
   const billingItems = client.billingItems ?? [];
+  const taskuri = client.tasks ?? [];
 
   const mrr = subscriptions
     .filter((s) => s.status === 'ACTIVE')
@@ -131,6 +138,7 @@ export function ClientDetail() {
             { value: 'abonamente', label: 'Abonamente', count: subscriptions.length },
             { value: 'ore', label: 'Ore & intervenții', count: stats?.workLogCount ?? workLogs.length },
             { value: 'scadentar', label: 'Scadențar', count: billingItems.length },
+            { value: 'discutii', label: 'Discuții', count: taskuri.length },
             { value: 'detalii', label: 'Detalii' },
           ]}
         />
@@ -311,6 +319,96 @@ export function ClientDetail() {
         </div>
       )}
 
+      {tab === 'discutii' && (
+        <div className="flex flex-col gap-3">
+          {taskuri.length === 0 ? (
+            <Card className="py-10 text-center text-sm text-slate-400">
+              Nicio discuție cu acest client. Deschizi una din <span className="font-semibold">Task-uri</span>,
+              iar cererile trimise de el din portal ajung tot aici.
+            </Card>
+          ) : (
+            taskuri.map((task) => {
+              const necitite = (task.messages ?? []).some((m) => m.author === 'CLIENT' && !m.readByAdmin);
+              const areDiscutie = Boolean(task.fromPortal || task.sharedWithClient);
+              return (
+                <Card key={task.id} className="flex items-start gap-3 p-4">
+                  <button
+                    onClick={() => schimbaTask.mutate({ id: task.id, done: !task.done })}
+                    className={cn(
+                      'mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg border-2 transition',
+                      task.done
+                        ? 'border-emerald-500 bg-emerald-500 text-white'
+                        : 'border-slate-300 hover:border-indigo-400',
+                    )}
+                    aria-label={task.done ? 'Marchează nefinalizat' : 'Marchează finalizat'}
+                  >
+                    {task.done && <Check className="h-4 w-4" strokeWidth={3} />}
+                  </button>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className={cn('text-sm font-bold', task.done ? 'text-slate-400 line-through' : 'text-slate-800')}>
+                        {task.title}
+                      </p>
+                      <Badge className={PRIORITY[task.priority].chip}>{PRIORITY[task.priority].text}</Badge>
+                      {task.fromPortal && (
+                        <Badge
+                          className={
+                            task.requestKind === 'URGENT'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-indigo-50 text-indigo-700'
+                          }
+                        >
+                          {task.requestKind === 'URGENT' ? 'Cerere rapidă · 12h' : 'Cerere din portal · 24h'}
+                        </Badge>
+                      )}
+                      {!task.fromPortal && task.sharedWithClient && (
+                        <Badge className="bg-violet-100 text-violet-700">Vizibil în portal</Badge>
+                      )}
+                      {task.dueAt && !task.done && (
+                        <Badge
+                          className={
+                            new Date(task.dueAt) < new Date()
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-slate-100 text-slate-600'
+                          }
+                        >
+                          răspuns până pe {formatDateTime(task.dueAt)}
+                        </Badge>
+                      )}
+                      {areDiscutie && (
+                        <button
+                          onClick={() => setDiscutie(task.id)}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:brightness-110"
+                        >
+                          <MessagesSquare className="h-3.5 w-3.5" />
+                          Discuție
+                          {necitite && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                        </button>
+                      )}
+                    </div>
+                    {task.details && (
+                      // aici e un rezumat al discutiilor: textul lung se taie la
+                      // cateva randuri, iar intreg il vezi in fereastra de discutie
+                      <p className="mt-1 line-clamp-6 whitespace-pre-wrap text-sm leading-relaxed text-slate-500">
+                        {task.details}
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-slate-400">
+                      {task.done && task.doneAt
+                        ? `Rezolvată pe ${formatDate(task.doneAt)}`
+                        : task.dueDate
+                          ? `Termen ${formatDate(task.dueDate)}`
+                          : 'În lucru'}
+                    </p>
+                  </div>
+                </Card>
+              );
+            })
+          )}
+        </div>
+      )}
+
       {tab === 'scadentar' && (
         <Card className="overflow-hidden p-0">
           {billingItems.length === 0 ? (
@@ -417,6 +515,7 @@ export function ClientDetail() {
         }}
       />
       {detaliiLog && <WorkLogDetail logId={detaliiLog} onClose={() => setDetaliiLog(null)} />}
+      {discutie && <DiscutieCerere taskId={discutie} onClose={() => setDiscutie(null)} />}
     </div>
   );
 }

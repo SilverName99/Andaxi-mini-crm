@@ -152,7 +152,11 @@ clientsRouter.get(
           take: 100,
           include: { subscription: true },
         },
-        tasks: { orderBy: [{ done: 'asc' }, { dueDate: 'asc' }] },
+        tasks: {
+          orderBy: [{ done: 'asc' }, { createdAt: 'desc' }],
+          // mesajele doar cat sa stim daca a ramas ceva necitit de la client
+          include: { messages: { select: { author: true, readByAdmin: true } } },
+        },
       },
     });
 
