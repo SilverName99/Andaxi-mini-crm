@@ -182,9 +182,9 @@ export function ClientDetail() {
                         {sub.hourPackage.hoursPerMonth} h/lună preplătite
                       </Badge>
                     ) : null}
-                    {sub.includedHoursPerMonth > 0 ? (
+                    {sub.includedHoursPerWeek > 0 ? (
                       <Badge className="bg-indigo-50 text-indigo-600">
-                        {sub.includedHoursPerMonth} h incluse/lună
+                        {sub.includedHoursPerWeek} h incluse/săpt.
                       </Badge>
                     ) : null}
                     {sub._count?.documents ? (

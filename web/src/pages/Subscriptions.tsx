@@ -26,7 +26,7 @@ const PER_USER: Subscription['product'][] = ['ERP', 'CRM'];
 
 const EMPTY: Partial<Subscription> = {
   clientId: '', label: '', kind: 'HOSTING_MENTENANTA', product: 'PREZENTARE', amountEur: 45,
-  users: null, cycle: 'MONTHLY', includedHoursPerMonth: 0, paidHours: 0, startDate: todayIso(), endDate: null,
+  users: null, cycle: 'MONTHLY', includedHoursPerWeek: 0, paidHours: 0, startDate: todayIso(), endDate: null,
   status: 'ACTIVE', notes: '',
 };
 
@@ -193,15 +193,15 @@ export function SubscriptionForm({
           <Select value={form.cycle ?? 'MONTHLY'} onChange={(e) => set('cycle', e.target.value)} options={options(CYCLE)} />
         </Field>
         <Field
-          label="Ore incluse pe lună"
-          hint="Se scad automat din intervențiile lunii; o oră în afara programului consumă dublu"
+          label="Ore incluse pe săptămână"
+          hint="Primele ore ale fiecărei săptămâni nu se facturează; o oră în afara programului consumă două. Ce nu se consumă până duminică se pierde."
         >
           <Input
             type="number"
             min={0}
             step="0.5"
-            value={form.includedHoursPerMonth ?? 0}
-            onChange={(e) => set('includedHoursPerMonth', Number(e.target.value))}
+            value={form.includedHoursPerWeek ?? 0}
+            onChange={(e) => set('includedHoursPerWeek', Number(e.target.value))}
           />
         </Field>
         <Field
@@ -516,9 +516,9 @@ export function Subscriptions() {
                       {formatMinutes(sub.paidRemainingMinutes ?? sub.paidHours * 60)} din {sub.paidHours}h plătite
                     </Badge>
                   ) : null}
-                  {sub.includedHoursPerMonth > 0 ? (
+                  {sub.includedHoursPerWeek > 0 ? (
                     <Badge className="bg-indigo-50 text-indigo-600">
-                      {sub.includedHoursPerMonth} h incluse/lună
+                      {sub.includedHoursPerWeek} h incluse/săpt.
                     </Badge>
                   ) : null}
                   {sub._count?.documents ? (

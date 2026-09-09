@@ -30,7 +30,8 @@ const subscriptionSchema = z.object({
   usersEffectiveDate: isoDate.optional(),
   cycle: z.enum(CYCLES).default('MONTHLY'),
   /// Ore de interventie incluse in fiecare luna
-  includedHoursPerMonth: z.coerce.number().min(0).max(200).default(0),
+  /** Ore incluse in fiecare saptamana; nu se reporteaza de la o saptamana la alta */
+  includedHoursPerWeek: z.coerce.number().min(0).max(200).default(0),
   /** Ore platite prin abonament: rezervor care se consuma o singura data */
   paidHours: z.coerce.number().min(0).max(2000).default(0),
   startDate: isoDate,

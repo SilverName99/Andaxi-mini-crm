@@ -153,7 +153,8 @@ export interface Subscription {
   users: number | null;
   cycle: Cycle;
   /** Ore de intervenție incluse în fiecare lună */
-  includedHoursPerMonth: number;
+  /** Ore incluse în fiecare săptămână; nu se reportează dintr-o săptămână în alta */
+  includedHoursPerWeek: number;
   /** Ore plătite prin abonament: un rezervor consumat o singură dată */
   paidHours: number;
   /** Cât s-a consumat și cât a mai rămas din rezervor (calculate de server) */

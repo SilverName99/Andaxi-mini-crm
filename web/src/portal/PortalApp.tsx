@@ -360,10 +360,10 @@ function Abonamente({ me }: { me: PortalMe }) {
               <dt className="text-slate-500">Următoarea reînnoire</dt>
               <dd className="font-semibold text-slate-800">{formatDate(sub.nextDueDate)}</dd>
             </div>
-            {sub.includedHoursPerMonth > 0 && (
+            {sub.includedHoursPerWeek > 0 && (
               <div className="flex justify-between gap-3">
                 <dt className="text-slate-500">Ore incluse</dt>
-                <dd className="font-semibold text-emerald-600">{sub.includedHoursPerMonth} h / lună</dd>
+                <dd className="font-semibold text-emerald-600">{sub.includedHoursPerWeek} h / săptămână</dd>
               </div>
             )}
             {sub.packageHours !== null && (

@@ -47,10 +47,11 @@ export interface Allocation {
 }
 
 export interface MonthAllocation {
-  /** Creditul lunii din abonament, in minute */
+  /** Orele incluse care s-au acordat in luna asta, insumand saptamanile atinse */
   includedMinutes: number;
-  /** Cat s-a consumat din el (in minute de credit, orele de noapte contand dublu) */
+  /** Cat s-a consumat din ele (in minute de credit, orele de noapte contand dublu) */
   usedMinutes: number;
+  /** Cat a ramas neconsumat — se pierde la sfarsitul fiecarei saptamani */
   remainingMinutes: number;
   /** Soldul pachetului preplatit la inceputul lunii, in minute */
   packageOpeningMinutes: number;
@@ -69,6 +70,9 @@ export interface MonthAllocation {
 /**
  * Imparte orele unei luni intre ce intra in abonament si ce se factureaza.
  *
+ * Orele incluse se dau pe saptamana (luni-duminica) si nu se reporteaza: ce nu
+ * s-a consumat pana duminica se pierde.
+ *
  * Reguli:
  * - se consuma cronologic, in ordinea in care s-a lucrat;
  * - in cadrul aceleiasi interventii se acopera intai orele normale (credit 1:1),
@@ -82,22 +86,30 @@ export interface MonthAllocation {
  */
 export function allocateMonth(
   logs: AllocatableLog[],
-  includedMinutes: number,
+  /** Cate minute primeste clientul in fiecare saptamana din abonamente */
+  weeklyMinutes: number,
   packageOpeningMinutes = 0,
   packageCreditedMinutes = 0,
   /** Soldul rezervoarelor platite prin abonament, pe eticheta; se modifica pe loc */
   paidPools: Map<string, number> = new Map(),
+  /**
+   * Creditul ramas pe saptamani, pe cheie ISO ("2026-W37"); se modifica pe loc,
+   * ca o saptamana care trece dintr-o luna in alta sa nu primeasca de doua ori
+   */
+  weeklyPools: Map<string, number> = new Map(),
 ): MonthAllocation {
   const ordonate = [...logs].sort(
     (a, b) => a.date.localeCompare(b.date) || a.startMinutes - b.startMinutes,
   );
 
-  let credit = Math.max(0, includedMinutes);
+  const saptamanal = Math.max(0, weeklyMinutes);
   let pachet = Math.max(0, packageOpeningMinutes + packageCreditedMinutes);
   const allocations = new Map<string, Allocation>();
   const paidUsedByTag = new Map<string, number>();
   let grossEur = 0;
   let billableEur = 0;
+  let creditAcordat = 0;
+  let creditConsumat = 0;
 
   /** Acopera minute dintr-un sold, tinand cont ca orele de noapte consuma dublu */
   const acopera = (minute: number, sold: number, factor: number) => {
@@ -154,11 +166,28 @@ export function allocateMonth(
     const platStandard = { acoperite: platStandardMinute };
     const platOffHours = { acoperite: platOffHoursMinute };
 
-    // 2. orele incluse in abonament
+    /*
+     * 2. orele incluse in abonament, pe saptamana in care a picat interventia.
+     * Fiecare saptamana isi primeste creditul o singura data, la prima ora
+     * lucrata in ea, si ce ramane la final se pierde.
+     */
+    const saptamana = saptamanaISO(log.date);
+    if (saptamanal > 0 && !weeklyPools.has(saptamana)) {
+      weeklyPools.set(saptamana, saptamanal);
+      creditAcordat += saptamanal;
+    }
+    let credit = weeklyPools.get(saptamana) ?? 0;
+    const inainte = credit;
+
     const incStandard = acopera(log.standardMinutes - platStandard.acoperite, credit, 1);
     credit = incStandard.ramas;
     const incOffHours = acopera(log.offHoursMinutes - platOffHours.acoperite, credit, OFF_HOURS_FACTOR);
     credit = incOffHours.ramas;
+
+    if (weeklyPools.has(saptamana)) {
+      weeklyPools.set(saptamana, credit);
+      creditConsumat += inainte - credit;
+    }
 
     // 3. soldul pachetului preplatit
     const pacStandard = acopera(
@@ -207,9 +236,10 @@ export function allocateMonth(
 
   const disponibilPachet = Math.max(0, packageOpeningMinutes + packageCreditedMinutes);
   return {
-    includedMinutes,
-    usedMinutes: Math.max(0, includedMinutes - credit),
-    remainingMinutes: credit,
+    /** Cat credit a primit clientul in saptamanile atinse de luna asta */
+    includedMinutes: creditAcordat,
+    usedMinutes: creditConsumat,
+    remainingMinutes: Math.max(0, creditAcordat - creditConsumat),
     packageOpeningMinutes,
     packageCreditedMinutes,
     packageUsedMinutes: disponibilPachet - pachet,
@@ -227,21 +257,32 @@ export function monthOf(date: string): string {
   return date.slice(0, 7);
 }
 
+/** Saptamana ISO a unei zile: "2026-09-07" -> "2026-W37" (luni e prima zi) */
+export function saptamanaISO(date: string): string {
+  const zi = new Date(`${date}T00:00:00Z`);
+  // joia din saptamana curenta hotaraste anul si numarul saptamanii (regula ISO)
+  const joi = new Date(zi);
+  joi.setUTCDate(zi.getUTCDate() + 4 - (zi.getUTCDay() || 7));
+  const primaZiAAnului = new Date(Date.UTC(joi.getUTCFullYear(), 0, 1));
+  const numar = Math.ceil(((joi.getTime() - primaZiAAnului.getTime()) / 86_400_000 + 1) / 7);
+  return `${joi.getUTCFullYear()}-W${String(numar).padStart(2, '0')}`;
+}
+
 /**
- * Cate minute include un abonament intr-o luna data.
+ * Cate minute include un abonament in fiecare saptamana.
  * Se numara doar abonamentele active in luna respectiva.
  */
-export function includedMinutesForMonth(
-  subscriptions: { includedHoursPerMonth: number; status: string; startDate: string; endDate: string | null }[],
+export function includedMinutesPerWeek(
+  subscriptions: { includedHoursPerWeek: number; status: string; startDate: string; endDate: string | null }[],
   month: string,
 ): number {
   const primaZi = `${month}-01`;
   const ultimaZi = `${month}-31`;
 
   return subscriptions
-    .filter((sub) => sub.status === 'ACTIVE' && sub.includedHoursPerMonth > 0)
+    .filter((sub) => sub.status === 'ACTIVE' && sub.includedHoursPerWeek > 0)
     .filter((sub) => sub.startDate <= ultimaZi && (!sub.endDate || sub.endDate >= primaZi))
-    .reduce((total, sub) => total + sub.includedHoursPerMonth * 60, 0);
+    .reduce((total, sub) => total + sub.includedHoursPerWeek * 60, 0);
 }
 
 /** Cate minute crediteaza pachetele preplatite intr-o luna data */
@@ -290,7 +331,7 @@ export interface TimelineSubscription {
   status: string;
   startDate: string;
   endDate: string | null;
-  includedHoursPerMonth: number;
+  includedHoursPerWeek: number;
   /** Ore platite prin abonament: un rezervor care se consuma o singura data */
   paidHours?: number;
   hourPackage?: { hoursPerMonth: number } | null;
@@ -359,13 +400,17 @@ export function allocateTimeline<T extends AllocatableLog & { clientId: string }
       const ultima = luniCuOre.length ? luniCuOre.reduce((a, b) => (a > b ? a : b)) : prima;
 
       let soldPachet = 0;
+      // creditul saptamanal trece dintr-o luna in alta, ca o saptamana taiata
+      // de sfarsitul lunii sa nu primeasca ore incluse de doua ori
+      const soldSaptamanal = new Map<string, number>();
       for (const month of monthsBetween(prima, ultima)) {
         const alocare = allocateMonth(
           aleClientului.filter((l) => monthOf(l.date) === month),
-          includedMinutesForMonth(abonamente, month),
+          includedMinutesPerWeek(abonamente, month),
           soldPachet,
           packageMinutesForMonth(abonamente, month),
           soldPlatit,
+          soldSaptamanal,
         );
         soldPachet = alocare.packageClosingMinutes;
 

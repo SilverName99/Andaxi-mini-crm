@@ -173,7 +173,7 @@ portalRouter.get(
         cycle: sub.cycle,
         status: sub.status,
         users: sub.users,
-        includedHoursPerMonth: sub.includedHoursPerMonth,
+        includedHoursPerWeek: sub.includedHoursPerWeek,
         packageHours: sub.hourPackage?.hoursPerMonth ?? null,
         /** Ore platite prin abonament si cat a mai ramas din ele */
         paidHours: sub.paidHours,
@@ -273,6 +273,8 @@ portalRouter.get(
         /** Ca sa vada ce e deja platit, ce e facturat si ce urmeaza */
         status: row.status,
         minutes: row.minutes,
+        /** Cate minute au picat in afara programului (consuma dublu din orele incluse) */
+        offHoursMinutes: row.offHoursMinutes,
         paidMinutes: row.paidMinutes,
         includedMinutes: row.includedMinutes,
         packageMinutes: row.packageMinutes,

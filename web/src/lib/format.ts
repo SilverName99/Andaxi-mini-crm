@@ -111,3 +111,11 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10240 ? 1 : 0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+/**
+ * Cât consumă o intervenție din orele incluse: o oră lucrată în afara
+ * programului face cât două, fiindcă și costă dublu.
+ */
+export function minuteContorizate(standardMinutes: number, offHoursMinutes: number): number {
+  return standardMinutes + offHoursMinutes * 2;
+}

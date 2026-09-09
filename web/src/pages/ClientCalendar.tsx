@@ -19,7 +19,7 @@ import {
   Avatar, Badge, Button, Card, ErrorBlock, Field, Input, LoadingBlock, Modal, Segmented, Select, Textarea,
   useToast,
 } from '../components/ui';
-import { formatDate, formatEur, formatMinutes, minutesToHhMm, todayIso } from '../lib/format';
+import { formatDate, formatEur, formatMinutes, minuteContorizate, minutesToHhMm, todayIso } from '../lib/format';
 import { grilaLunii, numeLuna, numeZi, schimbaLuna, ZILE_SCURTE } from '../lib/calendar';
 import { minuteSegmente, segmenteInterval, segmenteleZilei, type FereastraProgram } from '../lib/ceas';
 import { BILLING_STATUS, WORK_CATEGORY, WORK_STATUS, options } from '../lib/labels';
@@ -492,15 +492,28 @@ export function ClientCalendar() {
                               {minutesToHhMm(log.startMinutes)}–{minutesToHhMm(log.endMinutes)}
                             </span>
                           )}
-                        </span>
-                        <span
-                          className={cn(
-                            'text-sm font-extrabold',
-                            log.billable ? 'text-slate-900' : 'text-slate-400',
+                          {log.offHoursMinutes > 0 && (
+                            <span
+                              className="ml-2 text-xs font-semibold text-fuchsia-600"
+                              title="Orele din afara programului consumă dublu din orele incluse"
+                            >
+                              contorizate{' '}
+                              {formatMinutes(minuteContorizate(log.standardMinutes, log.offHoursMinutes))}
+                            </span>
                           )}
-                        >
-                          {formatEur(log.billableEur ?? log.amountEur)}
                         </span>
+                        {log.billable && (log.billableEur ?? log.amountEur) === 0 ? (
+                          <span className="text-sm font-extrabold text-emerald-600">inclus</span>
+                        ) : (
+                          <span
+                            className={cn(
+                              'text-sm font-extrabold',
+                              log.billable ? 'text-slate-900' : 'text-slate-400',
+                            )}
+                          >
+                            {formatEur(log.billableEur ?? log.amountEur)}
+                          </span>
+                        )}
                       </div>
                       <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{log.description || '—'}</p>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">

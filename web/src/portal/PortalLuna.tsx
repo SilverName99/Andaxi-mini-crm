@@ -33,6 +33,14 @@ function stareaZilei(rows: PortalRow[]): StarePlata | null {
   return stari.includes('platit') ? 'platit' : 'inclus';
 }
 
+/**
+ * Cât consumă o lucrare din orele incluse: ora lucrată în afara programului
+ * face cât două, fiindcă și costă dublu.
+ */
+function minuteContorizate(row: PortalRow): number {
+  return row.minutes + row.offHoursMinutes;
+}
+
 /** Abonamentele scadente în lună, cu starea lor de plată */
 const STARE_ABONAMENT: Record<string, { text: string; chip: string; punct: string }> = {
   PAID: { text: 'Achitat', chip: 'bg-emerald-100 text-emerald-700', punct: 'bg-emerald-500' },
@@ -363,6 +371,14 @@ export function PortalLuna({
                         <span className="ml-2 text-xs font-medium text-slate-400">
                           {row.timeLabel || formatMinutes(row.minutes)}
                         </span>
+                        {row.minutes > 0 && minuteContorizate(row) > row.minutes && (
+                          <span
+                            className="ml-2 text-xs font-semibold text-fuchsia-600"
+                            title="Orele din afara programului consumă dublu din orele incluse"
+                          >
+                            contorizate {formatMinutes(minuteContorizate(row))}
+                          </span>
+                        )}
                       </span>
                       {bani &&
                         ((row.billableEur ?? 0) > 0 ? (

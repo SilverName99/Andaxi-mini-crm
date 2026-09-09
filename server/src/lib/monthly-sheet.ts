@@ -87,8 +87,8 @@ export async function buildMonthlySheet(clientId: string, month: string) {
     settings,
     /** Abonamentele care aduc ore incluse in luna asta */
     includedFrom: subscriptions
-      .filter((sub) => sub.includedHoursPerMonth > 0 && sub.status === 'ACTIVE')
-      .map((sub) => ({ id: sub.id, label: sub.label, hours: sub.includedHoursPerMonth })),
+      .filter((sub) => sub.includedHoursPerWeek > 0 && sub.status === 'ACTIVE')
+      .map((sub) => ({ id: sub.id, label: sub.label, hours: sub.includedHoursPerWeek })),
     /**
      * Rezervoarele de ore platite prin abonament: cat s-a consumat luna asta si
      * cat mai era la finalul ei (fisa incarca doar orele pana la ultima zi a lunii)

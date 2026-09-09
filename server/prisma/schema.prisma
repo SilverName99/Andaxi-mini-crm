@@ -214,9 +214,15 @@ model Subscription {
   hourPackageId String?
   hourPackage   HourPackage? @relation(fields: [hourPackageId], references: [id])
 
-  /// Cate ore de interventie sunt incluse in abonament in fiecare luna.
-  /// Orele in afara programului consuma dublu din acest pachet.
+  /// Nu se mai foloseste: orele incluse se dau acum pe saptamana. Coloana ramane
+  /// doar ca actualizarile pe server sa nu ceara stergerea de date; se poate
+  /// scoate cu "prisma db push --accept-data-loss" cand vrei sa cureti.
   includedHoursPerMonth Float @default(0)
+
+  /// Ore incluse in fiecare saptamana (luni-duminica), pentru abonamentele
+  /// vandute cu ore saptamanale. Creditul nu se reporteaza: ce nu s-a consumat
+  /// intr-o saptamana se pierde. Orele in afara programului consuma tot dublu.
+  includedHoursPerWeek Float @default(0)
 
   /// Ore platite prin abonament: un rezervor care se consuma o singura data,
   /// pe masura ce pui ore pe abonamentul asta. Nu se reincarca lunar; orele

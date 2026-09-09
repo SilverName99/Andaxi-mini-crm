@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  allocateMonth, allocateTimeline, includedMinutesForMonth, monthsBetween, packageMinutesForMonth,
+  allocateMonth, allocateTimeline, includedMinutesPerWeek, monthsBetween, packageMinutesForMonth,
+  saptamanaISO,
   type AllocatableLog,
 } from './hours.js';
 import { applyDiscount } from './discount.js';
@@ -21,14 +22,15 @@ function log(partial: Partial<AllocatableLog> & { id: string }): AllocatableLog 
   };
 }
 
-test('orele incluse acopera primele interventii, in ordine cronologica', () => {
+test('orele incluse acopera primele interventii ale saptamanii, in ordine', () => {
+  // toate trei in saptamana 6-12 iulie 2026
   const rezultat = allocateMonth(
     [
-      log({ id: 'a', date: '2026-07-03' }),
+      log({ id: 'a', date: '2026-07-06' }),
       log({ id: 'b', date: '2026-07-08' }),
-      log({ id: 'c', date: '2026-07-12', standardMinutes: 120, amountEur: 90 }),
+      log({ id: 'c', date: '2026-07-10', standardMinutes: 120, amountEur: 90 }),
     ],
-    120, // 2 ore incluse
+    120, // 2 ore incluse pe saptamana
   );
 
   assert.equal(rezultat.allocations.get('a')!.billableEur, 0);
@@ -39,21 +41,29 @@ test('orele incluse acopera primele interventii, in ordine cronologica', () => {
   assert.equal(rezultat.remainingMinutes, 0);
 });
 
-test('luna din exemplul real: 9 ore lucrate, 2 incluse, 7 de facturat', () => {
+test('creditul se reinnoieste in fiecare saptamana si nu se reporteaza', () => {
   const rezultat = allocateMonth(
     [
+      // saptamana 1 (29 iun - 5 iul): o ora lucrata din doua incluse
       log({ id: '1', date: '2026-07-02', standardMinutes: 60, amountEur: 45 }),
+      // saptamana 2 (6-12 iul): trei ore, doua incluse
       log({ id: '2', date: '2026-07-06', standardMinutes: 60, amountEur: 45 }),
       log({ id: '3', date: '2026-07-09', standardMinutes: 120, amountEur: 90 }),
+      // saptamana 3 (13-19 iul): doua ore, toate incluse
       log({ id: '4', date: '2026-07-15', standardMinutes: 120, amountEur: 90 }),
+      // saptamana 4 (20-26 iul): trei ore, doua incluse
       log({ id: '5', date: '2026-07-21', standardMinutes: 180, amountEur: 135 }),
     ],
     120,
   );
 
-  assert.equal(rezultat.billableEur, 315); // 7 ore × 45 €
-  assert.equal(rezultat.coveredEur, 90);
-  assert.equal(rezultat.grossEur, 405);
+  // ora nefolosita din prima saptamana nu trece mai departe
+  assert.equal(rezultat.allocations.get('1')!.billableEur, 0);
+  assert.equal(rezultat.allocations.get('3')!.billableEur, 45, 'a treia ora a saptamanii se factureaza');
+  assert.equal(rezultat.allocations.get('4')!.billableEur, 0);
+  assert.equal(rezultat.allocations.get('5')!.billableEur, 45);
+  assert.equal(rezultat.billableEur, 90);
+  assert.equal(rezultat.includedMinutes, 480, 'patru saptamani atinse × 2 ore');
 });
 
 test('o ora in afara programului consuma dublu din orele incluse', () => {
@@ -102,22 +112,28 @@ test('interventiile nefacturabile sau cu suma manuala nu consuma orele incluse',
   assert.equal(rezultat.billableEur, 30);
 });
 
-test('creditul neconsumat ramane raportat in rezultat', () => {
+test('creditul neconsumat al saptamanii ramane raportat in rezultat', () => {
   const rezultat = allocateMonth([log({ id: 'a', standardMinutes: 30, amountEur: 22.5 })], 120);
+  assert.equal(rezultat.includedMinutes, 120);
   assert.equal(rezultat.usedMinutes, 30);
-  assert.equal(rezultat.remainingMinutes, 90);
+  assert.equal(rezultat.remainingMinutes, 90, 'restul se pierde la sfarsitul saptamanii');
+});
+
+test('saptamana ISO incepe lunea', () => {
+  assert.equal(saptamanaISO('2026-07-06'), saptamanaISO('2026-07-12'), 'luni si duminica, aceeasi');
+  assert.notEqual(saptamanaISO('2026-07-05'), saptamanaISO('2026-07-06'));
 });
 
 test('orele incluse se aduna doar din abonamentele active in luna', () => {
   const abonamente = [
-    { includedHoursPerMonth: 2, status: 'ACTIVE', startDate: '2026-01-01', endDate: null },
-    { includedHoursPerMonth: 1, status: 'PAUSED', startDate: '2026-01-01', endDate: null },
-    { includedHoursPerMonth: 5, status: 'ACTIVE', startDate: '2026-09-01', endDate: null },
-    { includedHoursPerMonth: 3, status: 'ACTIVE', startDate: '2025-01-01', endDate: '2026-06-30' },
+    { includedHoursPerWeek: 2, status: 'ACTIVE', startDate: '2026-01-01', endDate: null },
+    { includedHoursPerWeek: 1, status: 'PAUSED', startDate: '2026-01-01', endDate: null },
+    { includedHoursPerWeek: 5, status: 'ACTIVE', startDate: '2026-09-01', endDate: null },
+    { includedHoursPerWeek: 3, status: 'ACTIVE', startDate: '2025-01-01', endDate: '2026-06-30' },
   ];
 
-  assert.equal(includedMinutesForMonth(abonamente, '2026-07'), 120);
-  assert.equal(includedMinutesForMonth(abonamente, '2026-09'), 420);
+  assert.equal(includedMinutesPerWeek(abonamente, '2026-07'), 120);
+  assert.equal(includedMinutesPerWeek(abonamente, '2026-09'), 420);
 });
 
 /* ─────────────────────────────────── pachete de ore preplatite ──────────── */
@@ -173,7 +189,7 @@ test('soldul neconsumat se reporteaza in luna urmatoare', () => {
       status: 'ACTIVE',
       startDate: '2026-01-01',
       endDate: null,
-      includedHoursPerMonth: 0,
+      includedHoursPerWeek: 0,
       hourPackage: pachet,
     },
   ];
@@ -330,7 +346,7 @@ test('orele din afara programului consuma dublu din rezervorul abonamentului', (
         status: 'ACTIVE',
         startDate: '2026-01-01',
         endDate: null,
-        includedHoursPerMonth: 0,
+        includedHoursPerWeek: 0,
         paidHours: 10,
       },
     ],
@@ -358,7 +374,7 @@ test('ce depaseste rezervorul abonamentului se factureaza normal', () => {
         status: 'ACTIVE',
         startDate: '2026-01-01',
         endDate: null,
-        includedHoursPerMonth: 0,
+        includedHoursPerWeek: 0,
         paidHours: 2,
       },
     ],

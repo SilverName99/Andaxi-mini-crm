@@ -19,7 +19,7 @@ export interface PortalMe {
     cycle: Cycle;
     status: SubscriptionStatus;
     users: number | null;
-    includedHoursPerMonth: number;
+    includedHoursPerWeek: number;
     packageHours: number | null;
     paidHours: number;
     paidRemainingMinutes: number;
@@ -97,6 +97,8 @@ export interface PortalRow {
   /** PENDING = urmează pe factură · INVOICED = facturat · PAID = încasat */
   status: 'PENDING' | 'INVOICED' | 'PAID' | 'NONBILLABLE';
   minutes: number;
+  /** Minutele lucrate în afara programului; consumă dublu din orele incluse */
+  offHoursMinutes: number;
   paidMinutes: number;
   includedMinutes: number;
   packageMinutes: number;
