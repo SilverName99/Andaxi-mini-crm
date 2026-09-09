@@ -2,7 +2,14 @@ import { useMemo, useState } from 'react';
 import { CalendarDays, Clock4, Download, FileText, Repeat, Wallet } from 'lucide-react';
 import { Badge, Card, EmptyState, LoadingBlock } from '../components/ui';
 import { CeasZi, LegendaCeas } from '../components/CeasZi';
-import { formatDate, formatEur, formatFileSize, formatMinutes, formatRon } from '../lib/format';
+import {
+  formatDate,
+  formatEur,
+  formatFileSize,
+  formatMinutes,
+  formatRon,
+  minuteAcoperite,
+} from '../lib/format';
 import { grilaLunii, numeZi, ZILE_SCURTE } from '../lib/calendar';
 import { WORK_CATEGORY } from '../lib/labels';
 import { scadenteViitoare } from '../lib/scadente';
@@ -177,7 +184,19 @@ export function PortalLuna({
       zi,
       (peZile.get(zi) ?? [])
         .filter((r) => r.entryMode === 'INTERVAL' && r.endMinutes !== r.startMinutes)
-        .map((r) => ({ start: r.startMinutes, end: r.endMinutes })),
+        .map((r) => ({
+          start: r.startMinutes,
+          end: r.endMinutes,
+          // verdele arată cât a intrat în orele incluse, restul rămâne de facturat
+          acoperite: minuteAcoperite({
+            standardMinutes: r.minutes - r.offHoursMinutes,
+            offHoursMinutes: r.offHoursMinutes,
+            includedInPackage: r.includedInPackage,
+            paidMinutes: r.paidMinutes,
+            includedMinutes: r.includedMinutes,
+            packageMinutes: r.packageMinutes,
+          }),
+        })),
       program,
     );
 

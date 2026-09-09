@@ -18,6 +18,8 @@ export interface SegmentCeas {
   to: number;
   /** true = program normal, false = in afara programului */
   standard: boolean;
+  /** Bucata acoperita de orele incluse in abonament / pachet: nu se factureaza */
+  acoperit?: boolean;
 }
 
 export function esteWeekend(iso: string): boolean {
@@ -66,6 +68,39 @@ export function segmenteInterval(
 export interface IntervalZi {
   start: number;
   end: number;
+  /**
+   * Cate minute din interventie sunt acoperite de abonament sau de pachet.
+   * Se coloreaza verde pe ceas, ca sa se vada dintr-o privire cat a intrat in
+   * orele incluse si cat ramane de facturat.
+   */
+  acoperite?: number;
+}
+
+/**
+ * Taie segmentele unei interventii in partea acoperita de orele incluse si
+ * partea ramasa de facturat. Ordinea e aceeasi cu cea de la calculul sumelor
+ * (allocateMonth): intai se acopera orele din programul normal, apoi cele din
+ * afara lui, fiecare in ordine cronologica.
+ */
+export function marcheazaAcoperit(segmente: SegmentCeas[], acoperite: number): SegmentCeas[] {
+  const durata = (s: SegmentCeas) => s.to - s.from;
+  const total = (standard: boolean) =>
+    segmente.filter((s) => s.standard === standard).reduce((t, s) => t + durata(s), 0);
+
+  let deStandard = Math.min(Math.max(0, acoperite), total(true));
+  let deOff = Math.min(Math.max(0, acoperite - deStandard), total(false));
+  if (deStandard <= 0 && deOff <= 0) return segmente;
+
+  const out: SegmentCeas[] = [];
+  for (const s of segmente) {
+    const acoperit = Math.min(durata(s), s.standard ? deStandard : deOff);
+    if (s.standard) deStandard -= acoperit;
+    else deOff -= acoperit;
+
+    if (acoperit > 0) out.push({ ...s, to: s.from + acoperit, acoperit: true });
+    if (acoperit < durata(s)) out.push({ ...s, from: s.from + acoperit, acoperit: false });
+  }
+  return out;
 }
 
 /** Segmentele tuturor intervalelor unei zile, gata de desenat */
@@ -74,7 +109,10 @@ export function segmenteleZilei(
   intervale: IntervalZi[],
   program: FereastraProgram,
 ): SegmentCeas[] {
-  return intervale.flatMap((i) => segmenteInterval(date, i.start, i.end, program));
+  return intervale.flatMap((i) => {
+    const segmente = segmenteInterval(date, i.start, i.end, program);
+    return i.acoperite ? marcheazaAcoperit(segmente, i.acoperite) : segmente;
+  });
 }
 
 /** Minutele acoperite de segmente, pe cele doua regimuri */

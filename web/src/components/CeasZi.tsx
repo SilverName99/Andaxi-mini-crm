@@ -7,6 +7,13 @@ import { segmenteInterval, type FereastraProgram, type SegmentCeas } from '../li
 /** Culorile celor două regimuri, folosite și în legendă */
 export const CULOARE_STANDARD = '#6366f1'; // indigo — program normal
 export const CULOARE_OFF = '#c026d3'; // fucsia — în afara programului
+export const CULOARE_INCLUS = '#10b981'; // verde — acoperit de orele incluse
+
+/** Culoarea unui segment: verdele orelor incluse bate regimul de tarifare */
+function culoareSegment(s: SegmentCeas): string {
+  if (s.acoperit) return CULOARE_INCLUS;
+  return s.standard ? CULOARE_STANDARD : CULOARE_OFF;
+}
 
 type Marime = 'mic' | 'mediu' | 'mare';
 
@@ -220,19 +227,36 @@ export function CeasZi({
           key={`ora-${s.from}-${index}`}
           d={arc(s.from, s.to, raza, fata)}
           fill="none"
-          stroke={s.standard ? CULOARE_STANDARD : CULOARE_OFF}
+          stroke={culoareSegment(s)}
           strokeWidth={grosime}
           strokeLinecap="butt"
           opacity={selectiaVizibila.length > 0 ? 0.35 : 1}
         />
       ))}
 
+      {/* orele de noapte acoperite raman verzi, dar pastreaza o dunga fucsia,
+          ca sa se vada ca au consumat dublu din orele incluse */}
+      {marime !== 'mic' &&
+        vizibile
+          .filter((s) => s.acoperit && !s.standard)
+          .map((s, index) => (
+            <path
+              key={`majorat-${s.from}-${index}`}
+              d={arc(s.from, s.to, raza - grosime / 2 + 1.5, fata)}
+              fill="none"
+              stroke={CULOARE_OFF}
+              strokeWidth={3}
+              strokeLinecap="butt"
+              opacity={selectiaVizibila.length > 0 ? 0.35 : 1}
+            />
+          ))}
+
       {selectiaVizibila.map((s, index) => (
         <path
           key={`selectie-${s.from}-${index}`}
           d={arc(s.from, s.to, raza, fata)}
           fill="none"
-          stroke={s.standard ? CULOARE_STANDARD : CULOARE_OFF}
+          stroke={culoareSegment(s)}
           strokeWidth={grosime}
           strokeLinecap="butt"
         />
@@ -317,7 +341,7 @@ export function CeasZi({
 }
 
 /** Legenda celor două culori, pentru ecranele unde ceasul apare mare */
-export function LegendaCeas({ className }: { className?: string }) {
+export function LegendaCeas({ className, cuIncluse = true }: { className?: string; cuIncluse?: boolean }) {
   return (
     <div className={cn('flex flex-wrap items-center gap-3 text-xs font-medium text-slate-500', className)}>
       <span className="flex items-center gap-1.5">
@@ -326,6 +350,11 @@ export function LegendaCeas({ className }: { className?: string }) {
       <span className="flex items-center gap-1.5">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: CULOARE_OFF }} /> în afara programului
       </span>
+      {cuIncluse && (
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: CULOARE_INCLUS }} /> inclus în abonament
+        </span>
+      )}
     </div>
   );
 }

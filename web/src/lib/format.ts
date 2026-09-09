@@ -119,3 +119,20 @@ export function formatFileSize(bytes: number): string {
 export function minuteContorizate(standardMinutes: number, offHoursMinutes: number): number {
   return standardMinutes + offHoursMinutes * 2;
 }
+
+/**
+ * Câte minute dintr-o intervenție nu se facturează, fiindcă le-au acoperit
+ * orele plătite prin abonament, orele incluse săptămânal sau pachetul preplătit.
+ * Orele trecute explicit ca „incluse în pachet" sunt acoperite în întregime.
+ */
+export function minuteAcoperite(log: {
+  standardMinutes: number;
+  offHoursMinutes: number;
+  includedInPackage?: boolean;
+  paidMinutes?: number;
+  includedMinutes?: number;
+  packageMinutes?: number;
+}): number {
+  if (log.includedInPackage) return log.standardMinutes + log.offHoursMinutes;
+  return (log.paidMinutes ?? 0) + (log.includedMinutes ?? 0) + (log.packageMinutes ?? 0);
+}

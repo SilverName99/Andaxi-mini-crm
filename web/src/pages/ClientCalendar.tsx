@@ -19,7 +19,15 @@ import {
   Avatar, Badge, Button, Card, ErrorBlock, Field, Input, LoadingBlock, Modal, Segmented, Select, Textarea,
   useToast,
 } from '../components/ui';
-import { formatDate, formatEur, formatMinutes, minuteContorizate, minutesToHhMm, todayIso } from '../lib/format';
+import {
+  formatDate,
+  formatEur,
+  formatMinutes,
+  minuteAcoperite,
+  minuteContorizate,
+  minutesToHhMm,
+  todayIso,
+} from '../lib/format';
 import { grilaLunii, numeLuna, numeZi, schimbaLuna, ZILE_SCURTE } from '../lib/calendar';
 import { minuteSegmente, segmenteInterval, segmenteleZilei, type FereastraProgram } from '../lib/ceas';
 import { BILLING_STATUS, WORK_CATEGORY, WORK_STATUS, options } from '../lib/labels';
@@ -197,7 +205,7 @@ export function ClientCalendar() {
   const intervaleZilei = (zi: string) =>
     (peZile.get(zi) ?? [])
       .filter((l) => l.entryMode === 'INTERVAL' && l.endMinutes !== l.startMinutes)
-      .map((l) => ({ start: l.startMinutes, end: l.endMinutes }));
+      .map((l) => ({ start: l.startMinutes, end: l.endMinutes, acoperite: minuteAcoperite(l) }));
 
   const segmenteZiSelectata = segmenteleZilei(ziSelectata, intervaleZilei(ziSelectata), program);
   const minuteCeas = minuteSegmente(segmenteZiSelectata);
