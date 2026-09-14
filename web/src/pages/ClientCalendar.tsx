@@ -282,6 +282,7 @@ export function ClientCalendar() {
                 {zile.map((zi) => {
                   const ale = peZile.get(zi.iso) ?? [];
                   const minute = ale.reduce((s, l) => s + l.standardMinutes + l.offHoursMinutes, 0);
+                  const minuteOff = ale.reduce((s, l) => s + l.offHoursMinutes, 0);
                   const selectata = zileAlese.includes(zi.iso);
                   const stare = stareaZilei(ale);
                   return (
@@ -333,8 +334,15 @@ export function ClientCalendar() {
                             'rounded-lg px-1.5 py-0.5 text-center text-xs font-bold',
                             PASTILA_ZI[stare ?? 'NONBILLABLE'],
                           )}
+                          title={
+                            minuteOff > 0
+                              ? `${formatMinutes(minute)} lucrate, din care ${formatMinutes(minuteOff)} în afara programului — contorizate ${formatMinutes(minuteContorizate(minute - minuteOff, minuteOff))}`
+                              : `${formatMinutes(minute)} lucrate`
+                          }
                         >
                           {formatMinutes(minute)}
+                          {/* orele din afara programului, scoase separat: ele se contorizează dublu */}
+                          {minuteOff > 0 && <span className="text-fuchsia-600"> + {formatMinutes(minuteOff)}</span>}
                         </span>
                       ) : (
                         <span className="grid flex-1 place-items-center text-slate-300 opacity-0 transition group-hover:opacity-100">
