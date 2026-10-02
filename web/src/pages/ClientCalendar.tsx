@@ -205,7 +205,12 @@ export function ClientCalendar() {
   const intervaleZilei = (zi: string) =>
     (peZile.get(zi) ?? [])
       .filter((l) => l.entryMode === 'INTERVAL' && l.endMinutes !== l.startMinutes)
-      .map((l) => ({ start: l.startMinutes, end: l.endMinutes, acoperite: minuteAcoperite(l) }));
+      .map((l) => ({
+        start: l.startMinutes,
+        end: l.endMinutes,
+        acoperite: minuteAcoperite(l),
+        impus: l.manualAmount,
+      }));
 
   const segmenteZiSelectata = segmenteleZilei(ziSelectata, intervaleZilei(ziSelectata), program);
   const minuteCeas = minuteSegmente(segmenteZiSelectata);
@@ -483,7 +488,7 @@ export function ClientCalendar() {
                   </button>
                 )}
               </p>
-              <LegendaCeas />
+              <LegendaCeas cuImpus={aleZilei.some((l) => l.manualAmount)} />
               {faraOra.length > 0 && (
                 <p className="text-xs text-slate-400">
                   + {formatMinutes(faraOra.reduce((s, l) => s + l.standardMinutes + l.offHoursMinutes, 0))} fără

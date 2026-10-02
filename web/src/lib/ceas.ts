@@ -20,6 +20,8 @@ export interface SegmentCeas {
   standard: boolean;
   /** Bucata acoperita de orele incluse in abonament / pachet: nu se factureaza */
   acoperit?: boolean;
+  /** Interventie cu suma impusa manual: se factureaza oricum, nu atinge orele incluse */
+  impus?: boolean;
 }
 
 export function esteWeekend(iso: string): boolean {
@@ -74,6 +76,11 @@ export interface IntervalZi {
    * orele incluse si cat ramane de facturat.
    */
   acoperite?: number;
+  /**
+   * Suma a fost impusa manual: intervalul se contorizeaza indiferent de orele
+   * incluse sau de regimul orar, deci se deseneaza cu rosu, intreg.
+   */
+  impus?: boolean;
 }
 
 /**
@@ -111,6 +118,7 @@ export function segmenteleZilei(
 ): SegmentCeas[] {
   return intervale.flatMap((i) => {
     const segmente = segmenteInterval(date, i.start, i.end, program);
+    if (i.impus) return segmente.map((s) => ({ ...s, impus: true }));
     return i.acoperite ? marcheazaAcoperit(segmente, i.acoperite) : segmente;
   });
 }

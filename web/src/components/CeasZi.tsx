@@ -8,9 +8,15 @@ import { segmenteInterval, type FereastraProgram, type SegmentCeas } from '../li
 export const CULOARE_STANDARD = '#6366f1'; // indigo — program normal
 export const CULOARE_OFF = '#c026d3'; // fucsia — în afara programului
 export const CULOARE_INCLUS = '#10b981'; // verde — acoperit de orele incluse
+export const CULOARE_IMPUS = '#e11d48'; // roșu — sumă impusă manual
 
-/** Culoarea unui segment: verdele orelor incluse bate regimul de tarifare */
+/**
+ * Culoarea unui segment. Suma impusă manual bate orice: se contorizează oricum,
+ * nu atinge orele incluse și nu ține cont de regimul orar. Urmează verdele
+ * orelor incluse, apoi regimul de tarifare.
+ */
 function culoareSegment(s: SegmentCeas): string {
+  if (s.impus) return CULOARE_IMPUS;
   if (s.acoperit) return CULOARE_INCLUS;
   return s.standard ? CULOARE_STANDARD : CULOARE_OFF;
 }
@@ -341,7 +347,16 @@ export function CeasZi({
 }
 
 /** Legenda celor două culori, pentru ecranele unde ceasul apare mare */
-export function LegendaCeas({ className, cuIncluse = true }: { className?: string; cuIncluse?: boolean }) {
+export function LegendaCeas({
+  className,
+  cuIncluse = true,
+  cuImpus = false,
+}: {
+  className?: string;
+  cuIncluse?: boolean;
+  /** Se arată doar când ziua chiar are o intervenție cu sumă impusă manual */
+  cuImpus?: boolean;
+}) {
   return (
     <div className={cn('flex flex-wrap items-center gap-3 text-xs font-medium text-slate-500', className)}>
       <span className="flex items-center gap-1.5">
@@ -353,6 +368,11 @@ export function LegendaCeas({ className, cuIncluse = true }: { className?: strin
       {cuIncluse && (
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full" style={{ background: CULOARE_INCLUS }} /> inclus în abonament
+        </span>
+      )}
+      {cuImpus && (
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: CULOARE_IMPUS }} /> sumă impusă manual
         </span>
       )}
     </div>

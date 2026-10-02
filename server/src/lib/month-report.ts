@@ -21,6 +21,8 @@ const ZILE = ['Lu', 'Ma', 'Mi', 'Jo', 'Vi', 'Sâ', 'Du'];
 
 const INDIGO = '#4f46e5';
 const FUCSIA = '#c026d3';
+const VERDE = '#10b981';
+const ROSU = '#e11d48';
 const GRI = '#64748b';
 const GRI_DESCHIS = '#e2e8f0';
 const TEXT = '#0f172a';
@@ -74,6 +76,18 @@ interface Interval {
   end: number;
 }
 
+/** O bucata de arc de pe ceasul unei zile, cu motivul culorii ei */
+interface Bucata {
+  from: number;
+  to: number;
+  /** true = program normal, false = in afara programului */
+  standard: boolean;
+  /** Acoperita de orele incluse in abonament / pachet: nu se factureaza */
+  acoperit?: boolean;
+  /** Interventie cu suma impusa manual: se contorizeaza oricum */
+  impus?: boolean;
+}
+
 /** Bucatile colorate ale unui interval, dupa aceeasi regula ca la facturare */
 function segmente(
   iso: string,
@@ -81,7 +95,7 @@ function segmente(
   standardStart: number,
   standardEnd: number,
   weekendOffHours: boolean,
-): { from: number; to: number; standard: boolean }[] {
+): Bucata[] {
   const sfarsit = Math.min(interval.end <= interval.start ? interval.end + 1440 : interval.end, 1440);
   if (sfarsit <= interval.start) return [];
   if (weekendOffHours && isWeekend(iso)) return [{ from: interval.start, to: sfarsit, standard: false }];
@@ -90,7 +104,7 @@ function segmente(
     .filter((m) => m >= interval.start && m <= sfarsit)
     .sort((a, b) => a - b);
 
-  const out: { from: number; to: number; standard: boolean }[] = [];
+  const out: Bucata[] = [];
   for (let i = 0; i < taieturi.length - 1; i += 1) {
     const from = taieturi[i];
     const to = taieturi[i + 1];
@@ -101,24 +115,58 @@ function segmente(
   return out;
 }
 
+/**
+ * Taie bucatile unei interventii in partea acoperita de orele incluse si cea
+ * ramasa de facturat, in aceeasi ordine ca la calculul sumelor: intai orele din
+ * programul normal, apoi cele din afara lui.
+ */
+function marcheazaAcoperit(bucati: Bucata[], acoperite: number): Bucata[] {
+  const durata = (b: Bucata) => b.to - b.from;
+  const total = (standard: boolean) =>
+    bucati.filter((b) => b.standard === standard).reduce((t, b) => t + durata(b), 0);
+
+  let deStandard = Math.min(Math.max(0, acoperite), total(true));
+  let deOff = Math.min(Math.max(0, acoperite - deStandard), total(false));
+  if (deStandard <= 0 && deOff <= 0) return bucati;
+
+  const out: Bucata[] = [];
+  for (const b of bucati) {
+    const acoperit = Math.min(durata(b), b.standard ? deStandard : deOff);
+    if (b.standard) deStandard -= acoperit;
+    else deOff -= acoperit;
+
+    if (acoperit > 0) out.push({ ...b, to: b.from + acoperit, acoperit: true });
+    if (acoperit < durata(b)) out.push({ ...b, from: b.from + acoperit, acoperit: false });
+  }
+  return out;
+}
+
+/** Culoarea unei bucati: suma impusa bate orele incluse, care bat regimul orar */
+function culoare(bucata: Bucata): string {
+  if (bucata.impus) return ROSU;
+  if (bucata.acoperit) return VERDE;
+  return bucata.standard ? INDIGO : FUCSIA;
+}
+
 /** Arcul unui interval pe un ceas de 24h, ca sa apara si in PDF ceasul din aplicatie */
 function deseneazaCeas(
   doc: PDFKit.PDFDocument,
   cx: number,
   cy: number,
   raza: number,
-  bucati: { from: number; to: number; standard: boolean }[],
+  bucati: Bucata[],
+  grosime = 4,
 ) {
   doc.save();
-  doc.lineWidth(2.2).strokeColor(GRI_DESCHIS).circle(cx, cy, raza).stroke();
+  doc.lineWidth(grosime).strokeColor(GRI_DESCHIS).circle(cx, cy, raza).stroke();
 
   for (const bucata of bucati) {
     const unghi = (minut: number) => (minut / 1440) * 2 * Math.PI - Math.PI / 2;
     const a1 = unghi(bucata.from);
     const a2 = unghi(bucata.to);
-    const pasi = Math.max(2, Math.ceil(((a2 - a1) / (2 * Math.PI)) * 48));
+    const pasi = Math.max(2, Math.ceil(((a2 - a1) / (2 * Math.PI)) * 96));
 
-    doc.lineWidth(2.6).strokeColor(bucata.standard ? INDIGO : FUCSIA);
+    doc.lineWidth(grosime).strokeColor(culoare(bucata));
     doc.moveTo(cx + raza * Math.cos(a1), cy + raza * Math.sin(a1));
     for (let i = 1; i <= pasi; i += 1) {
       const a = a1 + ((a2 - a1) * i) / pasi;
@@ -135,7 +183,7 @@ function deseneazaCeas(
  */
 export async function buildMonthReportPdf(clientId: string, month: string): Promise<Buffer> {
   const fisa = await buildMonthlySheet(clientId, month);
-  const { client, settings, rows, totals, discount, paidPools, packageStatement } = fisa;
+  const { client, settings, rows, totals, discount, paidPools, packageStatement, includedFrom } = fisa;
 
   const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
   doc.registerFont('normal', NORMAL);
@@ -193,6 +241,35 @@ export async function buildMonthReportPdf(clientId: string, month: string): Prom
   const peZi = new Map<string, typeof rows>();
   for (const row of rows) peZi.set(row.date, [...(peZi.get(row.date) ?? []), row]);
 
+  /**
+   * Bucatile de desenat pentru o zi: doar interventiile cu interval orar pot
+   * aparea pe ceas. Culorile sunt cele din aplicatie — verde ce a intrat in
+   * orele incluse, rosu ce are suma impusa manual.
+   */
+  const bucatileZilei = (iso: string, aleZilei: typeof rows): Bucata[] =>
+    aleZilei
+      .filter((r) => r.entryMode === 'INTERVAL' && r.endMinutes !== r.startMinutes)
+      .flatMap((r) => {
+        const parti = segmente(
+          iso,
+          { start: r.startMinutes, end: r.endMinutes },
+          settings.standardStart,
+          settings.standardEnd,
+          settings.weekendOffHours,
+        );
+        if (r.manualAmount) return parti.map((parte) => ({ ...parte, impus: true }));
+
+        // orele trecute explicit ca incluse in pachet sunt acoperite in intregime
+        const acoperite = r.includedInPackage
+          ? r.minutes
+          : r.paidMinutes + r.includedMinutes + r.packageMinutes;
+        return acoperite > 0 ? marcheazaAcoperit(parti, acoperite) : parti;
+      });
+
+  const bucatiPeZi = new Map<string, Bucata[]>();
+  for (const [iso, aleZilei] of peZi) bucatiPeZi.set(iso, bucatileZilei(iso, aleZilei));
+  const toateBucatile = [...bucatiPeZi.values()].flat();
+
   for (let i = 0; i < grila.length; i += 1) {
     const iso = grila[i];
     const coloana = i % 7;
@@ -213,49 +290,61 @@ export async function buildMonthReportPdf(clientId: string, month: string): Prom
 
     if (minute > 0) {
       doc.font('normal').fontSize(7.5).fillColor(GRI).text(formatOre(minute), x + 7, y + 19, {
-        width: latimeCelula - 14,
+        width: latimeCelula - 36,
       });
 
-      const intervale = aleZilei
-        .filter((r) => r.entryMode === 'INTERVAL' && r.endMinutes !== r.startMinutes)
-        .map((r) => ({ start: r.startMinutes, end: r.endMinutes }));
-
-      if (intervale.length > 0) {
-        const bucati = intervale.flatMap((interval) =>
-          segmente(iso, interval, settings.standardStart, settings.standardEnd, settings.weekendOffHours),
-        );
-        deseneazaCeas(doc, x + latimeCelula - 15, y + inaltimeCelula - 16, 8, bucati);
+      const bucati = bucatiPeZi.get(iso) ?? [];
+      if (bucati.length > 0) {
+        deseneazaCeas(doc, x + latimeCelula - 17, y + inaltimeCelula / 2 + 2, 11, bucati, 4.5);
       }
     }
   }
   y += inaltimeCelula + 10;
 
-  // legenda culorilor de pe ceasuri
-  doc.circle(stanga + 3, y + 4, 3).fillColor(INDIGO).fill();
-  doc.font('normal').fontSize(7.5).fillColor(GRI).text('program normal', stanga + 10, y);
-  doc.circle(stanga + 88, y + 4, 3).fillColor(FUCSIA).fill();
-  doc.fillColor(GRI).text('în afara programului', stanga + 95, y);
-  y += 18;
+  // legenda culorilor de pe ceasuri — doar cele care apar chiar in luna asta
+  const legenda = [
+    { culoare: INDIGO, text: 'program normal', apare: toateBucatile.some((b) => b.standard && !b.acoperit && !b.impus) },
+    { culoare: FUCSIA, text: 'în afara programului', apare: toateBucatile.some((b) => !b.standard && !b.acoperit && !b.impus) },
+    { culoare: VERDE, text: 'inclus în abonament', apare: toateBucatile.some((b) => b.acoperit) },
+    { culoare: ROSU, text: 'sumă stabilită separat', apare: toateBucatile.some((b) => b.impus) },
+  ].filter((item) => item.apare);
+
+  if (legenda.length > 0) {
+    doc.font('normal').fontSize(7.5);
+    let xLegenda = stanga;
+    for (const item of legenda) {
+      doc.circle(xLegenda + 3, y + 4, 3).fillColor(item.culoare).fill();
+      doc.fillColor(GRI).text(item.text, xLegenda + 10, y, { lineBreak: false });
+      xLegenda += doc.widthOfString(item.text) + 26;
+    }
+    y += 18;
+  }
 
   /* ───────────────────────────────────────────── orele din pachete si abonamente ── */
   const randuriOre: string[] = [];
 
-  if (totals.includedMinutes > 0) {
+  /*
+   * Orele incluse se acorda pe saptamana, nu pe luna, iar o saptamana poate
+   * sta in doua luni — deci un „rest pe luna" ar fi mincinos. Scriem cat s-a
+   * consumat si cat primeste clientul in fiecare saptamana.
+   */
+  const oreSaptamanal = includedFrom.reduce((total, sub) => total + sub.hours, 0);
+  if (oreSaptamanal > 0 || totals.usedIncludedMinutes > 0) {
     randuriOre.push(
-      `Ore incluse în pachet: ${formatOre(totals.usedIncludedMinutes, '0h')} consumate din ${formatOre(totals.includedMinutes)}` +
-        ` · ${formatOre(totals.remainingIncludedMinutes)} rămase în luna asta`,
+      `Ore incluse în abonament: ${formatOre(totals.usedIncludedMinutes, '0h')} consumate în ${numeLuna(month)}` +
+        (oreSaptamanal > 0 ? ` · ${formatOre(oreSaptamanal * 60)} în fiecare săptămână` : ''),
     );
   }
   if (packageStatement.creditedMinutes > 0 || packageStatement.usedMinutes > 0) {
     randuriOre.push(
       `Pachet preplătit: ${formatOre(packageStatement.usedMinutes, '0h')} consumate luna asta` +
-        ` · sold la final ${formatOre(packageStatement.closingMinutes)}`,
+        ` · sold la final ${formatOre(packageStatement.closingMinutes, '0h')}`,
     );
   }
   for (const pool of paidPools) {
     randuriOre.push(
       `Ore plătite prin „${pool.label}": ${formatOre(pool.usedThisMonth, '0h')} consumate luna asta` +
-        ` · ${formatOre(pool.remainingMinutes)} rămase din ${formatOre(pool.totalMinutes)}`,
+        ` · ${formatOre(pool.remainingMinutes, '0h')} rămase din ${formatOre(pool.totalMinutes)}`,
     );
   }
 
@@ -300,18 +389,34 @@ export async function buildMonthReportPdf(clientId: string, month: string): Prom
   }
 
   for (const row of rows) {
-    // rand nou de pagina, cu antetul tabelului repetat
-    if (y > doc.page.height - 130) {
+    /*
+     * Descrierea isi pastreaza randurile, dar fara randurile goale dintre ele:
+     * in aplicatie spatiul dintre paragrafe se vede bine, intr-un PDF tipabil
+     * ar rupe tabelul in pagini aproape goale.
+     */
+    const lucrari = etichete(row.projectTag).join(' · ');
+    const descriere =
+      (row.description || '—')
+        .split('\n')
+        .map((linie) => linie.trim())
+        .filter(Boolean)
+        .join('\n') + (lucrari ? ` · ${lucrari}` : '');
+    const stilDescriere = { width: coloane[2].latime, lineGap: 1.5 };
+    const inaltimeText = doc.font('normal').fontSize(8.5).heightOfString(descriere, stilDescriere);
+    const inaltimeRand = Math.max(inaltimeText, row.billableEur > 0 ? 18 : 11) + 7;
+
+    /*
+     * Pagina noua doar cand randul chiar nu mai incape — asa paginile nu mai
+     * ramane pe jumatate goale. Un rand mai lung decat o pagina intreaga se
+     * lasa sa curga, altfel ar sari o pagina degeaba.
+     */
+    const josPagina = doc.page.height - doc.page.margins.bottom;
+    const inaltimeUtila = josPagina - doc.page.margins.top;
+    if (y + inaltimeRand > josPagina && inaltimeRand <= inaltimeUtila) {
       doc.addPage();
       y = doc.page.margins.top;
       scrieAntetTabel();
     }
-
-    const lucrari = etichete(row.projectTag).join(' · ');
-    const descriere = [row.description || '—', lucrari ? `· ${lucrari}` : '']
-      .filter(Boolean)
-      .join(' ');
-    const inaltimeText = doc.font('normal').fontSize(8.5).heightOfString(descriere, { width: coloane[2].latime });
 
     doc.font('normal').fontSize(8.5).fillColor(TEXT);
     doc.text(row.date.split('-').reverse().join('.'), coloane[0].x, y, { width: coloane[0].latime });
@@ -323,7 +428,7 @@ export async function buildMonthReportPdf(clientId: string, month: string): Prom
       y,
       { width: coloane[1].latime },
     );
-    doc.fillColor(TEXT).text(descriere, coloane[2].x, y, { width: coloane[2].latime });
+    doc.fillColor(TEXT).text(descriere, coloane[2].x, y, stilDescriere);
     doc.text(formatOre(row.minutes), coloane[3].x, y, { width: coloane[3].latime, align: 'right' });
     if (row.billableEur > 0) {
       doc.font('bold').fillColor(TEXT).text(inLei(row.billableEur, settings.eurRon), coloane[4].x, y, {
@@ -342,7 +447,7 @@ export async function buildMonthReportPdf(clientId: string, month: string): Prom
       });
     }
 
-    y += Math.max(inaltimeText, row.billableEur > 0 ? 18 : 11) + 7;
+    y += inaltimeRand;
     doc.moveTo(stanga, y - 4).lineTo(stanga + latime, y - 4).lineWidth(0.4).strokeColor('#f1f5f9').stroke();
   }
 
