@@ -367,9 +367,10 @@ export async function buildMonthReportPdf(clientId: string, month: string): Prom
   const coloane = [
     { titlu: 'Data', x: stanga, latime: 58 },
     { titlu: 'Interval', x: stanga + 58, latime: 62 },
-    { titlu: 'Lucrare', x: stanga + 120, latime: latime - 120 - 55 - 95 },
-    { titlu: 'Ore', x: stanga + latime - 150, latime: 55, aliniere: 'right' as const },
-    { titlu: 'Valoare', x: stanga + latime - 95, latime: 95, aliniere: 'right' as const },
+    { titlu: 'Lucrare', x: stanga + 120, latime: latime - 120 - 66 - 85 },
+    // mai lata decat ar cere cifra singura: aici incap si orele din afara programului
+    { titlu: 'Ore', x: stanga + latime - 151, latime: 66, aliniere: 'right' as const },
+    { titlu: 'Valoare', x: stanga + latime - 85, latime: 85, aliniere: 'right' as const },
   ];
 
   const scrieAntetTabel = () => {
@@ -429,7 +430,21 @@ export async function buildMonthReportPdf(clientId: string, month: string): Prom
       { width: coloane[1].latime },
     );
     doc.fillColor(TEXT).text(descriere, coloane[2].x, y, stilDescriere);
-    doc.text(formatOre(row.minutes), coloane[3].x, y, { width: coloane[3].latime, align: 'right' });
+    /*
+     * Orele lucrate si, cu fucsia, cat din ele a picat in afara programului —
+     * exact ca in calendarul din aplicatie ("3h + 1h"). Le asezam de la dreapta
+     * la stanga, ca sa putem colora doar a doua bucata.
+     */
+    const textOre = formatOre(row.minutes);
+    const textOff = row.offHoursMinutes > 0 ? ` + ${formatOre(row.offHoursMinutes)}` : '';
+    const dreaptaOre = coloane[3].x + coloane[3].latime;
+    const latimeOff = textOff ? doc.widthOfString(textOff) : 0;
+    doc.fillColor(TEXT).text(textOre, dreaptaOre - doc.widthOfString(textOre) - latimeOff, y, {
+      lineBreak: false,
+    });
+    if (textOff) {
+      doc.fillColor(FUCSIA).text(textOff, dreaptaOre - latimeOff, y, { lineBreak: false });
+    }
     if (row.billableEur > 0) {
       doc.font('bold').fillColor(TEXT).text(inLei(row.billableEur, settings.eurRon), coloane[4].x, y, {
         width: coloane[4].latime,

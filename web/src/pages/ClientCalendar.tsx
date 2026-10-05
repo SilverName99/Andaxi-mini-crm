@@ -163,6 +163,8 @@ export function ClientCalendar() {
   const zileAlese = zileMarcate.length > 0 ? zileMarcate : [ziSelectata];
   const deMarcat = logs.filter((l) => zileAlese.includes(l.date) && l.billable);
   const valoareAleasa = deMarcat.reduce((s, l) => s + (l.billableEur ?? l.amountEur), 0);
+  const minuteAlese = deMarcat.reduce((s, l) => s + l.standardMinutes + l.offHoursMinutes, 0);
+  const minuteAleseOff = deMarcat.reduce((s, l) => s + l.offHoursMinutes, 0);
 
   const marcheaza = useCrudMutation((input: { ids: string[]; status: WorkStatus }) =>
     api.post('/worklogs/bulk', input),
@@ -366,7 +368,17 @@ export function ClientCalendar() {
               <span className="text-xs font-semibold text-slate-600">
                 {zileAlese.length === 1 ? formatDate(zileAlese[0]) : `${zileAlese.length} zile alese`} ·{' '}
                 {deMarcat.length} {deMarcat.length === 1 ? 'intervenție' : 'intervenții'} ·{' '}
-                <span className="text-slate-900">{formatEur(valoareAleasa)}</span>
+                <span
+                  title={
+                    minuteAleseOff > 0
+                      ? `${formatMinutes(minuteAlese)} lucrate, din care ${formatMinutes(minuteAleseOff)} în afara programului — contorizate ${formatMinutes(minuteContorizate(minuteAlese - minuteAleseOff, minuteAleseOff))}`
+                      : `${formatMinutes(minuteAlese)} lucrate`
+                  }
+                >
+                  {formatMinutes(minuteAlese)}
+                  {minuteAleseOff > 0 && <span className="text-fuchsia-600"> + {formatMinutes(minuteAleseOff)}</span>}
+                </span>{' '}
+                · <span className="text-slate-900">{formatEur(valoareAleasa)}</span>
               </span>
               {zileMarcate.length > 0 && (
                 <button
