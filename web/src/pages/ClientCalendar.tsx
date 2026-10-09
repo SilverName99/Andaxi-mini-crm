@@ -170,6 +170,20 @@ export function ClientCalendar() {
     api.post('/worklogs/bulk', input),
   );
 
+  /** Facturarea / încasarea unui abonament scadent, fără drum până la scadențar */
+  const marcheazaScadenta = useCrudMutation((input: { id: string; status: BillingStatus }) =>
+    api.patch(`/billing/${input.id}`, { status: input.status }),
+  );
+
+  /** Doar butoanele rândului apăsat se învârt, nu toate din listă */
+  const esteInLucru = (id: string) =>
+    marcheazaScadenta.isPending && marcheazaScadenta.variables?.id === id;
+
+  async function marcheazaAbonament(id: string, status: BillingStatus, mesaj: string) {
+    await marcheazaScadenta.mutateAsync({ id, status });
+    toast(mesaj);
+  }
+
   /**
    * Click simplu = o singura zi. Cu Ctrl (sau ⌘) adaugi/scoti zile una cate
    * una, cu Shift iei tot intervalul de la ultima zi apasata pana aici.
@@ -444,7 +458,47 @@ export function ClientCalendar() {
                         </Badge>
                       )}
                     </span>
-                    <span className="font-extrabold text-slate-900">{formatEur(item.amountEur)}</span>
+                    <span className="flex flex-wrap items-center justify-end gap-2">
+                      <span className="font-extrabold text-slate-900">{formatEur(item.amountEur)}</span>
+                      {/* reînnoirile viitoare n-au încă poziție în scadențar, deci n-au ce marca */}
+                      {item.status !== 'VIITOR' && (
+                        <span className="flex flex-wrap items-center gap-1">
+                          {item.status !== 'PENDING' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              icon={<Undo2 className="h-3.5 w-3.5" />}
+                              loading={esteInLucru(item.id)}
+                              onClick={() => marcheazaAbonament(item.id, 'PENDING', 'Trecut înapoi la de facturat')}
+                            >
+                              De facturat
+                            </Button>
+                          )}
+                          {item.status !== 'INVOICED' && item.status !== 'PAID' && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              icon={<CheckCheck className="h-3.5 w-3.5" />}
+                              loading={esteInLucru(item.id)}
+                              onClick={() => marcheazaAbonament(item.id, 'INVOICED', 'Abonament marcat ca facturat')}
+                            >
+                              Facturat
+                            </Button>
+                          )}
+                          {item.status !== 'PAID' && (
+                            <Button
+                              size="sm"
+                              variant="success"
+                              icon={<BadgeCheck className="h-3.5 w-3.5" />}
+                              loading={esteInLucru(item.id)}
+                              onClick={() => marcheazaAbonament(item.id, 'PAID', 'Abonament marcat ca încasat')}
+                            >
+                              Încasat
+                            </Button>
+                          )}
+                        </span>
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>
