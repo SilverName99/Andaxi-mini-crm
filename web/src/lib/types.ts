@@ -1,5 +1,5 @@
 export type ClientStatus = 'ACTIVE' | 'PROSPECT' | 'INACTIVE';
-export type SubscriptionKind = 'HOSTING' | 'MENTENANTA' | 'HOSTING_MENTENANTA' | 'PACHET_ORE';
+export type SubscriptionKind = 'HOSTING' | 'MENTENANTA' | 'HOSTING_MENTENANTA' | 'EMAIL' | 'PACHET_ORE';
 export type Product = 'LANDING_PAGE' | 'PREZENTARE' | 'ECOMMERCE' | 'CRM' | 'ERP' | 'PACHET_ORE' | 'ALTUL';
 export type Cycle = 'MONTHLY' | 'SEMIANNUAL' | 'ANNUAL';
 export type SubscriptionStatus = 'ACTIVE' | 'PAUSED' | 'CANCELLED';

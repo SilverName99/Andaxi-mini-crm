@@ -193,7 +193,7 @@ model Subscription {
   client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   label String
-  /// HOSTING | MENTENANTA | HOSTING_MENTENANTA
+  /// HOSTING | MENTENANTA | HOSTING_MENTENANTA | EMAIL | PACHET_ORE
   kind  String @default("HOSTING_MENTENANTA")
   /// LANDING_PAGE | PREZENTARE | ECOMMERCE | CRM | ERP | ALTUL
   product String @default("PREZENTARE")

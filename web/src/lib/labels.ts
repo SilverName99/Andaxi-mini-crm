@@ -18,6 +18,7 @@ export const SUBSCRIPTION_KIND: Record<SubscriptionKind, Label> = {
   HOSTING: { text: 'Găzduire', chip: 'bg-slate-100 text-slate-600' },
   MENTENANTA: { text: 'Mentenanță', chip: 'bg-slate-100 text-slate-600' },
   HOSTING_MENTENANTA: { text: 'Găzduire + mentenanță', chip: 'bg-slate-100 text-slate-600' },
+  EMAIL: { text: 'Abonament email-uri', chip: 'bg-slate-100 text-slate-600' },
   PACHET_ORE: { text: 'Pachet de ore', chip: 'bg-indigo-50 text-indigo-700' },
 };
 
