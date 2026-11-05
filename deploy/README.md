@@ -178,7 +178,50 @@ Pe domeniul nou se vede **doar portalul**: adresa scurtă duce direct în el, ia
 rutele de administrare (`/api/clients`, `/api/settings`, pagina de login)
 returnează 404 — sunt tăiate din nginx, nu doar ascunse.
 
-### 8. Backup
+### 8. Utilizator propriu pentru serviciu (opțional, recomandat)
+
+Serviciul rulează implicit ca `www-data`, același utilizator cu care pot rula și
+alte aplicații de pe server (nginx, PHP). Ca baza de date și cheia licențelor CMS
+(`data/licenta/`) să le poată citi doar CRM-ul, mută-l pe utilizatorul lui,
+`andaxi-crm`. Nu e obligatoriu și **nu se face singur la deploy**: îl rulezi tu, o
+dată, ca root, când ai cinci minute (serviciul stă oprit câteva secunde):
+
+```bash
+bash /var/www/andaxi-crm/deploy/utilizator-propriu.sh
+```
+
+Scriptul:
+
+1. creează utilizatorul de sistem `andaxi-crm` (fără login, fără home);
+2. pune în systemd `/etc/systemd/system/andaxi-crm.service.d/utilizator.conf` cu
+   `User=andaxi-crm` și `Group=andaxi-crm` (fișierul din repo rămâne neatins);
+3. dă folderul aplicației lui `andaxi-crm` (`chown -R`), cu `data/` la `0700`,
+   `data/licenta/` la `0700`, cheia la `0600` și `server/.env` la `0600`;
+4. repornește serviciul și arată ca cine rulează.
+
+Cheia și calea ei nu se schimbă. `deploy/deploy.sh` citește apoi utilizatorul din
+systemd (`systemctl show -p User andaxi-crm`) și dă fișierele lui la fiecare
+actualizare; fără scriptul de mai sus rămâne `www-data`, ca până acum.
+
+De mână, aceiași pași:
+
+```bash
+useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin andaxi-crm
+systemctl stop andaxi-crm
+mkdir -p /etc/systemd/system/andaxi-crm.service.d
+printf '[Service]\nUser=andaxi-crm\nGroup=andaxi-crm\n' > /etc/systemd/system/andaxi-crm.service.d/utilizator.conf
+systemctl daemon-reload
+chown -R andaxi-crm:andaxi-crm /var/www/andaxi-crm
+chmod 700 /var/www/andaxi-crm/data /var/www/andaxi-crm/data/licenta
+chmod 600 /var/www/andaxi-crm/data/licenta/* /var/www/andaxi-crm/server/.env
+systemctl start andaxi-crm
+```
+
+Înapoi la `www-data`: `bash /var/www/andaxi-crm/deploy/utilizator-propriu.sh --inapoi`.
+La restaurarea cheii (README, „Cheia de semnare”) folosește utilizatorul din
+`systemctl show -p User --value andaxi-crm` în loc de `www-data`.
+
+### 9. Backup
 
 **Cheia de semnare a licențelor CMS** (`data/licenta/cheie-privata.pem`, după ce o
 generezi din Site-uri) **nu** intră în backup-ul de mai jos și nici în git: copiaz-o

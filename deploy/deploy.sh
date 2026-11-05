@@ -38,8 +38,19 @@ for site in /etc/nginx/sites-available/*; do
   fi
 done
 
-echo "→ Repun drepturile pe fisiere…"
-chown -R www-data:www-data "$APP_DIR"
+# utilizatorul serviciului: www-data, ca pana acum, sau cel pus de
+# deploy/utilizator-propriu.sh (citit din systemd; scriptul asta nu-l schimba)
+APP_USER="$(systemctl show -p User --value andaxi-crm 2>/dev/null || true)"
+APP_USER="${APP_USER:-www-data}"
+id "$APP_USER" >/dev/null 2>&1 || APP_USER=www-data
+
+echo "→ Repun drepturile pe fisiere (${APP_USER})…"
+chown -R "$APP_USER:$APP_USER" "$APP_DIR"
+# cheia licentelor CMS: doar serviciul o poate citi
+if [ -d "$APP_DIR/data/licenta" ]; then
+  chmod 700 "$APP_DIR/data/licenta"
+  find "$APP_DIR/data/licenta" -type f -exec chmod 600 {} +
+fi
 
 echo "→ Repornesc serviciul…"
 if systemctl is-enabled --quiet andaxi-crm 2>/dev/null; then

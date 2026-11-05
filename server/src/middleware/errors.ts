@@ -40,6 +40,10 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     res.status(409).json({ error: 'Exista deja o inregistrare cu aceste date' });
     return;
   }
+  if (prismaCode === 'P2003') {
+    res.status(409).json({ error: 'Inregistrarea are date legate de ea si nu poate fi stearsa' });
+    return;
+  }
   console.error('[eroare]', err);
   res.status(500).json({ error: 'Eroare interna de server' });
 }

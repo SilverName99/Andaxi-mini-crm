@@ -132,7 +132,12 @@ function CheieCard({ stare }: { stare: StareCheie }) {
     setError('');
     setLoading(true);
     try {
-      await api.post<StareCheie>('/sites/cheie', { rotatie: esteRotatie, confirmare: esteRotatie ? text : '' });
+      await api.post<StareCheie>('/sites/cheie', {
+        rotatie: esteRotatie,
+        confirmare: esteRotatie ? text : '',
+        // rotatia se face doar daca serverul are inca aceasta cheie (fara rotiri duble)
+        cheieActuala: stare.cheiePublica ?? '',
+      });
       await queryClient.invalidateQueries({ queryKey: keys.cheieLicente });
       toast(esteRotatie ? 'Cheie nouă generată' : 'Perechea de chei a fost generată');
       setConfirmPrima(false);
@@ -367,16 +372,34 @@ export function Sites() {
 
       {editing !== undefined && <SiteForm site={editing} onClose={() => setEditing(undefined)} />}
 
+      <Modal
+        open={Boolean(deleting && deleting.licenses.length > 0)}
+        onClose={() => setDeleting(null)}
+        title="Site-ul nu se poate șterge"
+      >
+        <p className="text-sm text-slate-600">
+          „{deleting?.name}” are {deleting?.licenses.length} {deleting?.licenses.length === 1 ? 'licență emisă' : 'licențe emise'}.
+          Istoricul licențelor rămâne mereu în CRM, deci site-ul nu se șterge. Dacă nu-l mai folosești, scrie asta în notițe.
+        </p>
+        <div className="mt-6 flex justify-end">
+          <Button variant="secondary" onClick={() => setDeleting(null)}>Am înțeles</Button>
+        </div>
+      </Modal>
+
       <ConfirmDialog
-        open={Boolean(deleting)}
+        open={Boolean(deleting && deleting.licenses.length === 0)}
         title="Ștergi site-ul?"
-        message={`„${deleting?.name}" va fi șters din CRM, împreună cu istoricul licențelor lui (${deleting?.licenses.length ?? 0}). Site-ul în sine și licența pusă pe el nu se schimbă.`}
+        message={`„${deleting?.name}" va fi șters din CRM. Nu are nicio licență emisă; site-ul în sine nu se schimbă.`}
         loading={remove.isPending}
         onCancel={() => setDeleting(null)}
         onConfirm={async () => {
           if (!deleting) return;
-          await remove.mutateAsync(deleting.id);
-          toast('Site șters');
+          try {
+            await remove.mutateAsync(deleting.id);
+            toast('Site șters');
+          } catch (err) {
+            toast(err instanceof Error ? err.message : 'Eroare la ștergere', 'error');
+          }
           setDeleting(null);
         }}
       />

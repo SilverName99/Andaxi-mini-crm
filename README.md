@@ -296,11 +296,19 @@ schimba după prima licență) și notițe. Click pe un site → **Pluginuri și
   versiunea crește singură la fiecare licență (site-ul refuză o versiune mai mică
   decât ultima primită);
 - **Licențe emise**: cine, când, ce versiune și ce pluginuri; fiecare se poate
-  descărca din nou.
+  descărca din nou. Istoricul nu se șterge: un site cu licențe emise **nu se poate
+  șterge** (refuzat și de baza de date, `onDelete: Restrict`); doar unul fără
+  nicio licență.
 
 Pe listă, fiecare site cu domeniu are și **starea** (pingul `GET /_andaxi/ping`
 al CMS-ului, la deschiderea paginii și la 5 minute): *merge*, *în mentenanță*,
 *nu răspunde* sau *fără ping (cod vechi)* — site-ul încă n-a trecut pe CMS.
+Pingul pleacă doar spre internetul public: domeniul se rezolvă o dată, iar dacă
+duce la o adresă locală (127.x, 10.x, 172.16–31.x, 192.168.x, 169.254.x, 100.64/10,
+`::1`, `fc00::/7`, `fe80::/10`…) cererea nu pleacă deloc; conexiunea se face exact
+la adresa verificată, redirecționările nu se urmează (un domeniu care
+redirecționează apare ca „nu răspunde”, cu motivul; pune în CRM domeniul final),
+iar răspunsul se citește cel mult 4 KB.
 
 Formatul licenței (exact cel din `andaxi-cms/src/Support/Licenta.php`):
 
@@ -332,7 +340,10 @@ o pereche Ed25519:
   fiecărui site.
 
 O a doua pereche nu se face din greșeală: butonul dispare, iar **rotația** cere să
-scrii `ROTESC CHEIA`. Cheia veche rămâne pe server ca `cheie-privata.<data>.pem.veche`,
+scrii `ROTESC CHEIA`. Rotația se face o singură dată chiar dacă butonul e apăsat de
+două ori sau din două ferestre: serverul rotește doar dacă cheia de acum e cea
+afișată în pagină, sub un lacăt, iar cheia nouă se scrie întâi complet și abia apoi
+ia locul celei vechi. Cheia veche rămâne pe server ca `cheie-privata.<data>.pem.veche`,
 iar cheia publică veche se vede în pagină. După o rotație, pe fiecare site se pune
 cheia publică nouă (pe durata schimbării ambele, separate prin virgulă:
 `LICENTA_CHEIE_PUBLICA=<nouă>,<veche>`) și se emite o licență nouă.
@@ -354,7 +365,7 @@ Punerea la loc (server nou sau cheie pierdută de pe server):
 
 ```bash
 scp ./andaxi-cheie-licente.pem root@187.127.92.54:/var/www/andaxi-crm/data/licenta/cheie-privata.pem
-ssh root@187.127.92.54 'chown www-data:www-data /var/www/andaxi-crm/data/licenta/cheie-privata.pem && chmod 600 /var/www/andaxi-crm/data/licenta/cheie-privata.pem && systemctl restart andaxi-crm'
+ssh root@187.127.92.54 'U=$(systemctl show -p User --value andaxi-crm); chown "${U:-www-data}:" /var/www/andaxi-crm/data/licenta/cheie-privata.pem && chmod 600 /var/www/andaxi-crm/data/licenta/cheie-privata.pem && systemctl restart andaxi-crm'
 ```
 
 #### Cum pui licența pe site (Hostinger)
@@ -396,7 +407,9 @@ php server/scripts/catalog-cms.php ../andaxi-cms > server/catalog/cms-pluginuri.
 
 #### Testul de interoperabilitate
 
-`server/src/lib/licenta.test.ts` (rulează cu `npm test`) verifică vectorul de test din
+`server/src/lib/licenta.test.ts` (rulează cu `npm test`, alături de testele cheii,
+pingului și istoricului: `licenta-chei.test.ts`, `ping-site.test.ts`,
+`site-istoric.test.ts`) verifică vectorul de test din
 `docs/PLUGINURI.md` al CMS-ului (cheie, mesaj semnat, semnătură) și trece licențele
 semnate de CRM prin **codul PHP al CMS-ului** (`Licenta::verifica`, prin
 `server/scripts/licenta-cms.php`): o licență bună trebuie acceptată cu exact

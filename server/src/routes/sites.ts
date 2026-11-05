@@ -114,8 +114,8 @@ const CONFIRMARE_ROTATIE = 'ROTESC CHEIA';
 sitesRouter.post(
   '/cheie',
   asyncHandler(async (req, res) => {
-    const { rotatie, confirmare } = z
-      .object({ rotatie: z.boolean().default(false), confirmare: z.string().default('') })
+    const { rotatie, confirmare, cheieActuala } = z
+      .object({ rotatie: z.boolean().default(false), confirmare: z.string().default(''), cheieActuala: z.string().default('') })
       .parse(req.body);
     const exista = stareCheie().exista;
     if (exista && !(rotatie && confirmare.trim().toUpperCase() === CONFIRMARE_ROTATIE)) {
@@ -124,7 +124,8 @@ sitesRouter.post(
         `Exista deja o pereche de chei. Pentru o cheie noua scrie „${CONFIRMARE_ROTATIE}" in caseta de confirmare.`,
       );
     }
-    const stare = genereazaPereche(exista);
+    // rotatia se face doar daca cheia de acum e cea vazuta in pagina (vezi genereazaPereche)
+    const stare = genereazaPereche({ rotatie: exista, cheieAsteptata: cheieActuala });
     console.log(`[licente] ${exista ? 'rotatie: pereche noua de chei' : 'pereche de chei generata'} de ${req.user?.email}`);
     res.status(201).json(stare);
   }),
@@ -220,6 +221,14 @@ sitesRouter.put(
 sitesRouter.delete(
   '/:id',
   asyncHandler(async (req, res) => {
+    // istoricul licentelor nu se sterge: un site cu licente emise ramane (si baza il apara, onDelete: Restrict)
+    const licente = await prisma.cmsLicense.count({ where: { siteId: req.params.id } });
+    if (licente > 0) {
+      throw new HttpError(
+        409,
+        `Site-ul are ${licente} ${licente === 1 ? 'licenta emisa' : 'licente emise'}; nu se sterge, ca sa ramana istoricul.`,
+      );
+    }
     await prisma.cmsSite.delete({ where: { id: req.params.id } });
     res.status(204).end();
   }),

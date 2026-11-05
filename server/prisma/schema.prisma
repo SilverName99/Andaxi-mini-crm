@@ -544,7 +544,8 @@ model CmsSite {
 model CmsLicense {
   id        String  @id @default(cuid())
   siteId    String
-  site      CmsSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  /// Restrict: un site cu licente emise nu se poate sterge, ca istoricul sa ramana
+  site      CmsSite @relation(fields: [siteId], references: [id], onDelete: Restrict)
   /// „versiune" din licenta; creste la fiecare emitere
   version   Int
   /// „emisa_la" din licenta (ISO, UTC)

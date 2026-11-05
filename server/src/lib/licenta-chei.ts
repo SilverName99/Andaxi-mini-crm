@@ -91,39 +91,42 @@ export function cheiePrivata(): KeyObject {
   return citesteCheie(fisier);
 }
 
-/**
- * Face perechea de chei. Refuza daca exista deja una, in afara de o rotatie
- * confirmata explicit (atunci cheia veche se pastreaza ca `.pem.veche`).
- */
-export function genereazaPereche(rotatie: boolean): StareCheie {
-  const fisier = fisierCheie();
-  fs.mkdirSync(path.dirname(fisier), { recursive: true, mode: 0o700 });
+/** Lacatul rotatiei: in proces si, pentru un al doilea proces, un fisier facut cu „wx" */
+let ocupat = false;
+const LACAT_VECHI_MS = 10 * 60_000;
 
-  if (fs.existsSync(fisier)) {
-    if (!rotatie) {
-      throw new HttpError(409, 'Exista deja o pereche de chei. O a doua se face doar printr-o rotatie confirmata.');
-    }
-    const marcaj = new Date().toISOString().replace(/[:.]/g, '-');
-    const vechi = fisier.replace(/\.pem$/, '') + `.${marcaj}.pem.veche`;
-    fs.renameSync(fisier, vechi);
-    fs.chmodSync(vechi, 0o600);
-    // data fisierului = momentul retragerii (asa o arata interfata)
-    const acum = new Date();
-    fs.utimesSync(vechi, acum, acum);
+function cuLacat<T>(dosar: string, fn: () => T): T {
+  if (ocupat) throw new HttpError(409, 'Se genereaza deja o pereche de chei. Incearca din nou peste cateva secunde.');
+  const lacat = path.join(dosar, '.chei.lock');
+  try {
+    // un lacat ramas de la un proces oprit brusc nu blocheaza pentru totdeauna
+    if (Date.now() - fs.statSync(lacat).mtimeMs > LACAT_VECHI_MS) fs.unlinkSync(lacat);
+  } catch {
+    /* nu exista lacat */
   }
-
-  const { privateKey } = crypto.generateKeyPairSync('ed25519');
-  const pem = String(privateKey.export({ format: 'pem', type: 'pkcs8' }));
-  // „wx": esueaza daca intre timp a aparut un fisier (doua apasari deodata)
   let fd: number;
   try {
-    fd = fs.openSync(fisier, 'wx', 0o600);
+    fd = fs.openSync(lacat, 'wx', 0o600);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
-      throw new HttpError(409, 'Exista deja o pereche de chei (tocmai a fost generata).');
+      throw new HttpError(409, 'Se genereaza deja o pereche de chei. Incearca din nou peste cateva secunde.');
     }
     throw error;
   }
+  ocupat = true;
+  try {
+    return fn();
+  } finally {
+    ocupat = false;
+    fs.closeSync(fd);
+    fs.rmSync(lacat, { force: true });
+  }
+}
+
+/** Scrie cheia intr-un fisier temporar 0600, complet si sincronizat pe disc */
+function scrieTemporar(dosar: string, pem: string): string {
+  const temporar = path.join(dosar, `.cheie-noua.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`);
+  const fd = fs.openSync(temporar, 'wx', 0o600);
   try {
     fs.fchmodSync(fd, 0o600);
     fs.writeSync(fd, pem);
@@ -131,5 +134,62 @@ export function genereazaPereche(rotatie: boolean): StareCheie {
   } finally {
     fs.closeSync(fd);
   }
-  return stareCheie();
+  return temporar;
+}
+
+/**
+ * Face perechea de chei. Refuza daca exista deja una, in afara de o rotatie
+ * confirmata explicit (atunci cheia veche se pastreaza ca `.pem.veche`).
+ *
+ * Rotatia e serializata (lacatul de mai sus) si conditionata: se face doar daca
+ * cheia de acum e chiar `cheieAsteptata` (cea pe care omul a vazut-o in pagina).
+ * Asa doua apasari deodata, sau doua ferestre, nu rotesc de doua ori. Cheia noua
+ * se scrie intai complet intr-un fisier temporar si apoi se leaga sub numele final
+ * (link: esueaza daca numele e luat), deci nu ramane niciodata o cheie pe jumatate.
+ */
+export function genereazaPereche(opt: { rotatie: boolean; cheieAsteptata?: string }): StareCheie {
+  const fisier = fisierCheie();
+  const dosar = path.dirname(fisier);
+  fs.mkdirSync(dosar, { recursive: true, mode: 0o700 });
+
+  return cuLacat(dosar, () => {
+    const exista = fs.existsSync(fisier);
+    if (exista && !opt.rotatie) {
+      throw new HttpError(409, 'Exista deja o pereche de chei. O a doua se face doar printr-o rotatie confirmata.');
+    }
+    if (!exista && opt.rotatie) {
+      throw new HttpError(409, 'Nu exista o pereche de chei de rotit. Reincarca pagina.');
+    }
+    if (exista && cheiePublicaBase64(citesteCheie(fisier)) !== (opt.cheieAsteptata ?? '').trim()) {
+      throw new HttpError(409, 'Cheia a fost schimbata intre timp. Reincarca pagina si verifica cheia publica de acum.');
+    }
+
+    const { privateKey } = crypto.generateKeyPairSync('ed25519');
+    const temporar = scrieTemporar(dosar, String(privateKey.export({ format: 'pem', type: 'pkcs8' })));
+    let vechi: string | null = null;
+    try {
+      if (exista) {
+        const marcaj = new Date().toISOString().replace(/[:.]/g, '-');
+        vechi = fisier.replace(/\.pem$/, '') + `.${marcaj}.pem.veche`;
+        fs.renameSync(fisier, vechi);
+        fs.chmodSync(vechi, 0o600);
+        // data fisierului = momentul retragerii (asa o arata interfata)
+        const acum = new Date();
+        fs.utimesSync(vechi, acum, acum);
+      }
+      try {
+        fs.linkSync(temporar, fisier);
+      } catch (error) {
+        // nu lasam site-urile fara cheie: cea veche se pune la loc
+        if (vechi && !fs.existsSync(fisier)) fs.renameSync(vechi, fisier);
+        if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+          throw new HttpError(409, 'Exista deja o pereche de chei (tocmai a fost generata).');
+        }
+        throw error;
+      }
+    } finally {
+      fs.rmSync(temporar, { force: true });
+    }
+    return stareCheie();
+  });
 }
