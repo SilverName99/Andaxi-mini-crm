@@ -527,3 +527,69 @@ export interface ClientPortal {
   /** PIN-ul în clar, ca să-l poți reciti oricând (doar în interfața ta) */
   pin?: string | null;
 }
+
+/* ───────────────────────────────────────────── site-uri CMS și licențe ── */
+
+export type StarePlugin = 'pornit' | 'se_opreste' | 'oprit';
+
+export interface PluginCms {
+  cheie: string;
+  nume: string;
+  descriere: string;
+  /** O listă în listă = „cel puțin unul dintre” */
+  necesita: (string | string[])[];
+  bani: boolean;
+  intern: boolean;
+  client: boolean;
+  portat: boolean;
+}
+
+export interface CatalogCms {
+  sursa: { repo: string; ramura: string; commit: string; generat_la: string };
+  pluginuri: PluginCms[];
+  pachete: Record<string, { nume: string; pluginuri: string[]; cel_putin_una_din: string[]; optionale: string[] }>;
+  licente_dev: Record<string, string[]>;
+}
+
+export interface LicentaEmisa {
+  id: string;
+  version: number;
+  issuedAt: string;
+  issuedBy: string;
+  plugins: Record<string, StarePlugin>;
+  publicKey: string;
+  createdAt: string;
+}
+
+export interface CmsSite {
+  id: string;
+  name: string;
+  domain: string;
+  slug: string;
+  clientId: string | null;
+  client?: ClientRef | null;
+  notes: string;
+  /** Doar ce nu e oprit; lipsă = oprit */
+  plugins: Record<string, StarePlugin>;
+  licenses: LicentaEmisa[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StareCheie {
+  exista: boolean;
+  cheiePublica: string | null;
+  creataLa: string | null;
+  fisier: string;
+  cheiVechi: { cheiePublica: string; retrasaLa: string }[];
+}
+
+export interface StareSite {
+  stare: 'sus' | 'jos' | 'vechi';
+  http: number | null;
+  cod: string | null;
+  schema: string | null;
+  mentenanta: string | null;
+  eroare: string;
+  verificatLa: string;
+}

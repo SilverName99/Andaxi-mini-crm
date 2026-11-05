@@ -26,4 +26,8 @@ export const env = {
   /** Unde se salveaza fisierele incarcate (sigla). Trebuie sa fie in afara codului,
    *  ca actualizarile aplicatiei sa nu le stearga. */
   uploadDir: process.env.UPLOAD_DIR ?? fileURLToPath(new URL('../../data/uploads', import.meta.url)),
+  /** Cheia privata Ed25519 cu care se semneaza licentele site-urilor CMS. In afara
+   *  codului si a git-ului (implicit data/licenta/), cu drepturi 0600. */
+  licentaCheiePrivata:
+    process.env.LICENTA_CHEIE_PRIVATA ?? fileURLToPath(new URL('../../data/licenta/cheie-privata.pem', import.meta.url)),
 };

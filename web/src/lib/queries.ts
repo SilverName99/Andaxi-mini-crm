@@ -4,7 +4,7 @@ import { numaraCereri } from './cereri';
 import type {
   BillingItem, CalendarData, Client, Dashboard, HourPackage, MonthlySheet, ReportData, Settings, Subscription,
   MonthlyDiscount, MonthlyDocument, SubscriptionUserChange, Task, WorkLog, ClientPortal, MonthlyApproval,
-  RequestThread,
+  RequestThread, CatalogCms, CmsSite, StareCheie, StareSite,
 } from './types';
 
 /* Cheile de cache; invalidam larg dupa mutatii, aplicatia are volum mic de date */
@@ -24,6 +24,11 @@ export const keys = {
   clientPortal: (clientId: string) => ['client-portal', clientId] as const,
   monthlyApproval: (clientId: string, month: string) => ['monthly-approval', clientId, month] as const,
   taskThread: (taskId: string) => ['task-thread', taskId] as const,
+  sites: ['sites'] as const,
+  site: (id: string) => ['site', id] as const,
+  catalogCms: ['catalog-cms'] as const,
+  cheieLicente: ['cheie-licente'] as const,
+  stareSites: ['stare-sites'] as const,
 };
 
 export function useDashboard() {
@@ -177,5 +182,34 @@ export function useCrudMutation<TInput, TResult>(fn: (input: TInput) => Promise<
   return useMutation({
     mutationFn: fn,
     onSuccess: () => queryClient.invalidateQueries(),
+  });
+}
+
+/* ------------------------------------------------------- site-uri CMS */
+
+export function useSites() {
+  return useQuery({ queryKey: keys.sites, queryFn: () => api.get<CmsSite[]>('/sites') });
+}
+
+export function useSite(id: string) {
+  return useQuery({ queryKey: keys.site(id), queryFn: () => api.get<CmsSite>(`/sites/${id}`), enabled: Boolean(id) });
+}
+
+export function useCatalogCms() {
+  return useQuery({ queryKey: keys.catalogCms, queryFn: () => api.get<CatalogCms>('/sites/catalog'), staleTime: Infinity });
+}
+
+export function useCheieLicente() {
+  return useQuery({ queryKey: keys.cheieLicente, queryFn: () => api.get<StareCheie>('/sites/cheie') });
+}
+
+/** Pingul site-urilor: la cerere și apoi la 5 minute, cât e pagina deschisă */
+export function useStareSites(enabled: boolean) {
+  return useQuery({
+    queryKey: keys.stareSites,
+    queryFn: () => api.get<Record<string, StareSite>>('/sites/stare'),
+    enabled,
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
   });
 }

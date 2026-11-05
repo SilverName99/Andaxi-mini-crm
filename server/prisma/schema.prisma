@@ -132,6 +132,7 @@ model Client {
   monthlyDiscounts MonthlyDiscount[]
   monthlyApprovals MonthlyApproval[]
   portal        ClientPortal?
+  cmsSites      CmsSite[]
 
   @@index([status])
 }
@@ -517,4 +518,48 @@ model MonthlyApproval {
 
   @@unique([clientId, month])
   @@index([month])
+}
+
+/// Un site pe CMS-ul Andaxi (andaxi-cms), cu pluginurile lui si licentele emise.
+model CmsSite {
+  id       String  @id @default(cuid())
+  name     String
+  /// Domeniul, fara https:// (ex. biovitality.ro); folosit si pentru ping
+  domain   String  @default("")
+  /// LICENTA_SITE / SITE_SLUG din .env-ul site-ului (ex. biovitality); intra in licenta
+  slug     String  @unique
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  notes    String  @default("")
+  /// JSON {"<plugin>": "pornit" | "se_opreste" | "oprit"}; lipsa = oprit
+  plugins  String  @default("{}")
+
+  licenses CmsLicense[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// O licenta semnata pentru un site CMS (istoricul: cine, cand, ce pluginuri)
+model CmsLicense {
+  id        String  @id @default(cuid())
+  siteId    String
+  site      CmsSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  /// „versiune" din licenta; creste la fiecare emitere
+  version   Int
+  /// „emisa_la" din licenta (ISO, UTC)
+  issuedAt  String
+  /// Cine a emis-o (numele si emailul contului)
+  issuedBy  String
+  /// JSON cu pluginurile din licenta (doar cele care nu sunt oprite)
+  plugins   String
+  /// Textul complet al fisierului licenta.json (semnat; nu e secret)
+  content   String
+  /// Cheia publica cu care se verifica (base64)
+  publicKey String
+
+  createdAt DateTime @default(now())
+
+  @@unique([siteId, version])
+  @@index([siteId])
 }

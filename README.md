@@ -21,6 +21,7 @@ aici ții evidența a *ce* trebuie facturat, *când*, și marchezi ce ai emis de
 | **Calendar de client** | O lună pe zile pentru un singur client: click pe o zi și notezi câte ore ai lucrat și ce ai făcut; tot acolo atașezi documentul lunii |
 | **Task-uri** | Lucruri de făcut, cu sau fără client asociat |
 | **Rapoarte** | Totaluri pe client și pe lună, cu TVA calculat și export CSV |
+| **Site-uri** | Site-urile de pe CMS-ul Andaxi: pluginurile fiecăruia, licența semnată (`licenta.json`), istoricul licențelor, cheia de semnare și starea site-ului |
 | **Setări** | Sigla firmei, tarife orare, pachete de ore preplătite, prețuri pe utilizator (ERP/CRM), program de lucru, curs EUR/RON, cotă TVA, date firmă, schimbare parolă |
 
 ### Tarifele orare
@@ -271,6 +272,146 @@ Cota se configurează în Setări (implicit 21%) și se aplică doar în rapoart
 unde apar alături totalul fără TVA, TVA-ul și totalul cu TVA — inclusiv în
 exportul CSV.
 
+### Site-uri și licențele CMS
+
+Site-urile făcute pe CMS-ul Andaxi ([andaxi-cms](https://github.com/SilverName99/andaxi-cms))
+pornesc pluginurile (magazin, blog, cupoane…) **doar** dintr-o licență semnată:
+fișierul `site/storage/licenta/licenta.json` de pe server. Licența o emite CRM-ul,
+din secțiunea **Site-uri**.
+
+**Un site** are: nume, domeniu (`biovitality.ro`), clientul din CRM (opțional),
+**slug-ul din CMS** (`biovitality` — același cu `--site=` de la deploy și cu
+`LICENTA_SITE` din `.env`-ul site-ului; licența e legată de el și nu se mai poate
+schimba după prima licență) și notițe. Click pe un site → **Pluginuri și licență**:
+
+- fiecare plugin din catalogul CMS-ului, cu starea lui: **Pornit**, **Se oprește**
+  (nu începe nimic nou, termină ce e în curs) sau **Oprit** (dispare de pe site;
+  datele nu se șterg). Pluginurile care ating bani se trec întâi pe „Se oprește”,
+  cel puțin 30 de zile, apoi pe „Oprit” — pagina avertizează. Tot acolo vezi ce
+  dependențe lipsesc (ex. „Cupoane” are nevoie de „Magazin online”);
+- **presetări**: pachetele de abonament ale CMS-ului (Prezentare, Catalog, Magazin,
+  Asociație) și listele site-urilor vechi (bioscem, biovitality, vertij,
+  grafoanaytis). O presetare înlocuiește toată lista; apoi ajustezi și salvezi;
+- **Generează licența** → semnează lista salvată și oferă **Descarcă licenta.json**;
+  versiunea crește singură la fiecare licență (site-ul refuză o versiune mai mică
+  decât ultima primită);
+- **Licențe emise**: cine, când, ce versiune și ce pluginuri; fiecare se poate
+  descărca din nou.
+
+Pe listă, fiecare site cu domeniu are și **starea** (pingul `GET /_andaxi/ping`
+al CMS-ului, la deschiderea paginii și la 5 minute): *merge*, *în mentenanță*,
+*nu răspunde* sau *fără ping (cod vechi)* — site-ul încă n-a trecut pe CMS.
+
+Formatul licenței (exact cel din `andaxi-cms/src/Support/Licenta.php`):
+
+```json
+{
+    "site": "biovitality",
+    "emisa_la": "2026-11-05T21:00:00Z",
+    "versiune": 1,
+    "pluginuri": {"catalog": "pornit", "magazin": "pornit", "campanii": "pornit"},
+    "semnatura": "<Ed25519, base64>"
+}
+```
+
+Doar pluginurile care nu sunt oprite intră în `pluginuri`. CMS-ul nu are câmp de
+domeniu sau de expirare: licența e valabilă până vine alta, pentru site-ul cu
+slug-ul din `site`. Semnătura e Ed25519 peste `"andaxi-licenta-v1\n"` + JSON-ul
+canonic (chei sortate, fără spații) al câmpurilor fără `semnatura`.
+
+#### Cheia de semnare
+
+O singură dată, în **Site-uri → Generează perechea de chei**. CRM-ul face pe server
+o pereche Ed25519:
+
+- **cheia privată** stă în `data/licenta/cheie-privata.pem` (lângă baza de date, în
+  afara git-ului; altă cale cu `LICENTA_CHEIE_PRIVATA` în `server/.env`), cu drepturi
+  `0600`. Nu apare niciodată în pagină, nu se poate descărca, nu se scrie în jurnal;
+- **cheia publică** se vede în pagină, cu buton de copiere. E valoarea pentru
+  `deploy/adopta.sh --cheie-licenta=…` și pentru `LICENTA_CHEIE_PUBLICA` din `.env`-ul
+  fiecărui site.
+
+O a doua pereche nu se face din greșeală: butonul dispare, iar **rotația** cere să
+scrii `ROTESC CHEIA`. Cheia veche rămâne pe server ca `cheie-privata.<data>.pem.veche`,
+iar cheia publică veche se vede în pagină. După o rotație, pe fiecare site se pune
+cheia publică nouă (pe durata schimbării ambele, separate prin virgulă:
+`LICENTA_CHEIE_PUBLICA=<nouă>,<veche>`) și se emite o licență nouă.
+
+**Copia de siguranță a cheii private (obligatoriu, o dată, imediat după generare).**
+Backup-ul zilnic al bazei de date **nu** o conține. De pe calculatorul tău:
+
+```bash
+scp root@187.127.92.54:/var/www/andaxi-crm/data/licenta/cheie-privata.pem ./andaxi-cheie-licente.pem
+```
+
+Pune fișierul într-un manager de parole (ca atașament) sau pe un stick criptat ținut
+deoparte, apoi șterge copia de pe calculator. Niciodată în git, pe email sau în chat.
+**Dacă se pierde**: se generează o pereche nouă și se pune cheia publică nouă pe
+*fiecare* site, cu o licență nouă pentru fiecare (site-urile merg mai departe între
+timp cu ultima licență bună, dar nu mai pot primi alta).
+
+Punerea la loc (server nou sau cheie pierdută de pe server):
+
+```bash
+scp ./andaxi-cheie-licente.pem root@187.127.92.54:/var/www/andaxi-crm/data/licenta/cheie-privata.pem
+ssh root@187.127.92.54 'chown www-data:www-data /var/www/andaxi-crm/data/licenta/cheie-privata.pem && chmod 600 /var/www/andaxi-crm/data/licenta/cheie-privata.pem && systemctl restart andaxi-crm'
+```
+
+#### Cum pui licența pe site (Hostinger)
+
+`licenta.json` nu e secret (e doar semnat). Fișierul merge în
+`~/domains/<domeniu>/site/storage/licenta/licenta.json`. Cu `scp`, de pe calculator
+(portul și utilizatorul SSH sunt în hPanel → SSH Access):
+
+```bash
+ssh -p 65002 uXXXXXXXXX@<IP> 'mkdir -p ~/domains/biovitality.ro/site/storage/licenta'
+scp -P 65002 licenta.json uXXXXXXXXX@<IP>:~/domains/biovitality.ro/site/storage/licenta/licenta.json
+```
+
+Sau direct în terminalul serverului: deschizi `licenta.json` descărcat într-un editor
+de text, copiezi tot și lipești între cele două rânduri:
+
+```bash
+mkdir -p ~/domains/biovitality.ro/site/storage/licenta
+cat > ~/domains/biovitality.ro/site/storage/licenta/licenta.json <<'EOF'
+…conținutul fișierului licenta.json…
+EOF
+```
+
+La adoptare, `deploy/adopta.sh` al CMS-ului verifică singur că licența există și se
+verifică cu cheia dată la `--cheie-licenta=`. Pe un site deja adoptat, licența nouă
+se pune la fel (peste cea veche); verificarea:
+`$PHP ~/platforma/bin/platforma --site=<domeniu> scripts/diagnostic.php --licenta`.
+
+#### Catalogul pluginurilor
+
+Lista pluginurilor, a pachetelor și a listelor site-urilor vechi e o copie a
+`config/plugins.php` din andaxi-cms, în `server/catalog/cms-pluginuri.json` (cu
+commit-ul CMS-ului din care vine, afișat în pagină). Când CMS-ul primește un plugin
+nou, se reface (cu PHP, dintr-o clonă a CMS-ului) și se face commit:
+
+```bash
+php server/scripts/catalog-cms.php ../andaxi-cms > server/catalog/cms-pluginuri.json
+```
+
+#### Testul de interoperabilitate
+
+`server/src/lib/licenta.test.ts` (rulează cu `npm test`) verifică vectorul de test din
+`docs/PLUGINURI.md` al CMS-ului (cheie, mesaj semnat, semnătură) și trece licențele
+semnate de CRM prin **codul PHP al CMS-ului** (`Licenta::verifica`, prin
+`server/scripts/licenta-cms.php`): o licență bună trebuie acceptată cu exact
+aceleași date, una modificată, pentru alt site sau cu altă cheie respinsă, iar
+`Licenta::semneaza` din CMS și CRM-ul trebuie să scrie același fișier, octet cu
+octet. Are nevoie de PHP cu sodium și de o clonă andaxi-cms lângă acest repo (sau
+în `ANDAXI_CMS_DIR`); fără ele partea PHP se sare la `npm test`, dar pică la:
+
+```bash
+npm run test:licenta-cms                                 # clona în ../andaxi-cms
+ANDAXI_CMS_DIR=/cale/andaxi-cms npm run test:licenta-cms
+```
+
+Rulează-l după orice schimbare în `server/src/lib/licenta.ts` sau în `Licenta.php`.
+
 ## Stack
 
 - **Backend:** Node 20 + Express + Prisma (SQLite, portabil pe PostgreSQL) + JWT în cookie httpOnly
@@ -293,7 +434,8 @@ Alte comenzi utile:
 
 ```bash
 npm run typecheck   # TypeScript pe server + web
-npm test            # teste pentru calculul tarifelor și al scadențelor
+npm test            # teste pentru tarife, scadențe și licențele CMS
+npm run test:licenta-cms   # licențele trecute prin codul PHP al CMS-ului (vezi „Site-uri și licențele CMS”)
 npm run build       # build de producție (server + web)
 ```
 
@@ -306,12 +448,16 @@ server/
   src/lib/rates.ts        # împărțirea orelor pe tarife
   src/lib/cycles.ts       # lunar / la 6 luni / anual
   src/lib/billing-sync.ts # generarea pozițiilor de facturat
-  src/routes/             # clienți, abonamente, scadențar, ore, task-uri, rapoarte
+  src/lib/licenta.ts      # formatul și semnarea licențelor CMS
+  src/lib/licenta-chei.ts # cheia de semnare (fișierul 0600 din data/licenta)
+  src/routes/             # clienți, abonamente, scadențar, ore, task-uri, rapoarte, site-uri
+  catalog/                # copia catalogului de pluginuri al CMS-ului
+  scripts/                # refacerea catalogului, puntea PHP a testului de licențe
 web/
   src/pages/              # câte un fișier per secțiune
   src/components/ui.tsx   # componentele vizuale comune
 deploy/                   # systemd, nginx, scripturi de instalare (vezi deploy/README.md)
-data/                     # baza de date SQLite și fișierele încărcate (sigla) — nu în git
+data/                     # baza de date SQLite, fișierele încărcate, cheia licențelor — nu în git
 ```
 
 ## Punere pe server

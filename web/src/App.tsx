@@ -15,6 +15,8 @@ import { Tasks } from './pages/Tasks';
 import { MonthlySheet } from './pages/MonthlySheet';
 import { Reports } from './pages/Reports';
 import { SettingsPage } from './pages/Settings';
+import { Sites } from './pages/Sites';
+import { SiteDetail } from './pages/SiteDetail';
 
 export function App() {
   const { user, loading } = useAuth();
@@ -43,6 +45,8 @@ export function App() {
         <Route path="/taskuri" element={<Tasks />} />
         <Route path="/fisa-lunara" element={<MonthlySheet />} />
         <Route path="/rapoarte" element={<Reports />} />
+        <Route path="/site-uri" element={<Sites />} />
+        <Route path="/site-uri/:id" element={<SiteDetail />} />
         <Route path="/setari" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

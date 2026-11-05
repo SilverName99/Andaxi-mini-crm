@@ -12,7 +12,8 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "test:licenta-cms": "ANDAXI_CMS_DIR=${ANDAXI_CMS_DIR:-../../andaxi-cms} tsx --test src/lib/licenta.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

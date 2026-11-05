@@ -180,6 +180,10 @@ returnează 404 — sunt tăiate din nginx, nu doar ascunse.
 
 ### 8. Backup
 
+**Cheia de semnare a licențelor CMS** (`data/licenta/cheie-privata.pem`, după ce o
+generezi din Site-uri) **nu** intră în backup-ul de mai jos și nici în git: copiaz-o
+o dată, offline — pașii în [README](../README.md), „Cheia de semnare”.
+
 Toată baza de date e un singur fișier:
 
 ```bash

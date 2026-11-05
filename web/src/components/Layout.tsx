@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
-  BarChart3, CalendarClock, CalendarDays, Clock4, FileSpreadsheet, LayoutDashboard, ListChecks, LogOut, Menu,
+  BarChart3, CalendarClock, CalendarDays, Clock4, FileSpreadsheet, Globe, LayoutDashboard, ListChecks, LogOut, Menu,
   Repeat, Settings as SettingsIcon, Users, X, type LucideIcon,
 } from 'lucide-react';
 import { cn } from '../lib/cn';
@@ -28,6 +28,7 @@ const NAV: NavItem[] = [
   { to: '/taskuri', label: 'Task-uri', icon: ListChecks, badge: 'cereri' },
   { to: '/fisa-lunara', label: 'Fișă lunară', icon: FileSpreadsheet },
   { to: '/rapoarte', label: 'Rapoarte', icon: BarChart3 },
+  { to: '/site-uri', label: 'Site-uri', icon: Globe },
   { to: '/setari', label: 'Setări', icon: SettingsIcon },
 ];
 

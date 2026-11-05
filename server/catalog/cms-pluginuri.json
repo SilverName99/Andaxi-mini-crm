@@ -1,0 +1,454 @@
+{
+    "_despre": "Copie a catalogului din andaxi-cms/config/plugins.php. Nu se editează de mână: php server/scripts/catalog-cms.php <andaxi-cms> > server/catalog/cms-pluginuri.json",
+    "sursa": {
+        "repo": "SilverName99/andaxi-cms",
+        "ramura": "claude/etapa1-cod-comun",
+        "commit": "c8e8d54",
+        "generat_la": "2026-11-05T18:00:03Z"
+    },
+    "pluginuri": [
+        {
+            "cheie": "catalog",
+            "nume": "Catalog produse",
+            "descriere": "Produse, categorii, câmpuri suplimentare, șabloane de pagină de produs, mărci, etichete și căutare.",
+            "necesita": [],
+            "bani": false,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "magazin",
+            "nume": "Magazin online",
+            "descriere": "Coș, finalizarea comenzii (checkout), comenzi, plata ramburs și prin ordin de plată, emailurile de comandă, coșul abandonat și coșul flotant, avertismentul pe produs (ex. refrigerat) și fluxul de produse pentru Google Merchant Center.",
+            "necesita": [
+                "catalog"
+            ],
+            "bani": true,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "livrare_fan",
+            "nume": "Livrare FAN Courier",
+            "descriere": "Tarif, AWB, urmărirea coletelor, FANbox și nomenclatorul de localități și străzi FAN.",
+            "necesita": [
+                "magazin"
+            ],
+            "bani": false,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "plata_stripe",
+            "nume": "Plată cu cardul – Stripe",
+            "descriere": "Plata cu cardul prin Stripe și notificările trimise de Stripe.",
+            "necesita": [],
+            "bani": true,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "plata_euplatesc",
+            "nume": "Plată cu cardul – EuPlătesc",
+            "descriere": "Plata cu cardul prin EuPlătesc și notificările (IPN) trimise de EuPlătesc.",
+            "necesita": [
+                "magazin"
+            ],
+            "bani": true,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "plata_bt",
+            "nume": "Plată Banca Transilvania",
+            "descriere": "Plata prin Banca Transilvania iPay, cu rate și puncte STAR: suma se blochează pe card la comandă și se încasează la aprobarea comenzii (sau automat după 96 de ore).",
+            "necesita": [
+                "magazin"
+            ],
+            "bani": true,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "link_plata",
+            "nume": "Link de plată pentru diferențe",
+            "descriere": "Clientul plătește cu cardul, dintr-un link primit pe email, diferența rămasă la o comandă.",
+            "necesita": [
+                "magazin",
+                [
+                    "plata_euplatesc",
+                    "plata_bt",
+                    "plata_stripe"
+                ]
+            ],
+            "bani": true,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "erp",
+            "nume": "Legătura cu ERP-ul ANDAXI",
+            "descriere": "Comenzile și stocul cu ERP-ul, retururile, aprobarea comenzilor din ERP, „client agresiv”.",
+            "necesita": [
+                "magazin"
+            ],
+            "bani": true,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "cupoane",
+            "nume": "Cupoane",
+            "descriere": "Cupoane de reducere și coduri unice încărcate din Excel.",
+            "necesita": [
+                "magazin"
+            ],
+            "bani": false,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "fidelitate",
+            "nume": "Puncte de fidelitate",
+            "descriere": "Clienții câștigă puncte la comenzi și le folosesc la comenzile următoare.",
+            "necesita": [
+                "magazin",
+                "conturi_clienti"
+            ],
+            "bani": false,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "recenzii",
+            "nume": "Recenzii produse",
+            "descriere": "Formular de recenzie, moderare și protecție anti-spam.",
+            "necesita": [
+                "catalog"
+            ],
+            "bani": false,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "precomenzi",
+            "nume": "Precomenzi",
+            "descriere": "Vânzare fără stoc, cu limite pe comandă și în total; comenzile așteaptă până le eliberezi, când vine marfa.",
+            "necesita": [
+                "magazin"
+            ],
+            "bani": false,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "oferte_bbd",
+            "nume": "Oferte BBD",
+            "descriere": "Loturi cu dată minimă de valabilitate și preț propriu, alese înainte de adăugarea în coș; panoul lateral „Oferte”.",
+            "necesita": [
+                "magazin"
+            ],
+            "bani": false,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "produse_promo",
+            "nume": "Produse promoționale",
+            "descriere": "Mostre și cadouri adăugate în comenzi, cu raport pe client.",
+            "necesita": [
+                "magazin"
+            ],
+            "bani": false,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "pachete_produse",
+            "nume": "Pachete de produse",
+            "descriere": "Produse vândute împreună, ca pachet: conținutul pachetului ales din magazin (pe pagina lui, din șablonul produsului) și, în coș, pachetele din care face parte un produs, cu schimbarea dintr-un clic.",
+            "necesita": [
+                "magazin"
+            ],
+            "bani": false,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "conturi_clienti",
+            "nume": "Conturi clienți",
+            "descriere": "Înregistrare, autentificare (și cu Google), adrese, resetarea parolei, lista clienților în admin.",
+            "necesita": [],
+            "bani": false,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "blog",
+            "nume": "Blog",
+            "descriere": "Articole, categorii, etichete, autori, șabloane de articol și evenimente; căutare și filtrare în listă, cuprins, bibliografie și articole similare în articol.",
+            "necesita": [],
+            "bani": false,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "newsletter",
+            "nume": "Newsletter",
+            "descriere": "Liste de abonați, formulare de abonare, campanii și statistici.",
+            "necesita": [],
+            "bani": false,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "chat_live",
+            "nume": "Chat live",
+            "descriere": "Fereastra de chat tawk.to pe site, pornită doar după acordul pentru cookie-uri.",
+            "necesita": [],
+            "bani": false,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "donatii",
+            "nume": "Donații",
+            "descriere": "Donații o dată sau lunar, cu istoric în contul donatorului.",
+            "necesita": [
+                "plata_stripe"
+            ],
+            "bani": true,
+            "intern": false,
+            "client": false,
+            "portat": false
+        },
+        {
+            "cheie": "membri",
+            "nume": "Membri",
+            "descriere": "Categorii de membri, documente, aprobare, cotizație pe 1–12 luni și pagini doar pentru membri.",
+            "necesita": [
+                "conturi_clienti",
+                "plata_stripe"
+            ],
+            "bani": true,
+            "intern": false,
+            "client": false,
+            "portat": false
+        },
+        {
+            "cheie": "cereri_oferta",
+            "nume": "Cereri de ofertă",
+            "descriere": "Buton pe produs, formular de cerere de ofertă și lista cererilor în admin.",
+            "necesita": [
+                "catalog"
+            ],
+            "bani": false,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "fisiere_cloud",
+            "nume": "Fișiere în cloud",
+            "descriere": "Foldere în cloud, cu parolă și versiuni, plus aplicația Windows.",
+            "necesita": [],
+            "bani": false,
+            "intern": false,
+            "client": true,
+            "portat": false
+        },
+        {
+            "cheie": "concurenta",
+            "nume": "Analiza prețurilor concurenței",
+            "descriere": "Prețurile concurenților, comparate cu ale magazinului.",
+            "necesita": [],
+            "bani": false,
+            "intern": false,
+            "client": true,
+            "portat": false
+        },
+        {
+            "cheie": "manechin",
+            "nume": "Manechin",
+            "descriere": "Clientul alege o zonă a corpului pe un manechin și vede produsele recomandate.",
+            "necesita": [
+                "catalog"
+            ],
+            "bani": false,
+            "intern": false,
+            "client": true,
+            "portat": true
+        },
+        {
+            "cheie": "acorduri_gdpr",
+            "nume": "Acorduri GDPR semnate",
+            "descriere": "Formular de acord semnat de medici, cu export Excel.",
+            "necesita": [],
+            "bani": false,
+            "intern": false,
+            "client": true,
+            "portat": true
+        },
+        {
+            "cheie": "campanii",
+            "nume": "Campanii pe site",
+            "descriere": "O campanie programată: pagina ei arătată o dată pe vizită la intrarea pe site, insigna pe produsele alese și bannerul de sus, doar între data de început și cea de sfârșit.",
+            "necesita": [],
+            "bani": false,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "migrare_wordpress",
+            "nume": "Migrare din WordPress",
+            "descriere": "Unealtă internă ANDAXI: importul clienților și al listelor de email dintr-o copie WordPress.",
+            "necesita": [],
+            "bani": false,
+            "intern": true,
+            "client": false,
+            "portat": true
+        }
+    ],
+    "pachete": {
+        "prezentare": {
+            "nume": "Prezentare",
+            "pluginuri": [],
+            "cel_putin_una_din": [],
+            "optionale": [
+                "blog",
+                "newsletter",
+                "chat_live"
+            ]
+        },
+        "catalog": {
+            "nume": "Catalog",
+            "pluginuri": [
+                "catalog"
+            ],
+            "cel_putin_una_din": [],
+            "optionale": [
+                "blog",
+                "newsletter",
+                "chat_live",
+                "recenzii",
+                "cereri_oferta"
+            ]
+        },
+        "magazin": {
+            "nume": "Magazin",
+            "pluginuri": [
+                "catalog",
+                "magazin",
+                "livrare_fan"
+            ],
+            "cel_putin_una_din": [
+                "plata_stripe",
+                "plata_euplatesc",
+                "plata_bt"
+            ],
+            "optionale": [
+                "blog",
+                "newsletter",
+                "chat_live",
+                "recenzii",
+                "cupoane",
+                "fidelitate",
+                "conturi_clienti",
+                "erp"
+            ]
+        },
+        "asociatie": {
+            "nume": "Asociație",
+            "pluginuri": [
+                "conturi_clienti",
+                "plata_stripe",
+                "donatii",
+                "membri"
+            ],
+            "cel_putin_una_din": [],
+            "optionale": [
+                "blog",
+                "newsletter",
+                "chat_live"
+            ]
+        }
+    },
+    "licente_dev": {
+        "bioscem": [
+            "catalog",
+            "magazin",
+            "livrare_fan",
+            "plata_stripe",
+            "plata_euplatesc",
+            "plata_bt",
+            "link_plata",
+            "erp",
+            "cupoane",
+            "fidelitate",
+            "recenzii",
+            "precomenzi",
+            "oferte_bbd",
+            "produse_promo",
+            "conturi_clienti",
+            "blog",
+            "newsletter",
+            "chat_live",
+            "manechin",
+            "acorduri_gdpr"
+        ],
+        "biovitality": [
+            "catalog",
+            "magazin",
+            "livrare_fan",
+            "plata_stripe",
+            "link_plata",
+            "erp",
+            "cupoane",
+            "fidelitate",
+            "recenzii",
+            "oferte_bbd",
+            "produse_promo",
+            "pachete_produse",
+            "conturi_clienti",
+            "blog",
+            "newsletter",
+            "chat_live",
+            "fisiere_cloud",
+            "concurenta",
+            "manechin",
+            "acorduri_gdpr"
+        ],
+        "vertij": [
+            "conturi_clienti",
+            "plata_stripe",
+            "donatii",
+            "membri",
+            "blog",
+            "newsletter"
+        ],
+        "grafoanaytis": [
+            "catalog",
+            "cereri_oferta"
+        ]
+    }
+}
