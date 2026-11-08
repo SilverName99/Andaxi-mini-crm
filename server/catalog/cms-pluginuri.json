@@ -2,9 +2,9 @@
     "_despre": "Copie a catalogului din andaxi-cms/config/plugins.php. Nu se editează de mână: php server/scripts/catalog-cms.php <andaxi-cms> > server/catalog/cms-pluginuri.json",
     "sursa": {
         "repo": "SilverName99/andaxi-cms",
-        "ramura": "claude/etapa1-cod-comun",
-        "commit": "c8e8d54",
-        "generat_la": "2026-11-05T18:00:03Z"
+        "ramura": "claude/statistici",
+        "commit": "100f50b",
+        "generat_la": "2026-11-08T09:56:02Z"
     },
     "pluginuri": [
         {
@@ -274,17 +274,19 @@
             "bani": false,
             "intern": false,
             "client": true,
-            "portat": false
+            "portat": true
         },
         {
             "cheie": "concurenta",
             "nume": "Analiza prețurilor concurenței",
             "descriere": "Prețurile concurenților, comparate cu ale magazinului.",
-            "necesita": [],
+            "necesita": [
+                "catalog"
+            ],
             "bani": false,
             "intern": false,
             "client": true,
-            "portat": false
+            "portat": true
         },
         {
             "cheie": "manechin",
@@ -312,6 +314,16 @@
             "cheie": "campanii",
             "nume": "Campanii pe site",
             "descriere": "O campanie programată: pagina ei arătată o dată pe vizită la intrarea pe site, insigna pe produsele alese și bannerul de sus, doar între data de început și cea de sfârșit.",
+            "necesita": [],
+            "bani": false,
+            "intern": false,
+            "client": false,
+            "portat": true
+        },
+        {
+            "cheie": "statistici",
+            "nume": "Statistici site",
+            "descriere": "Analiza proprie a vizitelor, fără cookie-uri: vizitatori, surse (Google, rețele sociale, campanii), pagini, produse, căutări pe site, comenzi și venituri pe sursă, „Acum pe site” și impactul unei postări pe ore.",
             "necesita": [],
             "bani": false,
             "intern": false,
