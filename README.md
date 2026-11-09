@@ -443,10 +443,13 @@ următoarea preluare. În adminul site-ului, la Abonamentul tău, „Ultima veri
 (versiunea <n>)” sau motivul pentru care n-a mers (site-ul merge mai departe cu licența de
 până atunci).
 
-**Apărări la endpoint:** doar HTTPS (antetul `X-Forwarded-Proto` pus de nginx; altfel 403),
-cel mult 30 de cereri în 10 minute de pe un IP și 10 chei greșite în 15 minute (apoi 429, cu
-`Retry-After`), comparația cheii în timp constant (și pentru un site care nu există), cheia
-niciodată în jurnal. Fiecare preluare (și fiecare refuz) are un rând în jurnalul serviciului:
+**Apărări la endpoint:** doar HTTPS (antetul `X-Forwarded-Proto` pus de nginx; altfel 403);
+limitele (apoi 429, cu `Retry-After`): înainte de autentificare cel mult 300 de cereri în 10
+minute de pe un IP (IPv6 pe /64; largă, fiindcă toate site-urile de pe o găzduire comună pleacă
+de pe același IP), după ce cheia se potrivește 30 în 10 minute pentru fiecare site, iar după 10
+chei greșite în 15 minute de pe un IP orice cheie greșită primește 429 (una bună trece mereu);
+memoria limitelor e mărginită (cele mai vechi intrări ies). Comparația cheii în timp constant
+(și pentru un site care nu există), cheia niciodată în jurnal. Fiecare preluare (și fiecare refuz) are un rând în jurnalul serviciului:
 
 ```bash
 journalctl -u andaxi-crm | grep '\[licente\] preluare'

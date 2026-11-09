@@ -14,7 +14,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import type { AddressInfo } from 'node:net';
 import {
-  cheiaSePotriveste, citesteCheie, creeazaFereastra, genereazaCheieSite, hashCheie, ipClient, pluginuriCanonice,
+  cheiaSePotriveste, cheieIp, citesteCheie, creeazaFereastra, genereazaCheieSite, hashCheie, ipClient, pluginuriCanonice,
 } from './site-api.js';
 
 /* ------------------------------------------------------------ functiile pure */
@@ -49,6 +49,27 @@ test('limita pe fereastra: max cereri, apoi asteptare pana la capatul ferestrei'
   assert.equal(f.cerere('ip', 60_000), 0, 'fereastra noua');
 });
 
+test('limita pe fereastra: harta marginita (cele mai vechi ies), curatata cel mult o data pe fereastra', () => {
+  const f = creeazaFereastra(2, 60_000, 100);
+  for (let i = 0; i < 1000; i++) f.cerere(`ip-${i}`, i);
+  assert.equal(f.marime(), 100, 'niciodata peste maxChei');
+  assert.equal(f.cerere('ip-999', 1000), 0, 'cele noi raman');
+  assert.equal(f.cerere('ip-999', 1001), 60, 'si isi pastreaza numaratoarea');
+  // dupa o fereastra, prima cerere curata tot ce a expirat
+  f.cerere('nou', 200_000);
+  assert.equal(f.marime(), 1);
+});
+
+test('cheia IP-ului: IPv4 intreg, IPv6 pe /64 (oricum ar fi scris)', () => {
+  assert.equal(cheieIp('203.0.113.7'), '203.0.113.7');
+  assert.equal(cheieIp('2001:db8:1:2::abc'), '2001:db8:1:2::/64');
+  assert.equal(cheieIp('2001:DB8:1:2:0:0:0:1'), '2001:db8:1:2::/64');
+  assert.equal(cheieIp('2001:0db8:0001:0002:ffff:ffff:ffff:ffff'), '2001:db8:1:2::/64');
+  assert.notEqual(cheieIp('2001:db8:1:3::1'), cheieIp('2001:db8:1:2::1'));
+  assert.equal(cheieIp('::1'), '0:0:0:0::/64');
+  assert.equal(cheieIp('nu:e:ip::x'), 'nu:e:ip::x', 'o forma necunoscuta ramane cum e');
+});
+
 test('IP-ul: X-Real-IP doar de la proxy-ul local', () => {
   assert.equal(ipClient('127.0.0.1', '203.0.113.7'), '203.0.113.7');
   assert.equal(ipClient('::ffff:127.0.0.1', '203.0.113.7'), '203.0.113.7');
@@ -80,7 +101,7 @@ test('preluarea licentei: re-semnare la salvare, cheia site-ului, autentificare,
   process.env.LICENTA_CHEIE_PRIVATA = path.join(dosar, 'licenta', 'cheie-privata.pem');
   const express = (await import('express')).default;
   const { sitesRouter } = await import('../routes/sites.js');
-  const { siteApiRouter, limitaCereri, limitaEsecuri } = await import('../routes/site-api.js');
+  const { siteApiRouter, limitaIp, limitaSite, limitaEsecuri } = await import('../routes/site-api.js');
   const { errorHandler } = await import('../middleware/errors.js');
   const { genereazaPereche } = await import('./licenta-chei.js');
   const { verificaSemnatura, cheiePublicaDinBase64 } = await import('./licenta.js');
@@ -177,6 +198,7 @@ test('preluarea licentei: re-semnare la salvare, cheia site-ului, autentificare,
     });
 
     let cheieSite = '';
+    let cheieGol = '';
     const toateCheile: string[] = [];
     await t.test('cheia site-ului: aratata o data, stocata doar ca hash, rotatia o inlocuieste', async () => {
       const r = await cere('POST', `/api/sites/${site.id}/cheie-site`, {});
@@ -232,6 +254,7 @@ test('preluarea licentei: re-semnare la salvare, cheia site-ului, autentificare,
     await t.test('un site fara licenta: 404', async () => {
       const gol = (await cere('POST', '/api/sites', { name: 'Gol', slug: 'gol' })).json;
       const { cheie } = (await cere('POST', `/api/sites/${gol.id}/cheie-site`, {})).json;
+      cheieGol = cheie;
       assert.equal((await preia(cheie)).status, 404);
     });
 
@@ -245,19 +268,38 @@ test('preluarea licentei: re-semnare la salvare, cheia site-ului, autentificare,
       toateCheile.push(noua);
     });
 
-    await t.test('limita: 10 chei gresite pe IP → 429 si pentru cheia buna; 30 de cereri in 10 minute', async () => {
+    const resetLimite = () => {
+      limitaIp.reset();
+      limitaSite.reset();
       limitaEsecuri.reset();
-      limitaCereri.reset();
+    };
+
+    await t.test('limita cheilor gresite: dupa 10 pe IP o cheie gresita ia 429, una buna trece', async () => {
+      resetLimite();
       for (let i = 0; i < 10; i++) assert.equal((await preia('gresita')).status, 401);
+      const blocat = await preia('gresita');
+      assert.equal(blocat.status, 429);
+      assert.ok(Number(blocat.antete.get('retry-after')) > 0);
+      assert.equal((await preia(`${site.id}.${'A'.repeat(43)}`)).status, 429, 'si o cheie cu forma buna, dar gresita');
+      assert.equal((await preia(cheieSite)).status, 200, 'cheia buna nu e refuzata niciodata de limita esecurilor');
+    });
+
+    await t.test('limita pe site: 30 in 10 minute pentru un site; alt site de pe acelasi IP nu e atins', async () => {
+      resetLimite();
+      for (let i = 0; i < 30; i++) assert.equal((await preia(cheieSite)).status, 200, `cererea ${i + 1}`);
       const blocat = await preia(cheieSite);
       assert.equal(blocat.status, 429);
       assert.ok(Number(blocat.antete.get('retry-after')) > 0);
+      assert.equal((await preia(cheieGol)).status, 404, 'celalalt site (fara licenta) trece de limita: 404, nu 429');
+    });
 
-      limitaEsecuri.reset();
-      limitaCereri.reset();
-      for (let i = 0; i < 30; i++) assert.equal((await preia(cheieSite)).status, 200, `cererea ${i + 1}`);
-      assert.equal((await preia(cheieSite)).status, 429);
-      limitaCereri.reset();
+    await t.test('limita larga pe IP, inainte de autentificare: 300 in 10 minute', async () => {
+      resetLimite();
+      for (let i = 0; i < 300; i++) await preia();
+      assert.equal((await preia(cheieSite)).status, 429, 'a 301-a cerere de pe IP, chiar cu cheia buna');
+      limitaIp.reset();
+      assert.equal((await preia(cheieSite)).status, 200);
+      resetLimite();
     });
 
     await t.test('jurnalul are fiecare preluare, dar niciodata cheia', () => {
