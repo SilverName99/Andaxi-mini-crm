@@ -21,7 +21,7 @@ aici ții evidența a *ce* trebuie facturat, *când*, și marchezi ce ai emis de
 | **Calendar de client** | O lună pe zile pentru un singur client: click pe o zi și notezi câte ore ai lucrat și ce ai făcut; tot acolo atașezi documentul lunii |
 | **Task-uri** | Lucruri de făcut, cu sau fără client asociat |
 | **Rapoarte** | Totaluri pe client și pe lună, cu TVA calculat și export CSV |
-| **Site-uri** | Site-urile de pe CMS-ul Andaxi: pluginurile fiecăruia, licența semnată (`licenta.json`), istoricul licențelor, cheia de semnare și starea site-ului |
+| **Site-uri** | Site-urile de pe CMS-ul Andaxi: pluginurile fiecăruia, licența semnată (`licenta.json`, re-semnată singură la salvare și preluată de site singur), istoricul licențelor, cheia de semnare și starea site-ului |
 | **Setări** | Sigla firmei, tarife orare, pachete de ore preplătite, prețuri pe utilizator (ERP/CRM), program de lucru, curs EUR/RON, cotă TVA, date firmă, schimbare parolă |
 
 ### Tarifele orare
@@ -292,9 +292,14 @@ schimba după prima licență) și notițe. Click pe un site → **Pluginuri și
 - **presetări**: pachetele de abonament ale CMS-ului (Prezentare, Catalog, Magazin,
   Asociație) și listele site-urilor vechi (bioscem, biovitality, vertij,
   grafoanaytis). O presetare înlocuiește toată lista; apoi ajustezi și salvezi;
-- **Generează licența** → semnează lista salvată și oferă **Descarcă licenta.json**;
-  versiunea crește singură la fiecare licență (site-ul refuză o versiune mai mică
-  decât ultima primită);
+- **Salvează** → dacă lista diferă de cea din ultima licență, CRM-ul **semnează singur**
+  licența următoare (versiunea +1) și o ține ca licența curentă a site-ului; un site cu
+  preluarea automată o ia în cel mult 5 minute (mai jos, „Preluarea automată a
+  licenței”). Aceeași listă (sau doar numele, domeniul, notițele) nu face o licență nouă;
+  nici fără perechea de chei (atunci se salvează doar lista, ca înainte);
+- **Generează licența** → semnează de mână lista salvată (de exemplu după o rotație a
+  cheii, sau cu o versiune aleasă) și oferă **Descarcă licenta.json**; versiunea crește
+  mereu (site-ul refuză o versiune mai mică decât ultima primită);
 - **Licențe emise**: cine, când, ce versiune și ce pluginuri; fiecare se poate
   descărca din nou. Istoricul nu se șterge: un site cu licențe emise **nu se poate
   șterge** (refuzat și de baza de date, `onDelete: Restrict`); doar unul fără
@@ -393,6 +398,59 @@ La adoptare, `deploy/adopta.sh` al CMS-ului verifică singur că licența exist�
 verifică cu cheia dată la `--cheie-licenta=`. Pe un site deja adoptat, licența nouă
 se pune la fel (peste cea veche); verificarea:
 `$PHP ~/platforma/bin/platforma --site=<domeniu> scripts/diagnostic.php --licenta`.
+Cu preluarea automată (mai jos) nu mai urci nimic: doar prima licență, la adoptare.
+
+#### Preluarea automată a licenței
+
+Site-ul își ia singur licența curentă: cronul CMS-ului `scripts/licenta-sincronizare.php`
+(la 5 minute) și butonul **Verifică acum** din adminul site-ului (Abonamentul tău) cer
+
+```
+GET https://crm.andaxi.ro/api/site/licenta
+Authorization: Bearer <cheia site-ului>
+```
+
+și primesc licența cu versiunea cea mai mare a site-ului, exact fișierul semnat. Site-ul o
+pune doar dacă semnătura se verifică cu cheia publică pe care o are deja, e pentru el și nu
+e mai veche decât cea de acum (detaliile: `docs/PLUGINURI.md` al CMS-ului, „Preluarea
+automată”). Deci un plugin bifat (sau oprit) și salvat aici ajunge pe site în cel mult 5
+minute, fără niciun fișier.
+
+**Cheia site-ului** (o dată pe site): Site-uri → site-ul → **Preluare automată** →
+**Generează cheia site-ului**. Se arată **o singură dată** (`LICENTA_CHEIE=<id>.<43 de
+caractere>`); o copiezi direct în `.env`-ul site-ului de pe server, nu pe chat sau pe email. În
+baza CRM-ului rămâne doar SHA-256 al ei. **Cheie nouă** o înlocuiește pe cea veche pe loc
+(site-ul nu mai preia nimic până nu primește noua cheie în `.env`; licența pe care o are
+rămâne). Cheia nu e ancora de încredere: cine o fură poate doar citi licența acelui site
+(care nici nu e secretă); o licență falsă tot nu trece de semnătură.
+
+Pe site, în `~/domains/<domeniu>/site/.env`:
+
+```
+LICENTA_URL=https://crm.andaxi.ro/api/site/licenta
+LICENTA_CHEIE=<cheia din CRM>
+```
+
+și cronul (hPanel → Advanced → Cron Jobs, la 5 minute):
+
+```
+/opt/alt/php83/usr/bin/php -d extension=sodium.so /home/uXXXXXXXXX/platforma/bin/platforma --site=/home/uXXXXXXXXX/domains/<domeniu>/site scripts/licenta-sincronizare.php
+```
+
+**Ce vezi:** la site, în CRM, „Ultima preluare de site: <ora>, versiunea <n>” (și pe lista
+site-urilor); dacă licența curentă e mai nouă decât cea preluată, scrie că site-ul o ia la
+următoarea preluare. În adminul site-ului, la Abonamentul tău, „Ultima verificare: … La zi
+(versiunea <n>)” sau motivul pentru care n-a mers (site-ul merge mai departe cu licența de
+până atunci).
+
+**Apărări la endpoint:** doar HTTPS (antetul `X-Forwarded-Proto` pus de nginx; altfel 403),
+cel mult 30 de cereri în 10 minute de pe un IP și 10 chei greșite în 15 minute (apoi 429, cu
+`Retry-After`), comparația cheii în timp constant (și pentru un site care nu există), cheia
+niciodată în jurnal. Fiecare preluare (și fiecare refuz) are un rând în jurnalul serviciului:
+
+```bash
+journalctl -u andaxi-crm | grep '\[licente\] preluare'
+```
 
 #### Catalogul pluginurilor
 
@@ -409,7 +467,11 @@ php server/scripts/catalog-cms.php ../andaxi-cms > server/catalog/cms-pluginuri.
 
 `server/src/lib/licenta.test.ts` (rulează cu `npm test`, alături de testele cheii,
 pingului și istoricului: `licenta-chei.test.ts`, `ping-site.test.ts`,
-`site-istoric.test.ts`) verifică vectorul de test din
+`site-istoric.test.ts`, și ale preluării automate: `site-api.test.ts`, cu rutele adevărate
+pe o bază SQLite temporară — re-semnarea la salvare și versiunea care doar crește, două
+salvări deodată, cheia site-ului arătată o dată și păstrată doar ca hash, 401 pentru o
+cheie lipsă sau greșită, licența curentă octet cu octet, ultima preluare, rotația, limita
+de cereri, nicio cheie în jurnal) verifică vectorul de test din
 `docs/PLUGINURI.md` al CMS-ului (cheie, mesaj semnat, semnătură) și trece licențele
 semnate de CRM prin **codul PHP al CMS-ului** (`Licenta::verifica`, prin
 `server/scripts/licenta-cms.php`): o licență bună trebuie acceptată cu exact

@@ -3,6 +3,7 @@
  * semnate (licenta.json). Doar pentru contul de administrare (requireAuth in index.ts).
  */
 import { Router, type NextFunction, type Request, type Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../prisma.js';
 import { asyncHandler, HttpError } from '../middleware/errors.js';
@@ -14,6 +15,7 @@ import {
   type StarePlugin,
 } from '../lib/licenta.js';
 import { pingSite } from '../lib/ping-site.js';
+import { genereazaCheieSite, pluginuriCanonice } from '../lib/site-api.js';
 
 export const sitesRouter = Router();
 
@@ -166,6 +168,12 @@ function siteDto(site: SiteCuLicente) {
     notes: site.notes,
     plugins: citestePluginuri(site.plugins),
     licenses: site.licenses.map(licentaDto),
+    /** Cheia de preluare: doar daca exista si de cand (cheia insasi nu se mai arata) */
+    cheieSite: { exista: site.fetchKeyHash !== '', creataLa: site.fetchKeyCreatedAt },
+    /** Ultima preluare a licentei de catre site (GET /api/site/licenta) */
+    ultimaPreluare: site.lastFetchAt
+      ? { la: site.lastFetchAt, versiune: site.lastFetchVersion, ip: site.lastFetchIp }
+      : null,
     createdAt: site.createdAt,
     updatedAt: site.updatedAt,
   };
@@ -197,6 +205,12 @@ sitesRouter.post(
   }),
 );
 
+/**
+ * Salvarea unui site. Cand lista de pluginuri difera de cea din ultima licenta
+ * emisa, CRM-ul semneaza singur o licenta noua (versiunea urmatoare), in aceeasi
+ * tranzactie: site-ul o ia la urmatoarea preluare (GET /api/site/licenta, la cel
+ * mult 5 minute). Fara pereche de chei se salveaza doar lista, ca pana acum.
+ */
 sitesRouter.put(
   '/:id',
   asyncHandler(async (req, res) => {
@@ -206,15 +220,51 @@ sitesRouter.put(
       // o licenta emisa e legata de slug: schimbarea lui ar face istoricul sa minta
       throw new HttpError(400, 'Slug-ul nu se mai poate schimba dupa prima licenta emisa. Fa un site nou.');
     }
-    await prisma.cmsSite.update({
-      where: { id: req.params.id },
-      data: {
-        ...data,
-        ...(data.clientId !== undefined ? { clientId: data.clientId || null } : {}),
-        ...(data.plugins ? { plugins: JSON.stringify(verificaPluginuri(data.plugins)) } : {}),
-      },
+    const plugins = data.plugins ? verificaPluginuri(data.plugins) : null;
+    const cheie = plugins && stareCheie().exista ? cheiePrivata() : null;
+    const user = req.user!;
+
+    const licentaNoua = await cuReincercare(() =>
+      prisma.$transaction(async (tx) => {
+        const site = await tx.cmsSite.update({
+          where: { id: req.params.id },
+          data: {
+            ...data,
+            ...(data.clientId !== undefined ? { clientId: data.clientId || null } : {}),
+            ...(plugins ? { plugins: JSON.stringify(plugins) } : {}),
+          },
+        });
+        if (!plugins || !cheie) return null;
+        const ultima = await tx.cmsLicense.findFirst({ where: { siteId: site.id }, orderBy: { version: 'desc' } });
+        if (ultima && pluginuriCanonice(citestePluginuri(ultima.plugins)) === pluginuriCanonice(plugins)) return null;
+        if (!ultima && Object.keys(plugins).length === 0) return null;
+        return emiteLicenta(tx, { site, ultimaVersiune: ultima?.version ?? 0, cheie, emisaDe: `${user.name} <${user.email}> (automat la salvare)` });
+      }),
+    );
+    if (licentaNoua) console.log(`[licente] ${existent.slug} v${licentaNoua.version} emisa automat la salvare de ${user.email}`);
+    res.json({ ...siteDto(await gasesteSite(req.params.id)), licentaNoua: licentaNoua ? licentaDto(licentaNoua) : null });
+  }),
+);
+
+/** Cheia de preluare a site-ului: se arata o singura data; una noua o inlocuieste pe cea veche */
+sitesRouter.post(
+  '/:id/cheie-site',
+  asyncHandler(async (req, res) => {
+    const { rotatie } = z.object({ rotatie: z.boolean().default(false) }).parse(req.body);
+    const site = await prisma.cmsSite.findUniqueOrThrow({ where: { id: req.params.id } });
+    if (site.fetchKeyHash !== '' && !rotatie) {
+      throw new HttpError(409, 'Site-ul are deja o cheie. Una noua o inlocuieste pe cea veche (site-ul trebuie sa primeasca noua cheie in .env).');
+    }
+    const { cheie, hash } = genereazaCheieSite(site.id);
+    // conditionat de hash-ul vazut acum: doua apasari deodata nu lasa doua chei „valabile" in doua ferestre
+    const schimbate = await prisma.cmsSite.updateMany({
+      where: { id: site.id, fetchKeyHash: site.fetchKeyHash },
+      data: { fetchKeyHash: hash, fetchKeyCreatedAt: new Date() },
     });
-    res.json(siteDto(await gasesteSite(req.params.id)));
+    if (schimbate.count !== 1) throw new HttpError(409, 'Cheia a fost schimbata intre timp. Reincarca pagina.');
+    console.log(`[licente] ${site.slug}: ${site.fetchKeyHash ? 'cheie de preluare noua (rotatie)' : 'cheie de preluare generata'} de ${req.user?.email}`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(201).json({ cheie });
   }),
 );
 
@@ -236,45 +286,71 @@ sitesRouter.delete(
 
 /* ---------------------------------------------------------------- licentele */
 
+type Tranzactie = Prisma.TransactionClient;
+
+/**
+ * Semneaza lista de pluginuri a site-ului si o salveaza ca licenta noua (cea
+ * curenta: versiunea cea mai mare). Versiunea creste mereu; site-ul refuza una mai mica.
+ */
+async function emiteLicenta(
+  tx: Tranzactie,
+  input: { site: { id: string; slug: string; plugins: string }; ultimaVersiune: number; cheie: ReturnType<typeof cheiePrivata>; emisaDe: string; versiune?: number },
+) {
+  const continut = construiesteLicenta({
+    site: input.site.slug,
+    versiune: input.versiune ?? input.ultimaVersiune + 1,
+    emisaLa: new Date(),
+    stari: verificaPluginuri(citestePluginuri(input.site.plugins)),
+    ordine: cheiCatalog(),
+  });
+  const text = semneazaLicenta(continut, input.cheie);
+  const cheiePublica = cheiePublicaBase64(input.cheie);
+  // plasa de siguranta: nu salvam o licenta pe care n-am putea-o verifica noi insine
+  if (!verificaSemnatura(text, cheiePublicaDinBase64(cheiePublica))) {
+    throw new HttpError(500, 'Licenta semnata nu se verifica. Nu a fost salvata.');
+  }
+  return tx.cmsLicense.create({
+    data: {
+      siteId: input.site.id,
+      version: continut.versiune,
+      issuedAt: continut.emisa_la,
+      issuedBy: input.emisaDe,
+      plugins: JSON.stringify(continut.pluginuri),
+      content: text,
+      publicKey: cheiePublica,
+    },
+  });
+}
+
+/** Doua salvari deodata pot lua aceeasi versiune (unica pe site): a doua se reia o data */
+async function cuReincercare<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return fn();
+    throw error;
+  }
+}
+
+/** Emiterea de mana: o versiune aleasa, sau re-semnarea listei salvate (de exemplu dupa o rotatie a cheii) */
 sitesRouter.post(
   '/:id/licente',
   asyncHandler(async (req, res) => {
     const { versiune } = z.object({ versiune: z.number().int().min(1).max(2_000_000_000).optional() }).parse(req.body);
-    const site = await gasesteSite(req.params.id);
-    const ultima = site.licenses[0]?.version ?? 0;
-    if (versiune !== undefined && versiune <= ultima) {
-      throw new HttpError(400, `Versiunea trebuie sa fie mai mare decat ultima emisa (${ultima}).`);
-    }
-
-    const stari = verificaPluginuri(citestePluginuri(site.plugins));
     const cheie = cheiePrivata();
-    const continut = construiesteLicenta({
-      site: site.slug,
-      versiune: versiune ?? ultima + 1,
-      emisaLa: new Date(),
-      stari,
-      ordine: cheiCatalog(),
-    });
-    const text = semneazaLicenta(continut, cheie);
-    const cheiePublica = cheiePublicaBase64(cheie);
-    // plasa de siguranta: nu salvam o licenta pe care n-am putea-o verifica noi insine
-    if (!verificaSemnatura(text, cheiePublicaDinBase64(cheiePublica))) {
-      throw new HttpError(500, 'Licenta semnata nu se verifica. Nu a fost salvata.');
-    }
-
     const user = req.user!;
-    const licenta = await prisma.cmsLicense.create({
-      data: {
-        siteId: site.id,
-        version: continut.versiune,
-        issuedAt: continut.emisa_la,
-        issuedBy: `${user.name} <${user.email}>`,
-        plugins: JSON.stringify(continut.pluginuri),
-        content: text,
-        publicKey: cheiePublica,
-      },
-    });
-    console.log(`[licente] ${site.slug} v${continut.versiune} emisa de ${user.email}`);
+    const licenta = await cuReincercare(() =>
+      prisma.$transaction(async (tx) => {
+        const site = await tx.cmsSite.findUniqueOrThrow({ where: { id: req.params.id } });
+        const ultima = (await tx.cmsLicense.findFirst({ where: { siteId: site.id }, orderBy: { version: 'desc' } }))?.version ?? 0;
+        if (versiune !== undefined && versiune <= ultima) {
+          throw new HttpError(400, `Versiunea trebuie sa fie mai mare decat ultima emisa (${ultima}).`);
+        }
+        return emiteLicenta(tx, { site, ultimaVersiune: ultima, cheie, emisaDe: `${user.name} <${user.email}>`, versiune });
+      }),
+    );
+    const site = await prisma.cmsSite.findUniqueOrThrow({ where: { id: req.params.id }, select: { slug: true } });
+    console.log(`[licente] ${site.slug} v${licenta.version} emisa de ${user.email}`);
     res.status(201).json(licentaDto(licenta));
   }),
 );

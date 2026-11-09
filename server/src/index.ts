@@ -26,6 +26,7 @@ import { monthlyApprovalRouter } from './routes/monthly-approval.js';
 import { monthReportRouter } from './routes/month-report.js';
 import { portalRouter } from './routes/portal.js';
 import { sitesRouter } from './routes/sites.js';
+import { siteApiRouter } from './routes/site-api.js';
 
 const app = express();
 
@@ -75,6 +76,8 @@ app.use(
 app.use('/api/auth', authRouter);
 // portalul clientilor: are autentificarea lui (link + PIN), separata de cea de administrare
 app.use('/api/portal', portalRouter);
+// site-urile CMS isi preiau licenta cu cheia lor (Authorization: Bearer), nu cu contul de administrare
+app.use('/api/site', siteApiRouter);
 app.use('/api/clients', requireAuth, clientsRouter);
 app.use('/api/subscriptions', requireAuth, subscriptionsRouter);
 app.use('/api/billing', requireAuth, billingRouter);

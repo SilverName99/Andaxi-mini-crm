@@ -534,6 +534,15 @@ model CmsSite {
   /// JSON {"<plugin>": "pornit" | "se_opreste" | "oprit"}; lipsa = oprit
   plugins  String  @default("{}")
 
+  /// Cheia cu care site-ul isi preia singur licenta (GET /api/site/licenta): doar
+  /// SHA-256 al ei, hex; cheia insasi se arata o singura data, la generare. Gol = fara cheie.
+  fetchKeyHash      String    @default("")
+  fetchKeyCreatedAt DateTime?
+  /// Ultima preluare reusita a licentei de catre site (ce vede omul in Site-uri)
+  lastFetchAt       DateTime?
+  lastFetchVersion  Int?
+  lastFetchIp       String    @default("")
+
   licenses CmsLicense[]
 
   createdAt DateTime @default(now())

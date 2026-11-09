@@ -572,8 +572,14 @@ export interface CmsSite {
   /** Doar ce nu e oprit; lipsă = oprit */
   plugins: Record<string, StarePlugin>;
   licenses: LicentaEmisa[];
+  /** Cheia cu care site-ul își preia singur licența (cheia însăși se arată o singură dată) */
+  cheieSite: { exista: boolean; creataLa: string | null };
+  /** Ultima preluare a licenței de către site (GET /api/site/licenta) */
+  ultimaPreluare: { la: string; versiune: number | null; ip: string } | null;
   createdAt: string;
   updatedAt: string;
+  /** Doar la salvare: licența semnată automat, dacă lista de pluginuri s-a schimbat */
+  licentaNoua?: LicentaEmisa | null;
 }
 
 export interface StareCheie {

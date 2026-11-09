@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import {
   AlertTriangle, ArrowLeft, Award, Boxes, CalendarClock, Cloud, CreditCard, Database, Download, FileKey2,
-  FileQuestion, FileSignature, Gift, HeartHandshake, Import, Landmark, LineChart, Link2, Mail, Megaphone,
+  FileQuestion, FileSignature, Gift, HeartHandshake, Import, KeyRound, Landmark, LineChart, Link2, Mail, Megaphone,
   MessageCircle, Newspaper, Package, Pencil, PersonStanding, Puzzle, Save, ShoppingCart, Star, Tag, Ticket, Truck,
   UserCircle, Users, type LucideIcon,
 } from 'lucide-react';
@@ -193,7 +193,7 @@ function GenereazaModal({
 }: {
   site: CmsSite;
   dirty: boolean;
-  onSave: () => Promise<void>;
+  onSave: () => Promise<CmsSite>;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -217,7 +217,11 @@ function GenereazaModal({
             </a>
           </div>
           <p className="text-xs text-slate-500">
-            Fișierul merge pe server în <span className="font-mono">~/domains/{site.domain || '<domeniu>'}/site/storage/licenta/licenta.json</span>.
+            {site.cheieSite.exista
+              ? 'Site-ul o preia singur în cel mult 5 minute (preluarea automată); fișierul nu mai trebuie urcat. '
+              : ''}
+            Fișierul, urcat de mână, merge pe server în{' '}
+            <span className="font-mono">~/domains/{site.domain || '<domeniu>'}/site/storage/licenta/licenta.json</span>.
             Nu e secret; pașii sunt în README („Cum pui licența pe site”).
           </p>
         </div>
@@ -244,7 +248,15 @@ function GenereazaModal({
                 const v = Number(versiune);
                 if (!Number.isInteger(v) || v <= ultima) return setError(`Versiunea trebuie să fie un număr mai mare decât ${ultima}.`);
                 try {
-                  if (dirty) await onSave();
+                  if (dirty) {
+                    // salvarea semnează singură licența, dacă lista s-a schimbat față de ultima licență
+                    const salvat = await onSave();
+                    if (salvat.licentaNoua) {
+                      setEmisa(salvat.licentaNoua);
+                      toast('Licență generată');
+                      return;
+                    }
+                  }
                   setEmisa(await mutation.mutateAsync(v));
                   toast('Licență generată');
                 } catch (err) {
@@ -258,6 +270,102 @@ function GenereazaModal({
         </div>
       )}
     </Modal>
+  );
+}
+
+/**
+ * Preluarea automată: site-ul își ia singur licența curentă (GET /api/site/licenta) cu cheia lui.
+ * Cheia se arată o singură dată; aici se vede doar dacă există și ultima preluare.
+ */
+function PreluareAutomata({ site }: { site: CmsSite }) {
+  const toast = useToast();
+  const [cheieNoua, setCheieNoua] = useState<string | null>(null);
+  const [confirmRotatie, setConfirmRotatie] = useState(false);
+  const genereaza = useCrudMutation((rotatie: boolean) => api.post<{ cheie: string }>(`/sites/${site.id}/cheie-site`, { rotatie }));
+  const ultima = site.licenses[0];
+  const preluare = site.ultimaPreluare;
+  const laZi = Boolean(preluare && ultima && preluare.versiune === ultima.version);
+
+  const porneste = async (rotatie: boolean) => {
+    try {
+      const { cheie } = await genereaza.mutateAsync(rotatie);
+      setConfirmRotatie(false);
+      setCheieNoua(cheie);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Eroare la generarea cheii', 'error');
+    }
+  };
+
+  return (
+    <Card>
+      <CardTitle icon={<KeyRound className="h-5 w-5" />} title="Preluare automată" subtitle="Site-ul își ia singur licența, la 5 minute" />
+      <div className="flex flex-col gap-3 text-sm text-slate-600">
+        <p data-testid="ultima-preluare">
+          {preluare ? (
+            <>
+              Ultima preluare de site: <strong>{formatDateTime(preluare.la)}</strong>, versiunea <strong>{preluare.versiune ?? '?'}</strong>
+              {ultima && !laZi && (
+                <span className="mt-1 block text-xs font-medium text-amber-700">
+                  Licența curentă e v{ultima.version}; site-ul o ia la următoarea preluare.
+                </span>
+              )}
+            </>
+          ) : (
+            'Site-ul nu și-a preluat încă licența.'
+          )}
+        </p>
+        {site.cheieSite.exista ? (
+          <>
+            <p className="text-xs text-slate-500">
+              Cheia site-ului e setată{site.cheieSite.creataLa ? ` din ${formatDateTime(site.cheieSite.creataLa)}` : ''}. Nu se mai poate
+              vedea; una nouă o înlocuiește pe cea veche.
+            </p>
+            <div>
+              <Button size="sm" variant="secondary" onClick={() => setConfirmRotatie(true)}>Cheie nouă</Button>
+            </div>
+          </>
+        ) : (
+          <div>
+            <Button size="sm" icon={<KeyRound className="h-3.5 w-3.5" />} loading={genereaza.isPending} onClick={() => porneste(false)}>
+              Generează cheia site-ului
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <Modal open={confirmRotatie} onClose={() => setConfirmRotatie(false)} title="Cheie nouă pentru site?">
+        <div className="flex flex-col gap-4 text-sm text-slate-600">
+          <p>
+            Cheia de acum nu mai merge din clipa asta: site-ul nu-și mai preia licența până nu pui noua cheie în{' '}
+            <span className="font-mono">.env</span> (LICENTA_CHEIE). Licența pe care o are rămâne.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setConfirmRotatie(false)}>Anulează</Button>
+            <Button loading={genereaza.isPending} onClick={() => porneste(true)}>Fă cheia nouă</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={cheieNoua !== null} onClose={() => setCheieNoua(null)} title="Cheia site-ului">
+        <div className="flex flex-col gap-4 text-sm text-slate-600">
+          <p>
+            <strong>Se arată o singură dată.</strong> Copiaz-o direct în{' '}
+            <span className="font-mono">~/domains/{site.domain || '<domeniu>'}/site/.env</span>, pe server; nu o trimite pe chat sau pe email.
+          </p>
+          <code className="block select-all break-all rounded-2xl bg-slate-100 px-3 py-2 font-mono text-xs text-slate-700">
+            LICENTA_CHEIE={cheieNoua}
+          </code>
+          <div className="flex justify-between gap-2">
+            <CopyButton text={`LICENTA_CHEIE=${cheieNoua ?? ''}`} label="Copiază rândul" />
+            <Button onClick={() => setCheieNoua(null)}>Am copiat-o</Button>
+          </div>
+          <p className="text-xs text-slate-500">
+            Plus, în același <span className="font-mono">.env</span>:{' '}
+            <span className="font-mono">LICENTA_URL={window.location.origin}/api/site/licenta</span>. Pașii sunt în README („Preluarea automată a licenței”).
+          </p>
+        </div>
+      </Modal>
+    </Card>
   );
 }
 
@@ -292,13 +400,15 @@ export function SiteDetail() {
   const ultima = site.licenses[0];
   const active = Object.values(stari).filter((v) => v !== 'oprit').length;
 
-  const salveaza = async () => {
-    await save.mutateAsync(stari);
-  };
+  const salveaza = async () => save.mutateAsync(stari);
   const salveazaCuMesaj = async () => {
     try {
-      await salveaza();
-      toast('Pluginuri salvate');
+      const salvat = await salveaza();
+      toast(
+        salvat.licentaNoua
+          ? `Pluginuri salvate; licența v${salvat.licentaNoua.version} a fost semnată${salvat.cheieSite.exista ? ' (site-ul o preia în cel mult 5 minute)' : ''}`
+          : 'Pluginuri salvate',
+      );
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Eroare la salvare', 'error');
     }
@@ -418,6 +528,8 @@ export function SiteDetail() {
               </div>
             )}
           </Card>
+
+          <PreluareAutomata site={site} />
 
           <Card>
             <CardTitle title="Licențe emise" subtitle="Cine, când și cu ce pluginuri" />

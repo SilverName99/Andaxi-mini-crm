@@ -340,6 +340,11 @@ export function Sites() {
                     {site.domain || 'fără domeniu'} · {pornite} {pornite === 1 ? 'plugin' : 'pluginuri'} active ·{' '}
                     {ultima ? `licența v${ultima.version} din ${formatDateTime(ultima.issuedAt)}` : 'nicio licență emisă'}
                   </p>
+                  {site.ultimaPreluare && (
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Ultima preluare de site: {formatDateTime(site.ultimaPreluare.la)}, versiunea {site.ultimaPreluare.versiune ?? '?'}
+                    </p>
+                  )}
                   {site.notes && <p className="mt-1 line-clamp-2 text-xs text-slate-400">{site.notes}</p>}
                 </Link>
                 <div className="flex items-center gap-1">
